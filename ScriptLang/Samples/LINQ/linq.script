@@ -1,0 +1,33 @@
+let array = (arr) => {
+	let value = arr
+	var arrayObject = {
+		value = value,
+		length = value.length,
+		get = (index) => value[index],
+		select = (fn) => {
+			var result = []
+			for item in value {
+				result = result + fn(item)
+			}
+			array(result)
+		},
+		where = (fn) => {
+			var result = []
+			for item in value {
+				when fn(item) {
+					true => { result = result + item },
+					false => {}
+				}
+			}
+			array(result)
+		},
+		toArray = () => arrayObject.value
+	}
+}
+
+
+let test = () => {
+
+
+}
+{array ,test}

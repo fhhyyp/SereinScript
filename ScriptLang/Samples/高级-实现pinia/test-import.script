@@ -1,0 +1,19 @@
+import { createStore } from "pinia.script"
+
+let store = createStore({
+    state = () => {
+        let data = { x = 0, y = 0 }
+    },
+    getters = {
+        getData = (state) => state.x + "," + state.y
+    },
+    actions = {
+        increment = (state, n) => {
+            state.x = state.x + n
+            state.y = state.y - n
+            state.x + "," + state.y
+        }
+    }
+})
+
+{ store = store }

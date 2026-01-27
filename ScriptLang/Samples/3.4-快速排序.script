@@ -1,0 +1,39 @@
+// 快速排序
+let swap = (arr, i, j) => {
+    let tmp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = tmp
+}
+
+let partition = (arr, low, high) => {
+    let pivot = arr[high]
+    var i = low - 1
+
+    var j = low
+    for j in range(low, high) {
+        if arr[j] <= pivot then {
+            i = i + 1
+            swap(arr, i, j)
+        }
+    }
+
+    swap(arr, i + 1, high)
+    i + 1
+}
+
+let quickSort = (arr, low, high) => {
+    if low < high then {
+        let pi = partition(arr, low, high)
+        quickSort(arr, low, pi - 1)
+        quickSort(arr, pi + 1, high)
+    }
+}
+
+var data = [9, 3, 7, 1, 6, 2, 8, 11, 23,12,41,21,2,4,5,1,2,
+    4,5,6655,344,123,4324,5,3,2,5,2,213,124,12,32,13,4,21,23,
+    214,213,123,5124,2132,12142,213,213,213213214,131221,123]
+quickSort(data, 0, data.length - 1)
+print(data)
+
+
+

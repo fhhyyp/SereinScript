@@ -1,0 +1,126 @@
+// ========== 完整的 UI 示例 ==========
+
+// 状态管理
+let state = {
+    counter = 0,
+    name = "World",
+    items = ["Apple", "Banana", "Cherry"],
+    selectedIndex = 0
+}
+
+// UI 定义
+let ui = {
+    StackPanel_main = {
+        // 标题
+        TextBlock_title = {
+            Text = "ScriptUI Builder V2 Demo",
+            FontSize = 24,
+            Margin = 15
+        },
+        
+        // 分隔线
+        TextBlock_separator1 = {
+            Text = "----------------------------------",
+            Margin = 5
+        },
+        
+        // 计数器部分
+        TextBlock_counterTitle = {
+            Text = "Counter Demo",
+            FontSize = 16,
+            Margin = 10
+        },
+        StackPanel_counter = {
+            Orientation = "Horizontal",
+            Button_decrement = {
+                Content = "-",
+                Width = 40,
+                OnClick = () => state.counter = state.counter - 1
+            },
+            TextBlock_counter = {
+                Text = () => "  " + string(state.counter) + "  ",
+                Margin = 10,
+                FontSize = 18
+            },
+            Button_increment = {
+                Content = "+",
+                Width = 40,
+                OnClick = () => state.counter = state.counter + 1
+            }
+        },
+        TextBlock_separator2 = {
+            Text = "----------------------------------",
+            Margin = 5
+        },
+        
+        // 问候语部分
+        TextBlock_greetingTitle = {
+            Text = "Greeting Demo",
+            FontSize = 16,
+            Margin = 10
+        },
+        TextBox_nameInput = {
+            Text = () => state.name,
+            OnInput = (v) => state.name = v,
+            Margin = 10,
+            Width = 200
+        },
+        TextBlock_greeting = {
+            Text = () => "Hello, " + state.name + "!",
+            Margin = 10,
+            FontSize = 14
+        },
+        TextBlock_separator3 = {
+            Text = "----------------------------------",
+            Margin = 5
+        },
+        
+        // 列表显示部分
+        TextBlock_listTitle = {
+            Text = "List Demo",
+            FontSize = 16,
+            Margin = 10
+        },
+        TextBlock_currentItem = {
+            Text = () => "Current: " + state.items[state.selectedIndex],
+            Margin = 10,
+            FontSize = 14
+        },
+        StackPanel_listButtons = {
+            Orientation = "Horizontal",
+            Button_prev = {
+                Content = "Previous",
+                OnClick = () => {
+                    state.selectedIndex = state.selectedIndex - 1
+                    if state.selectedIndex < 0 then
+                        state.selectedIndex = state.items.length - 1
+                },
+                Margin = 5
+            },
+            Button_next = {
+                Content = "Next",
+                OnClick = () => {
+                    state.selectedIndex = state.selectedIndex + 1
+                    if state.selectedIndex >= state.items.length then
+                        state.selectedIndex = 0
+                },
+                Margin = 5
+            }
+        },
+        TextBlock_separator4 = {
+            Text = "----------------------------------",
+            Margin = 5
+        },
+        
+        // 重置按钮
+        Button_reset = {
+            Content = "Reset All",
+            OnClick = () => {
+                state.counter = 0
+                state.name = "World"
+                state.selectedIndex = 0
+            },
+            Margin = 15
+        }
+    }
+}

@@ -1,0 +1,28 @@
+// 异步 CLR 方法自动 await 测试
+print("=== 异步获取列表 ===")
+let items = asyncService.GetItemsAsync()
+print("Items count: " + length(items))
+for item in items {
+  print("- " + item)
+}
+
+let state = asyncService.GetStateAsync()
+print("State: " + state)
+
+
+print("=== 异步方法调用（自动 await）===")
+let data = asyncService.FetchDataAsync("https://api.example.com/data")
+print("Fetched: " + data)
+
+print("=== 异步计算方法 ===")
+let result = asyncService.ComputeAsync(5, 3)
+print("Compute(5, 3) = " + result)
+
+
+
+print("=== 异步静态方法 ===")
+let staticResult = asyncService.StaticAsyncMethod("test message")
+print("Static result: " + staticResult)
+
+print("=== 异步测试完成 ===")
+asyncService

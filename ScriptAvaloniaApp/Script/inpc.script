@@ -1,0 +1,95 @@
+// 代理对象，监听属性变更
+
+let inpcObj = (obj) => {
+
+    var watchers = []
+
+    let notify = () => {
+        for w in watchers {
+            w()
+        }
+    }
+
+    let proxy = {
+        Watch = (fn) => {
+            watchers.push(fn)
+        }
+    }
+
+    for k in keys(obj) {
+        proxy[k] = obj[k]
+    }
+
+    // __Set 语法糖，用于实现重载赋值操作符
+    proxy.__Set__ = (key, value) => {
+        proxy[key] = value
+        notify()
+    }
+
+    proxy
+}
+
+
+// 代理集合，监听元素变更
+let inpcArray = (arr) => {
+
+    var value = arr
+    var watchers = []
+
+    let notify = () => {
+        for w in watchers { w() }
+    }
+
+    let proxy = {
+        Watch = (fn) => {
+            watchers = watchers + fn
+        },
+
+        get = (i) => value[i],
+        length = () => value.length,
+        toArray = () => value,
+
+        pop = (v) => {
+            let v = value.pop
+            notify()
+            return v
+        },
+
+        push = (v) => {
+            value = value + v
+            notify()
+        },
+
+        set = (i, v) => {
+            value[i] = v
+            notify()
+        },
+
+        remove = (item) =>
+        {
+            value.remove(item)
+            notify()
+        },
+
+        removeAt = (index) =>
+        {
+            value.removeAt(index)
+            notify()
+        }
+    }
+
+    proxy.__OnIndexAssign__ = (self, index, v) => {
+        value[index] = v
+        notify()
+        return v
+    }
+
+    proxy
+}
+
+
+
+{
+    inpcObj,
+    inpcArray,
+}

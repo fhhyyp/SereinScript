@@ -1,0 +1,10 @@
+﻿// ==================== Lambda 函数 ====================
+let add = (a, b) => a + b
+let result = add(5, 3)
+print("add(5, 3):", result)  // 输出: add(5, 3): 8
+
+let multiply = (x, y) => x * y
+print("multiply(4, 7):", multiply(4, 7))  // 输出: multiply(4, 7): 28
+
+
+

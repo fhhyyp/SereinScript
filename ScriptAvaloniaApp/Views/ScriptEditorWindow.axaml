@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="150"
+        x:Class="ScriptAvaloniaApp.Views.ScriptEditorWindow"
+        Title="Script Editor"
+        Width="400" Height="150">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#2d2d2d" Padding="15,10">
+            <TextBlock Text="Script Editor" Foreground="White" FontSize="16" FontWeight="Bold"/>
+        </Border>
+
+        <!-- 脚本编辑器 -->
+        <Border Grid.Row="1" BorderBrush="#3d3d3d" BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBox x:Name="ScriptEditor"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"
+                         FontFamily="Consolas,Courier New"
+                         FontSize="14"
+                         Padding="10"
+                         Foreground="#1e1e1e"
+                         Background="#d4d4d4"
+                         BorderThickness="0"/>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 按钮栏 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" Spacing="10">
+            <Button Content="Run Script" 
+                    Name="RunButton"
+                    Click="RunButton_Click"
+                    Padding="20,8"
+                    Background="#007acc"
+                    Foreground="White"/>
+            <Button Content="Clear" 
+                    Name="ClearButton"
+                    Click="ClearButton_Click"
+                    Padding="20,8"
+                    Background="#454545"
+                    Foreground="White"/>
+            <TextBlock Name="StatusLabel" 
+                       VerticalAlignment="Center" 
+                       Margin="20,0,0,0"
+                       Foreground="#888"/>
+        </StackPanel>
+    </Grid>
+
+</Window>

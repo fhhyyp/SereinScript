@@ -1,0 +1,18 @@
+import { store } from "test-import.script"
+import { add, mul } from "math.script"
+import { look } from "test.script"
+
+
+print(store.getters.getData()) 
+print(store.state.x)     
+print(store.state.y)   
+ 
+store.actions.increment(5)
+
+print(store.state.x)       
+print(store.state.y)     
+print(store.getters.getData()) 
+
+print(store)
+
+look()

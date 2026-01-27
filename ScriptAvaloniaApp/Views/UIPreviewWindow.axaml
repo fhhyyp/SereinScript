@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+        x:Class="ScriptAvaloniaApp.Views.UIPreviewWindow"
+        Title="UI Preview"
+        Width="500" Height="400">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#007acc" Padding="15,10">
+            <TextBlock Text="UI Preview" Foreground="White" FontSize="14" FontWeight="Bold"/>
+        </Border>
+        <StackPanel />
+        <!-- UI 内容容器 -->
+        <Border Grid.Row="1" Background="#f5f5f5">
+            <ContentControl Name="ContentContainer"/>
+        </Border>
+    </Grid>
+
+</Window>

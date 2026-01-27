@@ -1,0 +1,29 @@
+// createStore 简易实现
+let createStore = (options) => {
+    let state = options.state()
+    let getters = {}
+    let actions = {}
+
+    if options.has("getters") then  {
+        for key in keys(options.getters) {
+            // 每个 getter 都是一个函数，闭包捕获 state
+            let fn = options.getters[key]
+            getters[key] = () => fn(state)
+        }
+    }
+    if options.has("actions") then {
+        for key in keys(options.actions) {
+            let fn = options.actions[key]
+            actions[key] = (args) => fn(state, args)
+        }
+    }
+
+    // 返回 store 对象
+    {
+        state =  state,
+        getters =  getters,
+        actions = actions
+    }
+}
+
+{createStore = createStore}

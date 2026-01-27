@@ -1,0 +1,36 @@
+let inpc = (obj) => {
+
+    var watchers = []
+
+    // 内部数据存储
+    var data = {}
+    for k in keys(obj) {
+        data[k] = obj[k]
+    }
+
+    let notify = () => {
+        for w in watchers {
+            w()
+        }
+    }
+
+    let proxy = {
+        Watch = (fn) => {
+            watchers = watchers + fn
+        },
+        Set = (key, value) => {
+            data[key] = value
+            notify()
+        }
+    }
+
+    // getter
+    for k in keys(data) {
+        proxy[k] = () => data[k]
+    }
+
+    proxy
+}
+
+
+{inpc}

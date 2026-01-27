@@ -1,0 +1,22 @@
+﻿// ==================== For 循环 ====================
+print("Loop through array:")
+for i in [10, 20, 30] {
+    print("  item:", i)
+}
+// 输出:
+// Loop through array:
+//   item: 10
+//   item: 20
+//   item: 30
+
+// 遍历对象
+let person = {
+    name = "Alice",
+    age = 30,
+    active = true
+}
+print("Keys of person:")
+for k in keys(person) {
+    print("  key:", k)
+}
+

@@ -1,0 +1,20 @@
+let counter = { 
+    value = 0
+}
+
+let ui = {
+    type= "StackPanel",
+    children = [{ 
+        type = "TextBlock", 
+        text = () => "Count: " + counter.value
+    },{
+        type = "Button", 
+        text = "Increment",
+        onClick = () => counter.value = counter.value + 1  
+    }]
+}
+
+print(counter.value)
+ui.children[1].onClick()
+print(counter.value)
+ui

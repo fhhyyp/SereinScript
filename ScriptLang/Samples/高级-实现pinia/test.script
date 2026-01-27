@@ -1,0 +1,9 @@
+import { store } from "test-import.script"
+
+let look = () => {
+	print("x    : ", store.state.x)       
+	print("y    : ", store.state.y)     
+	print("data : ", store.getters.getData()) 
+}
+
+{look = look}

@@ -1,0 +1,32 @@
+let counter = { 
+    value = 0
+}
+
+let ui = {
+    StackPanel =  { 
+        TextBlock_title = {
+            Text = "Counter Demo",
+            FontSize = 20,
+            Margin = 10
+        },
+        TextBox_input = {
+            Text = () => counter.value,
+            OnInput = (v) => counter.value = int(v),
+            Margin = 10
+        },
+        TextBlock_display = {
+            Text = () => "Count: " + counter.value,
+            Margin = 10
+        },
+        Button_add = {
+            Content = "Increment",
+            OnClick = () => counter.value = counter.value + 1,
+            Margin = 10
+        },
+        Button_clear = {
+            Content = "Clear",
+            OnClick = () => counter.value = 0,
+            Margin = 10
+        }
+    }
+}
