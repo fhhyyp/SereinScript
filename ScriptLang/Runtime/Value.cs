@@ -40,14 +40,24 @@ public abstract record Value
     /// 对象与数组的值的来源
     /// </summary>
     public Value? Source { get; set; }
+
     /// <summary>
+    /// 用于定位当前值在 <see cref="Source"/>中的 PropertyName / ItemIndex
+    /// <para/>
+    /// 对于 <see cref="ObjectValue"/> 而言， 该值通常是 <see cref="StringValue"/>，用于调用 (<see cref="ObjectValue.Get(string)"/>)
+    /// <para/>
+    /// 对于 <see cref="ArrayValue"/> 而言， 该值通常是 <see cref="NumberValue"/>，用于调用 (<see cref="ArrayValue.Get(int)"/>)
+    /// </summary>
+    public Value? Target { get; set; }
+
+    /*/// <summary>
     /// 值在源中的标记名称
     /// </summary>
     public string? TargetKey { get; set; }
     /// <summary>
     /// 值在源中的索引
     /// </summary>
-    public int TargetIndex { get; set; } = -1;
+    public int TargetIndex { get; set; } = -1;*/
 
     public static readonly Value Null = new NullValue();
 
@@ -188,7 +198,7 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value, IObserv
         var state = Properties.TryGetValue(key, out value);
         if (value?.Source is null)
         {
-            value?.TargetKey = key;
+            value?.Target = new StringValue(key);
             value?.Source = this;
         }
         return state;
@@ -201,14 +211,6 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value, IObserv
         throw new InvalidCastException($"Cannot cast ObjectValue to {typeof(T)}");
     }
 
-    public T Get<T>(string key)
-    {
-        if(Properties.TryGetValue(key, out var value))
-        {
-            return value.As<T>();
-        }
-        throw new Exception($"type required");
-    }
 
     public bool ContainsKey(string key) => Properties.ContainsKey(key);
 }
@@ -248,7 +250,13 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
     {
         foreach(var (item, index) in Elements.Select((x, i) => (x, i)))
         {
-            item.TargetIndex = index;
+            if(item.Target is NumberValue numberValue)
+            {
+                item.Target = numberValue with
+                {
+                    Value = index
+                };
+            }
         }
     }
 
@@ -305,13 +313,24 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
         Track();
         PublicEvent(new ValueChange(this, null, null, null, ChangeType.Set), engine);
     }
-    public Value Get(int index)
+    public Value Get(NumberValue index)
     {
-        var value = Elements[index];
+        var value = Elements[(int)index.Value];
         if(value.Source is null)
         {
             value.Source = this;
-            value.TargetIndex = index;
+            value.Target = index;
+        }
+        return value;
+    }
+
+    public Value Get(int index)
+    {
+        var value = Elements[index];
+        if (value.Source is null)
+        {
+            value.Source = this;
+            value.Target = new NumberValue(index);
         }
         return value;
     }
@@ -321,7 +340,7 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
         if (value.Source is null)
         {
             value.Source = this;
-            value.TargetKey = nameof(Length);
+            value.Target = new StringValue(nameof(Length));
         }
         return value;
     }

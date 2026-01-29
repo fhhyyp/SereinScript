@@ -24,7 +24,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
 
             if (Node.TryGetValue("Text", out var textVal))
             {
-                if (TryGetConvert(textVal, out var source, out var convert))
+                if (TryGetConvert(textVal, out var source, out var convert,out var convertBackFunction))
                 {
                     async Task Refresh()
                     {

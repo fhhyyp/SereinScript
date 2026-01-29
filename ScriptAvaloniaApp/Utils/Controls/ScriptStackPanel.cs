@@ -15,7 +15,8 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public override async Task<Control> CreateAsync()
         {
             var panel = new StackPanel();
-            //await ApplyAllPropertiesAsync(panel);
+
+            await ApplyAllPropertiesAsync(panel);
 
             foreach (var (key, value) in Node.Properties)
             {

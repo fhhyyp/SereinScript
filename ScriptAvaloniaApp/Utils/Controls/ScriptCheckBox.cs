@@ -26,13 +26,13 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 async Task Refresh()
                 {
                     await Task.CompletedTask;
-                    var value = sourceObject.Get(targetKey).AsBool();
+                    var value = sourceObject.Get(targetKey.Value).AsBool();
                     cb.IsChecked = value;
                 }
                await SubObjectChangedAsync(sourceObject, targetKey, Refresh);
                 cb.IsCheckedChanged += (_, _) =>
                 {
-                    sourceObject.Set(targetKey, new BoolValue(cb.IsChecked ?? false));
+                    sourceObject.Set(targetKey.Value, new BoolValue(cb.IsChecked ?? false));
                 };
             }
             return cb;

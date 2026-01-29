@@ -48,52 +48,92 @@ namespace ScriptAvaloniaApp.Utils.Controls
             if (prop == null || !prop.CanWrite)
                 return;
 
-            if (TryGetConvert(value, out var source, out var convert))
-            {
-                // 绑定转换器
-                async Task Refresh()
-                {
-                    var result = await convert.CallAsync(Engine, source);
-                    var clr = ConvertValueToClr(result, prop.PropertyType);
-                    control.UIInvoke(c =>
+            await CheckBindAsync(control, value,
+                    convertTask: async (control, source, convert, convertBack) =>
                     {
-                        prop.SetValue(c, clr);
-                    });
-                }
-                await SubChangedAsync(source, Refresh);
-            }
-            else if (TryGetObjectValue(value, out var sourceObject, out var targetKey))
-            {
-                // 如果这个值来源于一个对象，并且该对象对应值（名称）发生改变，则更新控件属性
+                        // 绑定转换器
+                        async Task Refresh()
+                        {
+                            var result = await convert.CallAsync(Engine, source);
+                            var clr = ConvertValueToClr(result, prop.PropertyType);
+                            control.UIInvoke(c =>
+                            {
+                                prop.SetValue(c, clr);
+                            });
+                        }
+                        await SubConvertAsync(source, Refresh);
+                    },
+                    objectTask: async (control, source, target) =>
+                    {
+                        // 如果这个值来源于一个对象，并且该对象对应值（名称）发生改变，则更新控件属性
 
-                async Task Refresh()
-                {
-                    var objProperty = sourceObject.Get(targetKey);
-                    var clr = ConvertValueToClr(objProperty, prop.PropertyType);
-                    control.UIInvoke(c => prop.SetValue(c, clr));
-                }
-                await SubChangedAsync(sourceObject, Refresh);
-            }
-            else if(TryGetArrayValue(value, out var sourceArray, out var targetIndex))
-            {
-                // 如果这个值来源于一个数组，并且该对象对应值（下标）发生改变，则更新控件属性
-                async Task Refresh()
-                {
-                    var value = sourceArray.Get(targetIndex);
-                    var clr = ConvertValueToClr(value, prop.PropertyType);
-                    control.UIInvoke(c => prop.SetValue(c, clr));
-                }
-                await SubChangedAsync(sourceArray, Refresh);
-            }
-            else
-            {
-                // 正常数据绑定，无数据通知功能
-                var clr = ConvertValueToClr(value, prop.PropertyType);
-                prop.SetValue(control, clr);
-            }
+                        async Task Refresh()
+                        {
+                            var objProperty = source.Get(target.Value);
+                            var clr = ConvertValueToClr(objProperty, prop.PropertyType);
+                            control.UIInvoke(c => prop.SetValue(c, clr));
+                        }
+                        await SubObjectChangedAsync(source, target, Refresh);
+                    },
+
+                    arrayTask: async (control, source, target) =>
+                    {
+                        // 如果这个值来源于一个数组，并且该对象对应值（下标）发生改变，则更新控件属性
+                        async Task Refresh()
+                        {
+                            var value = source.Get(target);
+                            var clr = ConvertValueToClr(value, prop.PropertyType);
+                            control.UIInvoke(c => prop.SetValue(c, clr));
+                        }
+                        await SubArrayChangedAsync(source, Refresh);
+                    },
+
+                    defaultTask: async (control, value) =>
+                    {
+                        // 正常数据绑定，无数据通知功能
+                        var clr = ConvertValueToClr(value, prop.PropertyType);
+                        prop.SetValue(control, clr);
+                    }
+                );
+
 
         }
 
+        protected static async Task<bool> CheckBindAsync<TControl>
+           (TControl control,
+            Value value,
+            Func<TControl, Value, FunctionValue, FunctionValue?, Task>? convertTask = null,
+            Func<TControl, ObjectValue, StringValue, Task>? objectTask = null,
+            Func<TControl, ArrayValue, NumberValue, Task>? arrayTask = null,
+            Func<TControl, Value, Task>? defaultTask = null)
+            where TControl : Control
+        {
+
+            if (convertTask is not null && TryGetConvert(value, 
+                out Value? convertSourceObject,
+                out FunctionValue? function, 
+                out FunctionValue? convertBackFunction))
+            {
+                await convertTask.Invoke(control, convertSourceObject, function, convertBackFunction);
+            }
+            else if (objectTask is not null && TryGetObjectValue(value, out ObjectValue? sourceObject, out StringValue? targetKey))
+            {
+                await objectTask.Invoke(control, sourceObject, targetKey);
+            }
+            else if (arrayTask is not null && TryGetArrayValue(value, out ArrayValue? arrayValue, out NumberValue? targetIndex))
+            {
+                await arrayTask.Invoke(control, arrayValue, targetIndex);
+            }
+            else if (defaultTask is not null)
+            {
+                await defaultTask.Invoke(control, value);
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
         /// <summary>
         /// 判断对象值是否为转换器结构
         /// </summary>
@@ -101,12 +141,19 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetConvert(Value? value, [NotNullWhen(true)] out Value? source, [NotNullWhen(true)] out FunctionValue? convert)
+        protected static bool TryGetConvert(Value? value, 
+            [NotNullWhen(true)] out Value? source, 
+            [NotNullWhen(true)] out FunctionValue? convert,
+            out FunctionValue? convertBack
+            )
         {
             if (value is ObjectValue objectValue
-                && objectValue.TryGetValue("Value", out var v ) && v is IObservableValue observable
+                && objectValue.TryGetValue("Value", out var v) && v is IObservableValue observable
                 && objectValue.TryGetValue("Convert", out var c) && c is FunctionValue func)
             {
+                objectValue.TryGetValue("ConvertBack", out var cb);
+                
+                convertBack = cb as FunctionValue;
                 source = v;
                 convert = func;
                 return true;
@@ -115,6 +162,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
             {
                 source = null;
                 convert = null;
+                convertBack = null;
                 return false;
             }
         }
@@ -126,23 +174,23 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetObjectValue(Value? value, [NotNullWhen(true)] out ObjectValue? sourceObject,  [NotNullWhen(true)] out string? targetKey)
+        protected static bool TryGetObjectValue(Value? value, [NotNullWhen(true)] out ObjectValue? sourceObject, [NotNullWhen(true)] out StringValue? target)
         {
             if (value?.Source is ObjectValue objectValue
-                && !string.IsNullOrWhiteSpace(value.TargetKey))
+                && value?.Target is StringValue stringValue
+                && !string.IsNullOrWhiteSpace(stringValue.AsString()))
             {
                 sourceObject = objectValue;
-                targetKey = value.TargetKey;
+                target = stringValue;
                 return true;
             }
             else
             {
                 sourceObject = null;
-                targetKey = null;
+                target = null;
                 return false;
             }
         }
-        
 
         /// <summary>
         /// 判断值来源是否为数组
@@ -151,22 +199,28 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetArrayValue(Value? value, [NotNullWhen(true)] out ArrayValue? sourceArray,  [NotNullWhen(true)] out int targetIndex)
+        protected static bool TryGetArrayValue(Value? value, [NotNullWhen(true)] out ArrayValue? sourceArray, [NotNullWhen(true)] out NumberValue? target)
         {
             if (value?.Source is ArrayValue array
-                && value.TargetIndex > -1)
+                && value.Target is NumberValue number
+                && number.Value > -1)
             {
                 sourceArray = array;
-                targetIndex = value.TargetIndex;
+                target = number;
                 return true;
             }
             else
             {
                 sourceArray = null;
-                targetIndex = -1;
+                target = null;
                 return false;
             }
         }
+
+
+
+
+
 
         /// <summary>
         /// 从 DSL Value 转换为 CLR Value
@@ -282,7 +336,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
             throw new FormatException($"Unsupported color format: {input}");
         }
 
-        internal async Task SubConvertAsync(Value value,  Func<Task> refresh)
+        internal async Task SubConvertAsync(Value value, Func<Task> refresh)
         {
             if (value is IObservableValue observable)
             {
@@ -295,14 +349,14 @@ namespace ScriptAvaloniaApp.Utils.Controls
             await refresh.Invoke();
         }
 
-        internal async Task SubObjectChangedAsync(ObjectValue value, string? targetKey, Func<Task> refresh)
+        internal async Task SubObjectChangedAsync(ObjectValue value, StringValue? targetKey, Func<Task> refresh)
         {
-            if (string.IsNullOrWhiteSpace(targetKey)) return;
+            if (string.IsNullOrWhiteSpace(targetKey?.Value)) return;
             if (value is IObservableValue observable)
             {
                 void Observable_Changed(ValueChange e)
                 {
-                    if (e.Key == targetKey)
+                    if (e.Key == targetKey.Value)
                         _ = refresh.Invoke();
                 }
                 observable.Changed += Observable_Changed;
@@ -317,14 +371,14 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 void Observable_Changed(ValueChange e)
                 {
                     if (e.Key == nameof(Array.Length)) return;
-                        _ = refresh.Invoke();
+                    _ = refresh.Invoke();
                 }
                 observable.Changed += Observable_Changed;
             }
             await refresh.Invoke();
         }
 
-        internal async Task SubArrayChangedAsync(ArrayValue value, int targetIndex, Func<Task> refresh)
+        internal async Task SubArrayChangedAsync(ArrayValue value, NumberValue targetIndex, Func<Task> refresh)
         {
             if (value is IObservableValue observable)
             {
@@ -332,7 +386,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 {
                     if (e.Key == nameof(Array.Length)) return;
                     if (!int.TryParse(e.Key, out var index)) return;
-                    if(targetIndex != index)
+                    if (targetIndex.AsNumber() != index)
                         _ = refresh.Invoke();
                 }
                 observable.Changed += Observable_Changed;
@@ -341,10 +395,10 @@ namespace ScriptAvaloniaApp.Utils.Controls
         }
 
 
-        internal async Task SubChangedAsync(Value value, Func<Task> refresh)
+        /*internal async Task SubChangedAsync(Value value, Func<Task> refresh)
         {
-            
-            if(value is IObservableValue observable)
+
+            if (value is IObservableValue observable)
             {
                 void Observable_Changed(ValueChange e)
                 {
@@ -363,14 +417,14 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 observable.Changed += Observable_Changed;
             }
             await refresh.Invoke();
-        }
+        }*/
 
 
 
 
         internal void SubChanged(Value value, Action refresh)
         {
-            if(value is IObservableValue observable)
+            if (value is IObservableValue observable)
             {
                 void Observable_Changed(ValueChange obj)
                 {

@@ -485,12 +485,14 @@ public class Interpreter
         {
             var key = prop.Key;
             var value = (await EvaluateAsync(prop.Value, scope)).Value;
-            if(value.Source is not null)
+            /*if(value.Source is not null)
             {
                 value.Source = value.Source;
+
+
                 value.TargetKey = value.TargetKey;
                 value.TargetIndex = value.TargetIndex;
-            }
+            }*/
             properties[prop.Key] = value;
         }
         var objValue = new ObjectValue(properties);
@@ -554,16 +556,6 @@ public class Interpreter
             return member.Property switch
             {
                 "length" => new NumberValue(arr.Elements.Count),
-                "onNext" => new FunctionValue("onNext", async args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "map() expects 1 argument");
-                        if (args[0] is not FunctionValue func) throw Error(member, "map() expects a function");
-
-                        var value = await func.CallAsync(_engine, arr);
-                        value.Source = arr;
-                        value.TargetKey = "*";
-                        return value;
-                    }),
                 "map" => new FunctionValue(
                     "map",
                     async args =>
@@ -947,7 +939,8 @@ public class Interpreter
             int i = (int)idx.AsNumber();
             if (i < 0 || i >= arr.Elements.Count)
                 throw Error(indexAssign, $"Array index out of bounds: {i}");
-            arr.Elements[i] = value;
+            //arr.Elements[i] = value;
+            arr.Set(i, value, _engine);
             return value;
         }
 
