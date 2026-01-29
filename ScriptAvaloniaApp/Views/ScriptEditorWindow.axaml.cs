@@ -40,10 +40,9 @@ namespace ScriptAvaloniaApp.Views
             UpdateStatus("Running...");
             ScriptEngine engine = new ScriptEngine("");
             var mainScriptName = ScriptEditor.Text ?? string.Empty;
-            BindingManager.Clear();
             var uiValue =  await engine.LoadAndRunAsync(mainScriptName);
             // 4. 构建 UI
-            var uiControl = ScriptUIBuilderV3.BuildUI(uiValue, engine);
+            var uiControl = await ScriptUIBuilder.BuildUIAsync(uiValue, engine);
 
             // 5. 显示在预览窗口
             ShowPreviewWindow(uiControl);
@@ -62,6 +61,7 @@ namespace ScriptAvaloniaApp.Views
                 UpdateStatus($"Error: {ex.Message}");
                 Debug.WriteLine($"Error: {ex}");
             }
+            
         }
 
         private void ClearButton_Click(object? sender, RoutedEventArgs e)
@@ -69,7 +69,6 @@ namespace ScriptAvaloniaApp.Views
             ScriptEditor.Text = string.Empty;
             _previewWindow?.Close();
             _previewWindow = null;
-            BindingManager.Clear();
             UpdateStatus("Cleared");
         }
 

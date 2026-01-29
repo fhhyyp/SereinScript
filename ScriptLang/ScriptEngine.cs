@@ -48,7 +48,7 @@ namespace ScriptLang
         }
 
         /// <summary>
-        /// 由 <see cref="FunctionValue.CallAsync(List{Value}, ScriptEngine)"/>
+        /// 由 <see cref="FunctionValue.CallAsync(ScriptEngine, List{Value})"/>
         /// 执行 AST 并返回 Value
         /// </summary>
         public async Task<Value> EvaluateAsync(Expr expr, Scope? scope = null)

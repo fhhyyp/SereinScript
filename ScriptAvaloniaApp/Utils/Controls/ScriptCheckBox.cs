@@ -13,38 +13,28 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptCheckBox(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var cb = new CheckBox();
-            ApplyAllProperties(cb);
 
-            // 绑定 IsChecked
-            if (Node.Properties.TryGetValue("IsChecked", out var val) && val is FunctionValue func)
+            IgnoreProperties.Add(nameof(cb.IsChecked));
+
+            await ApplyAllPropertiesAsync(cb);
+            if (Node.TryGetValue(nameof(cb.IsChecked), out var val) 
+                && TryGetObjectValue(val, out var sourceObject, out var targetKey))
             {
-                async Task Update()
+                async Task Refresh()
                 {
-                    var v = await func.CallAsync(new List<Value>(), Engine);
-                    cb.IsChecked = v.AsBool();
+                    await Task.CompletedTask;
+                    var value = sourceObject.Get(targetKey).Value.AsBool();
+                    cb.IsChecked = value;
                 }
-                BindingManager.Register(Update);
-                _ = Update();
-            }
-
-            // 双向绑定（OnChecked / OnUnchecked）
-            if (Node.Properties.TryGetValue("OnInput", out var setterVal) && setterVal is FunctionValue setter)
-            {
-                cb.IsCheckedChanged += async (sender, __) =>
+               await SubObjectChangedAsync(sourceObject, targetKey, Refresh);
+                cb.IsCheckedChanged += (_, _) =>
                 {
-                    if(sender is not CheckBox checkBox)
-                    {
-                        return;
-                    }
-                    var state = checkBox?.IsChecked ?? false;
-                    await setter.CallAsync(new List<Value> { new BoolValue(state) }, Engine);
-                    await BindingManager.RefreshAll();
+                    sourceObject.Set(targetKey, new BoolValue(cb.IsChecked ?? false));
                 };
             }
-
             return cb;
         }
     }

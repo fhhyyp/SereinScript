@@ -13,36 +13,36 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptSlider(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var slider = new Slider();
-            ApplyAllProperties(slider);
+            await ApplyAllPropertiesAsync(slider);
 
-            if (Node.Properties.TryGetValue("Minimum", out var min)) slider.Minimum = min.AsNumber();
-            if (Node.Properties.TryGetValue("Maximum", out var max)) slider.Maximum = max.AsNumber();
-            if (Node.Properties.TryGetValue("Value", out var val) && val is FunctionValue func)
+            /*if (Node.TryGetValue("Minimum", out var min)) slider.Minimum = min.AsNumber();
+            if (Node.TryGetValue("Maximum", out var max)) slider.Maximum = max.AsNumber();
+            if (Node.TryGetValue("Value", out var val) && val.Value is FunctionValue func)
             {
                 async Task Update()
                 {
-                    var v = await func.CallAsync(new List<Value>(), Engine);
+                    var v = await func.CallAsync(Engine);
                     slider.Value = v.AsNumber();
                 }
-                BindingManager.Register(Update);
-                _ = Update();
-            }
+                await BindingManager.Register(Update);
+            }*/
 
             // 双向绑定
-            if (Node.Properties.TryGetValue("OnInput", out var setterVal) && setterVal is FunctionValue setter)
+            /*if (Node.TryGetValue("OnInput", out var setterVal) && setterVal.Value is FunctionValue setter)
             {
                 slider.PropertyChanged += async (_, e) =>
                 {
                     if (e.Property == Slider.ValueProperty)
                     {
-                        await setter.CallAsync(new List<Value> { new NumberValue(slider.Value) }, Engine);
-                        await BindingManager.RefreshAll();
+                        var numberValue = new NumberValue(slider.Value);
+                        await setter.CallAsync(Engine, numberValue);
+                        //await BindingManager.RefreshAll();
                     }
                 };
-            }
+            }*/
 
             return slider;
         }

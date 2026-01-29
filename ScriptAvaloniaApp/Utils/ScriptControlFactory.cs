@@ -5,6 +5,7 @@ using ScriptLang.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils
 {
@@ -37,15 +38,16 @@ namespace ScriptAvaloniaApp.Utils
             _map[name] = factory;
         }
 
-        public static ScriptControlBase Create(string key,
+        public static async Task<Control> CreateAsync(string key,
             ObjectValue node, ScriptEngine interpreter)
         {
             var type = key.Split('_')[0];
 
             if (!_map.TryGetValue(type, out var f))
                 throw new Exception($"Unknown control: {type}");
-
-            return f(node, interpreter);
+            var control = f(node, interpreter);
+            var c  = await control.CreateAsync();
+            return c;
         }
 
         public static bool IsControlType(string key)

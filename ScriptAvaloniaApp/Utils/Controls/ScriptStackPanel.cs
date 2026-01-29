@@ -2,6 +2,7 @@
 using ScriptLang;
 using ScriptLang.Runtime;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils.Controls
 {
@@ -11,16 +12,16 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptStackPanel(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var panel = new StackPanel();
-            ApplyAllProperties(panel);
+            //await ApplyAllPropertiesAsync(panel);
 
             foreach (var (key, value) in Node.Properties)
             {
-                if (value is ObjectValue child && ScriptControlFactory.IsControlType(key))
+                if (value.Value is ObjectValue child && ScriptControlFactory.IsControlType(key))
                 {
-                    var ctrl = ScriptControlFactory.Create(key, child, Engine).Create();
+                    var ctrl = await ScriptControlFactory.CreateAsync(key, child, Engine);
                     panel.Children.Add(ctrl);
                 }
             }

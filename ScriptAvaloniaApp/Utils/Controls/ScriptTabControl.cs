@@ -14,12 +14,12 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptTabControl(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var tabControl = new TabControl();
-            ApplyAllProperties(tabControl);
+            await ApplyAllPropertiesAsync(tabControl);
 
-            if (Node.Properties.TryGetValue("Tabs", out var tabsVal) && tabsVal is ArrayValue tabs)
+            /*if (Node.TryGetValue("Tabs", out var tabsVal) && tabsVal.Value is ArrayValue tabs)
             {
                 foreach (var tab in tabs.Elements)
                 {
@@ -28,17 +28,16 @@ namespace ScriptAvaloniaApp.Utils.Controls
                         var tabItem = new TabItem();
 
                         // Header
-                        if (tabNode.Properties.TryGetValue("Header", out var headerVal))
+                        if (tabNode.TryGetValue("Header", out var headerVal))
                         {
-                            if (headerVal is FunctionValue func)
+                            if (headerVal.Value is FunctionValue func)
                             {
                                 async Task UpdateHeader()
                                 {
-                                    var v = await func.CallAsync(new List<Value>(), Engine);
+                                    var v = await func.CallAsync(Engine);
                                     tabItem.Header = v.AsString();
                                 }
-                                BindingManager.Register(UpdateHeader);
-                                _ = UpdateHeader();
+                                await BindingManager.Register(UpdateHeader);
                             }
                             else
                             {
@@ -48,9 +47,9 @@ namespace ScriptAvaloniaApp.Utils.Controls
 
                         // Content: 取第一个 ObjectValue 属性作为子控件
                         var contentNode = tabNode.Properties.FirstOrDefault(p => p.Value is ObjectValue);
-                        if (contentNode.Value is ObjectValue childNode)
+                        if (contentNode.Value.Value is ObjectValue childNode)
                         {
-                            var contentControl = ScriptControlFactory.Create(contentNode.Key, childNode, Engine).Create();
+                            var contentControl = ScriptControlFactory.CreateAsync(contentNode.Key, childNode, Engine);
                             tabItem.Content = contentControl;
                         }
 
@@ -58,7 +57,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
                     }
                 }
             }
-
+*/
             return tabControl;
         }
     }

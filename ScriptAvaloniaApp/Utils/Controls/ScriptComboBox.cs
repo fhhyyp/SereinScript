@@ -13,7 +13,7 @@ public class ScriptComboBox : ScriptControlBase
     public ScriptComboBox(ObjectValue node, ScriptEngine interpreter)
         : base(node, interpreter) { }
 
-    public override Control Create()
+    public override async Task<Control> CreateAsync()
     {
         var comboBox = new ComboBox();
         bool _isUpdating = false; // 防止递归
@@ -22,19 +22,19 @@ public class ScriptComboBox : ScriptControlBase
         IgnoreProperties.Add("OnInput");
         IgnoreProperties.Add("SelectedItem");
 
-        ApplyAllProperties(comboBox);
+        await ApplyAllPropertiesAsync(comboBox);
         // Items
-        if (Node.Properties.TryGetValue("Items", out var itemsVal))
+        /*if (Node.TryGetValue("Items", out var itemsVal))
         {
-            if (itemsVal is ArrayValue arr)
+            if (itemsVal.Value is ArrayValue arr)
                 comboBox.ItemsSource = arr.Elements.Select(v => v.AsString()).ToList();
-            else if (itemsVal is FunctionValue func)
+            else if (itemsVal.Value is FunctionValue func)
             {
                 async Task UpdateItems()
                 {
                     if (_isUpdating) return;
                     _isUpdating = true;
-                    var v = await func.CallAsync(new List<Value>(), Engine);
+                    var v = await func.CallAsync(Engine);
                     if (v is ArrayValue newArr)
                     {
                         var t = newArr.Elements.Select(x => x.AsString()).ToList();
@@ -42,18 +42,19 @@ public class ScriptComboBox : ScriptControlBase
                     }
                     _isUpdating = false;
                 }
-                BindingManager.Register(UpdateItems);
-                _ = UpdateItems();
+
+
+                await BindingManager.Register(UpdateItems);
             }
-        }
+        }*/
 
         // SelectedItem
-        if (Node.Properties.TryGetValue("SelectedItem", out var selectedVal) && selectedVal is FunctionValue getter)
+        /*if (Node.TryGetValue("SelectedItem", out var selectedVal) && selectedVal.Value is FunctionValue getter)
         {
             async Task Update()
             {
                 if (_isUpdating) return;
-                var v = await getter.CallAsync(new List<Value>(), Engine);
+                var v = await getter.CallAsync( Engine);
                 if (!Equals(comboBox.SelectedItem?.ToString(), v.AsString()))
                 {
                     _isUpdating = true;
@@ -61,13 +62,11 @@ public class ScriptComboBox : ScriptControlBase
                     _isUpdating = false;
                 }
             }
-
-            BindingManager.Register(Update);
-            _ = Update();
-        }
+           await  BindingManager.Register(Update);
+        }*/
 
         // OnInput / SelectionChanged
-        if (Node.Properties.TryGetValue("OnInput", out var setterVal) && setterVal is FunctionValue setter)
+        /*if (Node.TryGetValue("OnInput", out var setterVal) && setterVal.Value is FunctionValue setter)
         {
             comboBox.SelectionChanged += async (_, __) =>
             {
@@ -76,15 +75,16 @@ public class ScriptComboBox : ScriptControlBase
                 if (comboBox.SelectedItem != null)
                 {
                     _isUpdating = true;
-                    await setter.CallAsync(new List<Value> { new StringValue(comboBox.SelectedItem.ToString()!) }, Engine);
+                    var item = new StringValue(comboBox.SelectedItem?.ToString() ?? string.Empty);
+                    await setter.CallAsync(Engine, item);
                     _isUpdating = false;
 
-                    await BindingManager.RefreshAll();
+                    //await BindingManager.RefreshAll();
                 }
             };
-        }
+        }*/
 
-        ApplyAllProperties(comboBox);
+        await ApplyAllPropertiesAsync(comboBox);
 
         return comboBox;
     }

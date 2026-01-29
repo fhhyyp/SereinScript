@@ -137,11 +137,11 @@ public class Lexer
             // 字符串字面量
             case '"': ReadString(); break;
                 
-            // 数字字面量
+            // 字面量
             default:
                 if (char.IsDigit(c))
-                    ReadNumber();
-                else if (char.IsLetter(c) || c == '_')
+                    ReadNumber(); // 解析数值
+                else if (char.IsLetter(c) || c == '_' || c == '@')
                     ReadIdentifier();
                 else
                     AddToken(TokenType.Unknown, c.ToString());
@@ -228,7 +228,7 @@ public class Lexer
         _column--;    // 回退列
         if (_column < 1) _column = 1;
         
-        while (char.IsLetterOrDigit(Peek()) || Peek() == '_')
+        while (char.IsLetterOrDigit(Peek()) || Peek() == '_'|| Peek() == '@')
         {
             sb.Append(Advance());
         }

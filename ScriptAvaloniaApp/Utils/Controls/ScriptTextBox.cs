@@ -1,7 +1,9 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Styling;
 using ScriptLang;
 using ScriptLang.Runtime;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils.Controls
@@ -13,34 +15,43 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptTextBox(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var tb = new TextBox();
 
-            ApplyAllProperties(tb);
-
+            IgnoreProperties.Add("Text");
+            await ApplyAllPropertiesAsync(tb);
+            bool isload = true;
             // getter
-            if (Node.Properties.TryGetValue("Text", out var textVal) && textVal is FunctionValue getter)
+            if (Node.TryGetValue("Text", out var textVal))
             {
-                async Task Update()
+                if(TryGetObjectValue(textVal, out var sourceObject, out var targetKey))
                 {
-                    var v = await getter.CallAsync(new List<Value>(), Engine);
-                    tb.Text = v.AsString();
+                    async Task UpdateText()
+                    {
+                        await Task.CompletedTask;
+                        var v = sourceObject.Get(targetKey).Value.AsString();
+                        if (tb.Text != v)
+                        {
+                            tb.UIInvoke(c => c.Text = v);
+                        }
+                    }
+                    await SubObjectChangedAsync(sourceObject, targetKey, UpdateText);
+                    tb.TextChanged += (sender, e) =>
+                    {
+                        if (!isload)
+                            sourceObject.Set(targetKey, new StringValue(tb.Text ?? string.Empty));
+                    };
                 }
-                BindingManager.Register(Update);
-                _ = Update();
-            }
-
-            // setter
-            if (Node.Properties.TryGetValue("OnInput", out var inputVal) && inputVal is FunctionValue setter)
-            {
-                tb.TextChanged += async (_, __) =>
+                else
                 {
-                    await setter.CallAsync(new List<Value> { new StringValue(tb.Text ?? "") }, Engine);
-                    await BindingManager.RefreshAll();
-                };
+                    tb.Text = textVal.AsString();
+                }
+
+               
             }
 
+            isload = false;
             return tb;
         }
     }

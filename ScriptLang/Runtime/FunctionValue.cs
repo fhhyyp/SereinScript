@@ -81,7 +81,7 @@ public record FunctionValue : Value
     /// <summary>
     /// 调用函数
     /// </summary>
-    public async Task<Value> CallAsync(List<Value> args, ScriptEngine engine)
+    public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
     {
         if (IsNative)
         {
@@ -98,7 +98,7 @@ public record FunctionValue : Value
             throw new RuntimeException(
                 $"Function expects {ParameterCount} arguments, but got {args.Count}");
         }
-        
+
         // 创建新的作用域，闭包作为父作用域
         var callScope = new Scope(Closure);
 
@@ -108,9 +108,10 @@ public record FunctionValue : Value
         {
             callScope.Define(Parameters[i], args[i]);
         }
-        
+
         // 执行函数体
         var result = await engine.EvaluateAsync(Body, callScope);
         return result;
     }
+
 }

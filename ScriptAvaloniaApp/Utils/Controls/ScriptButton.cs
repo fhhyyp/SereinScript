@@ -1,8 +1,10 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Interactivity;
 using ScriptLang;
 using ScriptLang.Runtime;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils.Controls
 {
@@ -13,25 +15,46 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptButton(ObjectValue node, ScriptEngine engine)
             : base(node, engine) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var btn = new Button();
-            ApplyAllProperties(btn);
-            if (Node.Properties.TryGetValue("OnClick", out var v) && v is FunctionValue func)
+            await ApplyAllPropertiesAsync(btn);
+            if (Node.TryGetValue("@Click", out var v) && v.Value is FunctionValue func)
             {
-                btn.Click += async (_, __) =>
+                /*if(func.ParameterCount == 1)
                 {
-                    try
+                    async void @Clieck(object? sender, RoutedEventArgs e)
                     {
+                        try
+                        {
+                            var obj = new ObjectValue(new Dictionary<string, MemberValue>());
+                            obj.Set("sender", sender is Button btn ? new ClrObjectValue(btn) : Value.Null);
+                            obj.Set("e", new ClrObjectValue(e));
 
-                        await func.CallAsync([], Engine);
-                        await BindingManager.RefreshAll();
+                            await func.CallAsync(Engine, obj);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                        }
                     }
-                    catch (System.Exception ex)
+                    btn.Click += @Clieck;
+                }
+                else*/
+                {
+                    async void @Clieck(object? sender, RoutedEventArgs e)
                     {
-                        Debug.WriteLine(ex);
+                        try
+                        {
+                            await func.CallAsync(Engine);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                        }
                     }
-                };
+                    btn.Click += @Clieck;
+                }
             }
 
             return btn;

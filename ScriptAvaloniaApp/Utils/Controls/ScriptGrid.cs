@@ -4,6 +4,7 @@ using ScriptLang.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils.Controls
 {
@@ -13,42 +14,42 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptGrid(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var grid = new Grid();
-            ApplyAllProperties(grid);
+            await ApplyAllPropertiesAsync(grid);
 
             // Rows
-            if (Node.Properties.TryGetValue("Rows", out var rowsVal))
+            if (Node.TryGetValue("Rows", out var rowsVal))
                 grid.RowDefinitions = ParseRowDefinitions(rowsVal.AsString());
 
             // Columns
-            if (Node.Properties.TryGetValue("Columns", out var colsVal))
+            if (Node.TryGetValue("Columns", out var colsVal))
                 grid.ColumnDefinitions = ParseColumnDefinitions(colsVal.AsString()) ;
 
             // Children
             foreach (var (key, value) in Node.Properties)
             {
-                if (value is not ObjectValue child || !ScriptControlFactory.IsControlType(key))
+                if (value.Value is not ObjectValue child || !ScriptControlFactory.IsControlType(key))
                     continue;
 
-                var ctrl = ScriptControlFactory
-                    .Create(key, child, Engine)
-                    .Create();
+                var ctrl = await ScriptControlFactory
+                    .CreateAsync(key, child, Engine);
 
-                if (child.Properties.TryGetValue("Row", out var r))
+                if (child.TryGetValue("Row", out var r))
                     Grid.SetRow(ctrl, (int)r.AsNumber());
 
-                if (child.Properties.TryGetValue("Column", out var c))
+                if (child.TryGetValue("Column", out var c))
                     Grid.SetColumn(ctrl, (int)c.AsNumber());
 
-                if (child.Properties.TryGetValue("RowSpan", out var rs))
+                if (child.TryGetValue("RowSpan", out var rs))
                     Grid.SetRowSpan(ctrl, (int)rs.AsNumber());
 
-                if (child.Properties.TryGetValue("ColumnSpan", out var cs))
+                if (child.TryGetValue("ColumnSpan", out var cs))
                     Grid.SetColumnSpan(ctrl, (int)cs.AsNumber());
 
                 grid.Children.Add(ctrl);
+
             }
 
             return grid;

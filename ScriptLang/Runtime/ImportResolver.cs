@@ -67,7 +67,7 @@ public class ImportResolver
         if (result is ObjectValue obj)
             return obj;
 
-        return new ObjectValue(new Dictionary<string, Value>());
+        return new ObjectValue(new Dictionary<string, MemberValue>());
     }
 
     /// <summary>

@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <Compile Remove="Utils\Controls\ScriptControl.cs" />
-    <Compile Remove="Utils\ScriptUIBuilder.cs" />
     <Compile Remove="Views\MainWindow.axaml.cs" />
   </ItemGroup>
 

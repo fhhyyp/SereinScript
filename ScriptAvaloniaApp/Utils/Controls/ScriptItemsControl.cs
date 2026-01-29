@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using ScriptLang;
 using ScriptLang.Runtime;
 using System;
@@ -14,50 +15,48 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptItemsControl(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var itemsControl = new ItemsControl();
 
             // 动态绑定模式
-            if (Node.Properties.TryGetValue("Items", out var itemsVal) &&
-                itemsVal is FunctionValue itemsFunc &&
-                Node.Properties.TryGetValue("ItemTemplate", out var tmplVal) &&
-                tmplVal is FunctionValue templateFunc)
+            if (Node.TryGetValue("ItemTemplate", out var tmplVal) && tmplVal.Value is FunctionValue templateFunc
+                && Node.TryGetValue("Items", out var itemsVal) && itemsVal.Value is ArrayValue arr)
             {
+
                 async Task Refresh()
                 {
-                    try
+                    List<Control> controls = new List<Control>();
+                    Debug.WriteLine(arr);
+                    foreach (var item  in arr.Elements)
                     {
-                        var v = await itemsFunc.CallAsync([], Engine);
-                        if (v is not ArrayValue arr)
-                            throw new Exception("Items must return ArrayValue");
+                        var uiValue = await templateFunc.CallAsync(Engine, item);
+                        if (uiValue is not ObjectValue obj)
+                            throw new Exception("ItemTemplate must return ObjectValue");
 
-                        var list = new List<Control>();
-                        foreach (var item in arr.Elements)
+                        var first = obj.Properties.First();
+                        try
                         {
-                            var uiValue = await templateFunc.CallAsync(new List<Value> { item }, Engine);
-                            if (uiValue is not ObjectValue obj)
-                                throw new Exception("ItemTemplate must return ObjectValue");
-
-                            var first = obj.Properties.First();
-                            var child = ScriptControlFactory.Create(first.Key, (ObjectValue)first.Value, Engine).Create();
-                            list.Add(child);
+                            var child = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value.Value, Engine);
+                            controls.Add(child);
                         }
-
-                        itemsControl.ItemsSource = list;
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine(ex);
-                    }
+                    itemsControl.ItemsSource = controls;
                 }
+                await  SubArrayChangedAsync(arr, Refresh);
 
-                BindingManager.Register(Refresh);
-                _ = Refresh();
+                //throw new Exception("ItemsControl requires either Items+ItemTemplate (dynamic) or Items array (static)");
             }
-            // 静态定义模式
-            else if (Node.Properties.TryGetValue("Items", out itemsVal) &&
-                     itemsVal is ArrayValue arrVal)
+
+
+            // 静态绑定模式
+#if false
+            else if (Node.TryGetValue("Items", out itemsVal) &&
+                         itemsVal.Value is ArrayValue arrVal)
             {
                 var list = new List<Control>();
                 foreach (var item in arrVal.Elements)
@@ -65,12 +64,13 @@ namespace ScriptAvaloniaApp.Utils.Controls
                     if (item is ObjectValue obj)
                     {
                         var first = obj.Properties.First();
-                        var child = ScriptControlFactory.Create(first.Key, (ObjectValue)first.Value, Engine).Create();
+                        var child = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value.Value, Engine);
                         list.Add(child);
                     }
                 }
                 itemsControl.ItemsSource = list;
-            }
+            } 
+#endif
             else
             {
                 throw new Exception("ItemsControl requires either Items+ItemTemplate (dynamic) or Items array (static)");

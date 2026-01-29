@@ -74,13 +74,14 @@ namespace ScriptLang.Runtime
             {
                 if (args.Count != 1)
                     throw new RuntimeException("len() expects 1 argument");
-
-                return args[0] switch
+                var lenValue = args[0] switch
                 {
                     StringValue s => new NumberValue(s.Value.Length),
-                    ArrayValue a => new NumberValue(a.Elements.Count),
+                    ArrayValue a => a.GetLength() , //new NumberValue(a.Elements.Count),
                     _ => throw new RuntimeException("len() expects string or array")
                 };
+
+                return lenValue;
             }));
 
             // map (check existence)

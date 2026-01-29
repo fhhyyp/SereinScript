@@ -1,7 +1,10 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Threading;
 using ScriptLang;
 using ScriptLang.Runtime;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ScriptAvaloniaApp.Utils.Controls
@@ -11,27 +14,47 @@ namespace ScriptAvaloniaApp.Utils.Controls
         public ScriptTextBlock(ObjectValue node, ScriptEngine interpreter)
             : base(node, interpreter) { }
 
-        public override Control Create()
+        public override async Task<Control> CreateAsync()
         {
             var tb = new TextBlock();
-            ApplyAllProperties(tb);
 
-            if (Node.Properties.TryGetValue("Text", out var textVal))
+            IgnoreProperties.Add("Text");
+
+            await ApplyAllPropertiesAsync(tb);
+
+            if (Node.TryGetValue("Text", out var textVal))
             {
-                if (textVal is StringValue s)
-                    tb.Text = s.Value;
-                else if (textVal is FunctionValue func)
+                if (TryGetConvert(textVal, out var source, out var convert))
                 {
-                    async Task Update()
+                    async Task Refresh()
                     {
-                        var v = await func.CallAsync(new List<Value>(), Engine);
-                        tb.Text = v.AsString();
+                        var result = await convert.CallAsync(Engine, source);
+                        var v = result.AsString();
+                        if (v != tb.Text)
+                        {
+                            tb.UIInvoke(c => c.Text = v);
+                        }
                     }
-                    BindingManager.Register(Update);
-                    _ = Update();
+                    await SubConvertAsync(source, Refresh);
+                }
+                else if (textVal.Value is ArrayValue arrayValue)
+                {
+                    async Task Refresh()
+                    {
+                        await Task.CompletedTask;
+                        var v = string.Join(string.Empty, arrayValue.Elements.Select(x => x.AsString()));
+                        if (v != tb.Text)
+                        {
+                            tb.UIInvoke(c => c.Text = v);
+                        }
+                    }
+                    await SubArrayChangedAsync(arrayValue, Refresh);
+                }
+                else
+                {
+                    tb.Text = textVal.AsString();
                 }
             }
-
             return tb;
         }
     }

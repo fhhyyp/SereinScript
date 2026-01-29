@@ -7,6 +7,7 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ScriptLang.Runtime;
@@ -46,7 +47,7 @@ public class Interpreter
         if (expr is Parser.Program program)
             return await EvaluateProgramAsync(program, scope);
 
-        return expr switch
+        var value = expr switch
         {
             ReturnExpr returnExpr => await EvaluateReturnAsync(returnExpr, scope),
             ImportStmt import => (await EvaluateImportAsync(import, scope)).FormResult(),
@@ -72,6 +73,7 @@ public class Interpreter
             IndexAccessExpr index => (await EvaluateIndexAccessAsync(index, scope)).FormResult(),
             _ => throw Error(expr, $"Unknown expression type")
         };
+        return value;
     }
 
 
@@ -191,19 +193,15 @@ public class Interpreter
             {
                 if (right.IsArray)
                 {
-                    var originalityArray = left.AsArray();
                     var tempArray = right.AsArray();
-                    foreach (var item in tempArray)
-                    {
-                        originalityArray.Remove(item);
-                    }
-                    return new ArrayValue(originalityArray.ToList());
+                    var newArr = left.AsArray().Where(x => !tempArray.Contains(x)).ToList();
+                    return new ArrayValue(newArr);
                 }
                 else
                 {
-                    var originalityArray = left.AsArray();
-                    originalityArray.Remove(right);
-                    return new ArrayValue(originalityArray.ToList());
+                    var newArr = left.AsArray().ToList();
+                    newArr.Remove(right);
+                    return new ArrayValue(newArr);
                 }
             }
 
@@ -421,7 +419,7 @@ public class Interpreter
         // 处理 FunctionValue（DSL Lambda + 原生函数）
         if (target is FunctionValue func)
         {
-            return await func.CallAsync(args, _engine);
+            return await func.CallAsync(_engine, args);
         }
 
         // 处理 ClrMethodValue（CLR 方法调用）
@@ -456,25 +454,54 @@ public class Interpreter
 
     // ==================== 数据结构 ====================
 
+    /// <summary>
+    /// 构造数组
+    /// </summary>
+    /// <param name="array"></param>
+    /// <param name="scope"></param>
+    /// <returns></returns>
     private async Task<Value> EvaluateArrayAsync(ArrayLiteralExpr array, Scope scope)
     {
         var elements = new List<Value>();
         foreach (var expr in array.Elements)
         {
             var item = (await EvaluateAsync(expr, scope)).Value;
+
             elements.Add(item);
         }
         return new ArrayValue(elements);
     }
 
+   /// <summary>
+   /// 构造对象
+   /// </summary>
+   /// <param name="obj"></param>
+   /// <param name="scope"></param>
+   /// <returns></returns>
     private async Task<Value> EvaluateObjectAsync(ObjectLiteralExpr obj, Scope scope)
     {
-        var properties = new Dictionary<string, Value>();
+        var properties = new Dictionary<string, MemberValue>();
         foreach (var prop in obj.Properties)
         {
-            properties[prop.Key] = (await EvaluateAsync(prop.Value, scope)).Value;
+            var key = prop.Key;
+            var value = (await EvaluateAsync(prop.Value, scope)).Value;
+            var menberValue = new MemberValue(key, value);
+            if(value.Source is not null)
+            {
+                menberValue.Source = value.Source;
+                menberValue.TargetKey = value.TargetKey;
+                menberValue.TargetIndex = value.TargetIndex;
+            }
+            properties[prop.Key] = menberValue;
         }
-        return new ObjectValue(properties);
+        var objValue = new ObjectValue(properties);
+        /*var temparr = objValue.Properties.Select(x => x.Value).Where(x => x.Value.Source is null).ToList();
+        foreach (var item in temparr)
+        {
+            item.Value.TargetKey = item.TargetKey;
+            item.Value.Source = objValue ;
+        }*/
+        return objValue;
     }
 
     /// <summary>
@@ -495,16 +522,16 @@ public class Interpreter
         // 处理 ObjectValue（脚本对象）
         if (target is ObjectValue obj)
         {
-            if (obj.Properties.TryGetValue(member.Property, out var value))
+            if (obj.TryGetValue(member.Property, out var memberValue))
             {
-                return value;
+                return memberValue.Value;
             }
 
             #region 原生map对象方法
             return member.Property switch
             {
                 "keys" => new ArrayValue(obj.Properties.Keys.Select(k => new StringValue(k)).Cast<Value>().ToList()),
-                "values" => new ArrayValue(obj.Properties.Values.ToList()),
+                "values" => new ArrayValue(obj.Properties.Values.Select(x => x.Value).ToList()),
                 "has" => new FunctionValue("has", args =>
                 {
                     if (args.Count != 1)
@@ -516,7 +543,6 @@ public class Interpreter
                     var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
                     return new BoolValue(isContainsKey);
                 }),
-
                 _ => throw Error(member, $"Property '{member.Property}' not found on object"),
             };
             #endregion
@@ -529,6 +555,16 @@ public class Interpreter
             return member.Property switch
             {
                 "length" => new NumberValue(arr.Elements.Count),
+                "onNext" => new FunctionValue("onNext", async args =>
+                    {
+                        if (args.Count != 1) throw Error(member, "map() expects 1 argument");
+                        if (args[0] is not FunctionValue func) throw Error(member, "map() expects a function");
+
+                        var value = await func.CallAsync(_engine, arr);
+                        value.Source = arr;
+                        value.TargetKey = "*";
+                        return value;
+                    }),
                 "map" => new FunctionValue(
                     "map",
                     async args =>
@@ -540,7 +576,7 @@ public class Interpreter
                         foreach (var item in arr.Elements)
                         {
                             // 调用函数
-                            var callResult = await func.CallAsync(new List<Value> { item }, _engine);
+                            var callResult = await func.CallAsync(_engine, item);
                             result.Add(callResult);
                         }
                         return new ArrayValue(result);
@@ -555,7 +591,7 @@ public class Interpreter
                         var result = new List<Value>();
                         foreach (var item in arr.Elements)
                         {
-                            var callResult = await func.CallAsync(new List<Value> { item }, _engine);
+                            var callResult = await func.CallAsync(_engine, item);
                             if (IsTruthy(callResult))
                                 result.Add(item);
                         }
@@ -570,7 +606,7 @@ public class Interpreter
 
                         foreach (var item in arr.Elements)
                         {
-                            var result = await func.CallAsync(new List<Value> { item }, _engine);
+                            var result = await func.CallAsync(_engine, item);
                         }
                         return Value.Null;
                     }),
@@ -595,22 +631,36 @@ public class Interpreter
                     if (arr.Elements.Count == 0) return Value.Null;
                     return arr.Elements[^1];
                 }),
+                "remove" => new FunctionValue("remove", args =>
+                {
+                    if (args.Count != 1)
+                        throw Error(member, "remove() expects 1 argument");
+                    var state = arr.Remove(args[0], _engine);
+                    return new BoolValue(state);
+                }),
+                "removeAt" => new FunctionValue("removeAt", args =>
+                {
+                    if (args.Count != 1 || !args[0].IsNumber)
+                        throw Error(member, "removeAt() expects a number");
+
+                    var index = (int)args[0].AsNumber();
+                    if (index < 0) index = arr.Length + index;
+                    arr.RemoveAt(index, _engine);
+                    return Value.Null;
+                }),
                 "pop" => new FunctionValue("pop", args =>
                 {
-                    if (arr.Elements.Count == 0) return Value.Null;
-                    var last = arr.Elements[^1];
-                    arr.Elements.RemoveAt(arr.Elements.Count - 1);
-                    return last;
+                    return arr.Pop(_engine);
                 }),
                 "push" => new FunctionValue("push", args =>
                 {
                     foreach (var item in args)
-                        arr.Elements.Add(item);
-                    return new NumberValue(arr.Elements.Count);
+                        arr.Add(item, _engine);
+                    return Value.Null;
                 }),
                 "reverse" => new FunctionValue("reverse", args =>
                 {
-                    arr.Elements.Reverse();
+                    arr.Reverse(_engine);
                     return arr;
                 }),
                 "find" => new FunctionValue("find", async args =>
@@ -623,7 +673,7 @@ public class Interpreter
 
                     foreach (var item in arr.Elements)
                     {
-                        var result = await func.CallAsync(new List<Value> { item }, _engine);
+                        var result = await func.CallAsync(_engine, item);
                         if (IsTruthy(result))
                             return item;
                     }
@@ -640,7 +690,7 @@ public class Interpreter
 
                     for (int i = 0; i < arr.Elements.Count; i++)
                     {
-                        var result = await  func.CallAsync(new List<Value> { arr.Elements[i] }, _engine);
+                        var result = await func.CallAsync(_engine, arr.Elements[i]);
                         if (IsTruthy(result))
                             return new NumberValue(i);
                     }
@@ -659,8 +709,7 @@ public class Interpreter
 
                     foreach (var item in arr.Elements)
                     {
-                        var task = func.CallAsync(new List<Value> { item }, _engine);
-                        var result = await task ?? Value.Null;
+                        var result = await func.CallAsync(_engine, item);
                         if (IsTruthy(result))
                             return new BoolValue(true);
                     }
@@ -679,8 +728,7 @@ public class Interpreter
 
                     foreach (var item in arr.Elements)
                     {
-                        var task = func.CallAsync(new List<Value> { item }, _engine);
-                        var result = await task ?? Value.Null;
+                        var result = await func.CallAsync(_engine, item);
                         if (!IsTruthy(result))
                             return new BoolValue(false);
                     }
@@ -699,6 +747,19 @@ public class Interpreter
 
                     var joinResult = string.Join(stringValue.AsString(), arr.Elements.Select(x => x.AsString()));
                     return new StringValue(joinResult);
+                }),
+                "onChanged" => new FunctionValue("onChanged", args =>
+                {
+                    if (args.Count != 1)
+                        throw Error(member, "onChanged() expects 1 argument");
+
+                    if (args[0] is not FunctionValue functionValue)
+                        throw Error(member, "onChanged() expects function");
+
+                    arr.AddOnChanged(functionValue);
+
+                    //var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
+                    return Value.Null;
                 }),
                 _ => throw Error(member, $"Unknown array method '{member.Property}'")
             };
@@ -813,31 +874,22 @@ public class Interpreter
             return Value.Null;
         }
 
+        var value = (await EvaluateAsync(memberAssign.Value, scope)).Value; ;
+
         // ObjectValue（脚本对象）属性赋值
         if (target is ObjectValue obj)
         {
-            obj.Properties[memberAssign.Property] = (await EvaluateAsync(memberAssign.Value, scope)).Value;
-            return obj.Properties[memberAssign.Property];
-        }
-
-        // ArrayValue 只允许修改 "length" 不存在，通常不支持
-        if (target is ArrayValue arr && memberAssign.Property == "length")
-        {
-            throw Error(memberAssign, "Cannot assign to 'length' of an array");
-        }
-
-        // StringValue 不可修改属性（只读）
-        if (target is StringValue)
-        {
-            throw Error(memberAssign, "Cannot assign property on a string");
+            obj.Set(memberAssign.Property, value);
+            //obj.Properties[memberAssign.Property] = value;
+            return value;
         }
 
         // ClrObjectValue（CLR 对象）属性赋值
         if (target is ClrObjectValue clrObj)
         {
-            SetClrProperty(memberAssign, clrObj, memberAssign.Property, (await EvaluateAsync(memberAssign.Value, scope)).Value);
-            var memberAccessExpr = new MemberAccessExpr(memberAssign.Target, memberAssign.Property, memberAssign.SafeNull, null);
-            return await EvaluateMemberAccessAsync(memberAccessExpr, scope);
+            SetClrProperty(memberAssign, clrObj, memberAssign.Property, value);
+            //var memberAccessExpr = new MemberAccessExpr(memberAssign.Target, memberAssign.Property, memberAssign.SafeNull, null);
+            return value;
         }
 
         throw Error(memberAssign, $"Cannot assign property '{memberAssign.Property}' on {target.GetType()}");
@@ -859,7 +911,7 @@ public class Interpreter
             int i = (int)idx.AsNumber();
             if (i < 0 || i >= arr.Elements.Count)
                 throw Error(index, $"Array index out of bounds: {i}");
-            return arr.Elements[i];
+            return arr.Get(i);
         }
 
         if (target is StringValue str && idx.IsNumber)
@@ -872,7 +924,7 @@ public class Interpreter
 
         if (target is ObjectValue obj && idx is StringValue key)
         {
-            if (obj.Properties.TryGetValue(key.Value, out var value))
+            if (obj.TryGetValue(key.Value, out var value))
             {
                 return value;
             }
@@ -901,8 +953,9 @@ public class Interpreter
         }
 
         if (target is ObjectValue obj && idx is StringValue key)
-        {
-            obj.Properties[key.Value] = value;
+        { 
+            obj.Set(key.Value, value);
+            //obj.Properties[key.Value] = value;
             return value;
         }
 
@@ -947,7 +1000,9 @@ public class Interpreter
         };
     }
 
-    // 成员缓存： (Type, Name) -> MemberInfo
+    /// <summary>
+    /// CLR对象成员缓存： (Type, Name) -> MemberInfo
+    /// </summary>
     private readonly Dictionary<(Type, string), MemberInfo> _memberInfoCaches = new();
 
     /// <summary>
@@ -955,7 +1010,7 @@ public class Interpreter
     /// </summary>
     private void SetClrProperty(MemberAssignExpr memberAssign, ClrObjectValue clrObj, string propertyName, Value value)
     {
-        var type = clrObj.Target.GetType();
+        var type = clrObj.Target!.GetType();
         var member = GetOrAddMemberInfo(type, propertyName, memberAssign);
 
         if (member is not PropertyInfo prop || !prop.CanWrite)
@@ -970,7 +1025,7 @@ public class Interpreter
     /// </summary>
     private Value AccessClrProperty(MemberAccessExpr member, ClrObjectValue clrObj, string propertyName)
     {
-        var type = clrObj.Target.GetType();
+        var type = clrObj.Target!.GetType();
         var memberInfo = GetOrAddMemberInfo(type, propertyName, member);
 
         try
@@ -1115,18 +1170,20 @@ public class Interpreter
         // 字典类型
         if (clrValue is System.Collections.IDictionary dict)
         {
-            var properties = new Dictionary<string, Value>();
+            var properties = new Dictionary<string, MemberValue>();
             foreach (System.Collections.DictionaryEntry entry in dict)
             {
                 var key = entry.Key?.ToString();
                 if (key != null)
                 {
-                    properties[key] = ConvertClrValueToScriptValue(entry.Value);
+                    var vakue = ConvertClrValueToScriptValue(entry.Value);
+                    var member = new MemberValue(key, vakue);
+                    properties[key] = member;
                 }
             }
             return new ObjectValue(properties);
         }
-
+        
         // 其他 CLR 对象包装
         return new ClrObjectValue(clrValue);
     }
@@ -1157,7 +1214,7 @@ public class Interpreter
         // 处理 ClrObjectValue（直接返回包装的对象）
         if (value is ClrObjectValue clrObj)
         {
-            if (targetType.IsAssignableFrom(clrObj.Target.GetType()))
+            if (targetType.IsAssignableFrom(clrObj.Target!.GetType()))
                 return clrObj.Target;
             throw Error(expr, $"CLR object of type {clrObj.Target.GetType().Name} cannot be cast to {targetType.Name}");
         }
