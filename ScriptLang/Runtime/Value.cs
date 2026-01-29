@@ -53,21 +53,21 @@ public abstract record Value
 
     public abstract T As<T>();
     
-    public bool IsNull => this is NullValue || (this is MemberValue member && member.Value is NullValue);
-    public bool IsNumber => this is NumberValue || (this is MemberValue member && member.Value is NumberValue);
-    public bool IsString => this is StringValue || (this is MemberValue member && member.Value is StringValue);
-    public bool IsBool => this is BoolValue || (this is MemberValue member && member.Value is BoolValue);
-    public bool IsObject => this is ObjectValue || (this is MemberValue member && member.Value is ObjectValue);
-    public bool IsArray => this is ArrayValue || (this is MemberValue member && member.Value is ArrayValue);
-    public bool IsFunction => this is FunctionValue || (this is MemberValue member && member.Value is FunctionValue);
-    public bool IsClrObject => this is ClrObjectValue || (this is MemberValue member && member.Value is ClrObjectValue);
-    public bool IsClrMethod => this is ClrMethodValue || (this is MemberValue member && member.Value is ClrMethodValue);
+    public bool IsNull => this is NullValue;
+    public bool IsNumber => this is NumberValue;
+    public bool IsString => this is StringValue;
+    public bool IsBool => this is BoolValue;
+    public bool IsObject => this is ObjectValue;
+    public bool IsArray => this is ArrayValue;
+    public bool IsFunction => this is FunctionValue;
+    public bool IsClrObject => this is ClrObjectValue;
+    public bool IsClrMethod => this is ClrMethodValue;
     
-    public double AsNumber() => (this as NumberValue)?.Value ?? ((this as MemberValue)?.Value)?.AsNumber() ?? 0;
-    public string AsString() => (this as StringValue)?.Value ??  ((this as MemberValue)?.Value)?.AsString() ?? this.ToString();
-    public bool AsBool() => (this as BoolValue)?.Value ?? ((this as MemberValue)?.Value)?.AsBool() ?? false;
-    public Dictionary<string, MemberValue> AsObject() => (this as ObjectValue)?.Properties ?? ((this as MemberValue)?.Value)?.AsObject() ?? new();
-    public List<Value> AsArray() => (this as ArrayValue)?.Elements ?? ((this as MemberValue)?.Value)?.AsArray() ?? new();
+    public double AsNumber() => (this as NumberValue)?.Value  ?? 0;
+    public string AsString() => (this as StringValue)?.Value  ?? this.ToString();
+    public bool AsBool() => (this as BoolValue)?.Value  ?? false;
+    public Dictionary<string, Value> AsObject() => (this as ObjectValue)?.Properties  ?? new();
+    public List<Value> AsArray() => (this as ArrayValue)?.Elements  ?? new();
     
     public sealed override string ToString()
     {
@@ -77,7 +77,7 @@ public abstract record Value
             NumberValue n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
             StringValue s => $"\"{s.Value}\"",
             BoolValue b => b.Value ? "true" : "false",
-            MemberValue m => $"<menber:({m.Value.GetType().Name}){m.Value}>",
+            //MemberValue m => $"<menber:({m.Value.GetType().Name}){m.Value}>",
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
             ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
             FunctionValue f => $"<function:{string.Join(',', f.Parameters)}>",
@@ -143,7 +143,7 @@ public record BoolValue(bool Value) : Value
     }
 }
 
-/// <summary>
+/*/// <summary>
 /// 对象成员
 /// </summary>
 /// <param name="MemberName">值名称</param>
@@ -152,44 +152,44 @@ public record BoolValue(bool Value) : Value
 public record MemberValue(string MemberName, Value Value) : Value
 {
     public override T As<T>() => Value.As<T>();
-}
+}*/
 
 /// <summary>
 /// 对象值（map/record）
 /// </summary>
-public record ObjectValue(Dictionary<string, MemberValue> Properties) : Value, IObservableValue
+public record ObjectValue(Dictionary<string, Value> Properties) : Value, IObservableValue
 {
     public event Action<ValueChange>? Changed;
 
     public void Set(string key, Value value)
     {
-        var menberValue = new MemberValue(key, value);
+       /* var menberValue = new MemberValue(key, value);
         if(menberValue.Source is null)
         {
             menberValue.Source = this;
             menberValue.TargetKey = key;
-        }
+        }*/
         
 
         Properties.TryGetValue(key, out var old);
-        Properties[key] = menberValue;
+        Properties[key] = value;
         Changed?.Invoke(new ValueChange(
             this, key, old, value, ChangeType.Set
         ));
     }
 
-    public MemberValue Get(string key)
+    public Value Get(string key)
     {
         return Properties[key];
     }
 
-    public bool TryGetValue(string key, [NotNullWhen(true)]out MemberValue? value)
+    public bool TryGetValue(string key, [NotNullWhen(true)]out Value? value)
     {
         var state = Properties.TryGetValue(key, out value);
-        if (value?.Value.Source is null)
+        if (value?.Source is null)
         {
-            value?.Value.TargetKey = key;
-            value?.Value.Source = this;
+            value?.TargetKey = key;
+            value?.Source = this;
         }
         return state;
     }

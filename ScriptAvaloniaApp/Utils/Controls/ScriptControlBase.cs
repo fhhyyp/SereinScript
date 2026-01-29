@@ -35,14 +35,14 @@ namespace ScriptAvaloniaApp.Utils.Controls
             foreach (var (key, value) in Node.Properties)
             {
                 // 跳过子控件
-                if (IgnoreProperties.Contains(key) && value.Value is ObjectValue && ScriptControlFactory.IsControlType(key))
+                if (IgnoreProperties.Contains(key) && value is ObjectValue && ScriptControlFactory.IsControlType(key))
                     continue;
 
-                await TryBind(control, key, value);
+                await TryBindAsync(control, key, value);
             }
         }
 
-        protected async Task TryBind(Control control, string propertyName, Value value)
+        private async Task TryBindAsync(Control control, string propertyName, Value value)
         {
             var prop = control.GetType().GetProperty(propertyName);
             if (prop == null || !prop.CanWrite)
@@ -55,27 +55,26 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 {
                     var result = await convert.CallAsync(Engine, source);
                     var clr = ConvertValueToClr(result, prop.PropertyType);
-                    control.UIInvoke(c => 
-                        prop.SetValue(c, clr));
+                    control.UIInvoke(c =>
+                    {
+                        prop.SetValue(c, clr);
+                    });
                 }
                 await SubChangedAsync(source, Refresh);
             }
-            if (TryGetObjectValue(value, out var sourceObject, out var targetKey))
+            else if (TryGetObjectValue(value, out var sourceObject, out var targetKey))
             {
                 // 如果这个值来源于一个对象，并且该对象对应值（名称）发生改变，则更新控件属性
+
                 async Task Refresh()
                 {
-                    if (propertyName == "IsChecked")
-                    {
-
-                    }
-                    var value = sourceObject.Get(targetKey);
-                    var clr = ConvertValueToClr(value, prop.PropertyType);
+                    var objProperty = sourceObject.Get(targetKey);
+                    var clr = ConvertValueToClr(objProperty, prop.PropertyType);
                     control.UIInvoke(c => prop.SetValue(c, clr));
                 }
                 await SubChangedAsync(sourceObject, Refresh);
             }
-            if (TryGetArrayValue(value, out var sourceArray, out var targetIndex))
+            else if(TryGetArrayValue(value, out var sourceArray, out var targetIndex))
             {
                 // 如果这个值来源于一个数组，并且该对象对应值（下标）发生改变，则更新控件属性
                 async Task Refresh()
@@ -98,17 +97,17 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <summary>
         /// 判断对象值是否为转换器结构
         /// </summary>
-        /// <param name="menberValue"></param>
+        /// <param name="value"></param>
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetConvert(Value menberValue, [NotNullWhen(true)] out Value? source, [NotNullWhen(true)] out FunctionValue? convert)
+        protected static bool TryGetConvert(Value? value, [NotNullWhen(true)] out Value? source, [NotNullWhen(true)] out FunctionValue? convert)
         {
-            if (menberValue is MemberValue member && member.Value is ObjectValue objectValue
-                && objectValue.TryGetValue("Value", out var v)
-                && objectValue.TryGetValue("Convert", out var c) && c.Value is FunctionValue func)
+            if (value is ObjectValue objectValue
+                && objectValue.TryGetValue("Value", out var v ) && v is IObservableValue observable
+                && objectValue.TryGetValue("Convert", out var c) && c is FunctionValue func)
             {
-                source = v.Value;
+                source = v;
                 convert = func;
                 return true;
             }
@@ -123,17 +122,17 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <summary>
         /// 判断值来源是否为对象
         /// </summary>
-        /// <param name="menberValue"></param>
+        /// <param name="value"></param>
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetObjectValue(Value menberValue, [NotNullWhen(true)] out ObjectValue? sourceObject,  [NotNullWhen(true)] out string? targetKey)
+        protected static bool TryGetObjectValue(Value? value, [NotNullWhen(true)] out ObjectValue? sourceObject,  [NotNullWhen(true)] out string? targetKey)
         {
-            if (menberValue is MemberValue member && member.Value.Source is ObjectValue objectValue
-                && !string.IsNullOrWhiteSpace(member.Value.TargetKey))
+            if (value?.Source is ObjectValue objectValue
+                && !string.IsNullOrWhiteSpace(value.TargetKey))
             {
                 sourceObject = objectValue;
-                targetKey = member.Value.TargetKey;
+                targetKey = value.TargetKey;
                 return true;
             }
             else
@@ -148,17 +147,17 @@ namespace ScriptAvaloniaApp.Utils.Controls
         /// <summary>
         /// 判断值来源是否为数组
         /// </summary>
-        /// <param name="menberValue"></param>
+        /// <param name="value"></param>
         /// <param name="source"></param>
         /// <param name="convert"></param>
         /// <returns></returns>
-        protected static bool TryGetArrayValue(Value menberValue, [NotNullWhen(true)] out ArrayValue? sourceArray,  [NotNullWhen(true)] out int targetIndex)
+        protected static bool TryGetArrayValue(Value? value, [NotNullWhen(true)] out ArrayValue? sourceArray,  [NotNullWhen(true)] out int targetIndex)
         {
-            if (menberValue is MemberValue member && member.Value.Source is ArrayValue value
-                && member.Value.TargetIndex > -1)
+            if (value?.Source is ArrayValue array
+                && value.TargetIndex > -1)
             {
-                sourceArray = value;
-                targetIndex = member.Value.TargetIndex;
+                sourceArray = array;
+                targetIndex = value.TargetIndex;
                 return true;
             }
             else
@@ -235,10 +234,6 @@ namespace ScriptAvaloniaApp.Utils.Controls
 
         private Avalonia.Thickness ParseThickness(Value v)
         {
-            if(v is MemberValue memberValue)
-            {
-                v = memberValue.Value;
-            }
             double[] thicks = v switch
             {
                 ArrayValue arr => arr.Elements.Select(x => x.AsNumber()).ToArray(),

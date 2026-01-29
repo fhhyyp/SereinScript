@@ -480,19 +480,18 @@ public class Interpreter
    /// <returns></returns>
     private async Task<Value> EvaluateObjectAsync(ObjectLiteralExpr obj, Scope scope)
     {
-        var properties = new Dictionary<string, MemberValue>();
+        var properties = new Dictionary<string, Value>();
         foreach (var prop in obj.Properties)
         {
             var key = prop.Key;
             var value = (await EvaluateAsync(prop.Value, scope)).Value;
-            var menberValue = new MemberValue(key, value);
             if(value.Source is not null)
             {
-                menberValue.Source = value.Source;
-                menberValue.TargetKey = value.TargetKey;
-                menberValue.TargetIndex = value.TargetIndex;
+                value.Source = value.Source;
+                value.TargetKey = value.TargetKey;
+                value.TargetIndex = value.TargetIndex;
             }
-            properties[prop.Key] = menberValue;
+            properties[prop.Key] = value;
         }
         var objValue = new ObjectValue(properties);
         /*var temparr = objValue.Properties.Select(x => x.Value).Where(x => x.Value.Source is null).ToList();
@@ -524,14 +523,14 @@ public class Interpreter
         {
             if (obj.TryGetValue(member.Property, out var memberValue))
             {
-                return memberValue.Value;
+                return memberValue;
             }
 
             #region 原生map对象方法
             return member.Property switch
             {
                 "keys" => new ArrayValue(obj.Properties.Keys.Select(k => new StringValue(k)).Cast<Value>().ToList()),
-                "values" => new ArrayValue(obj.Properties.Values.Select(x => x.Value).ToList()),
+                "values" => new ArrayValue(obj.Properties.Values.ToList()),
                 "has" => new FunctionValue("has", args =>
                 {
                     if (args.Count != 1)
@@ -1170,15 +1169,15 @@ public class Interpreter
         // 字典类型
         if (clrValue is System.Collections.IDictionary dict)
         {
-            var properties = new Dictionary<string, MemberValue>();
+            var properties = new Dictionary<string, Value>();
             foreach (System.Collections.DictionaryEntry entry in dict)
             {
                 var key = entry.Key?.ToString();
                 if (key != null)
                 {
                     var vakue = ConvertClrValueToScriptValue(entry.Value);
-                    var member = new MemberValue(key, vakue);
-                    properties[key] = member;
+                    //var member = new MemberValue(key, vakue);
+                    properties[key] = vakue;
                 }
             }
             return new ObjectValue(properties);

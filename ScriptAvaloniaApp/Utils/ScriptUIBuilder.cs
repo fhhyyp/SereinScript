@@ -20,7 +20,7 @@ namespace ScriptAvaloniaApp.Utils
                 throw new Exception("UI root must be ObjectValue");
 
             var first = root.Properties.First();
-            var control = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value.Value, interpreter);
+            var control = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value, interpreter);
           
             return control;
         }

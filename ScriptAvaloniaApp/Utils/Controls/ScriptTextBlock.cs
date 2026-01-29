@@ -37,7 +37,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
                     }
                     await SubConvertAsync(source, Refresh);
                 }
-                else if (textVal.Value is ArrayValue arrayValue)
+                else if (textVal is ArrayValue arrayValue)
                 {
                     async Task Refresh()
                     {

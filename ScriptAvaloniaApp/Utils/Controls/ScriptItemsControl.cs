@@ -20,8 +20,8 @@ namespace ScriptAvaloniaApp.Utils.Controls
             var itemsControl = new ItemsControl();
 
             // 动态绑定模式
-            if (Node.TryGetValue("ItemTemplate", out var tmplVal) && tmplVal.Value is FunctionValue templateFunc
-                && Node.TryGetValue("Items", out var itemsVal) && itemsVal.Value is ArrayValue arr)
+            if (Node.TryGetValue("ItemTemplate", out var tmplVal) && tmplVal is FunctionValue templateFunc
+                && Node.TryGetValue("Items", out var itemsVal) && itemsVal is ArrayValue arr)
             {
 
                 async Task Refresh()
@@ -37,7 +37,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
                         var first = obj.Properties.First();
                         try
                         {
-                            var child = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value.Value, Engine);
+                            var child = await ScriptControlFactory.CreateAsync(first.Key, (ObjectValue)first.Value, Engine);
                             controls.Add(child);
                         }
                         catch (Exception ex)

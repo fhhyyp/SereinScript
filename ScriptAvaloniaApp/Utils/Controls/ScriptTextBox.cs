@@ -19,36 +19,50 @@ namespace ScriptAvaloniaApp.Utils.Controls
         {
             var tb = new TextBox();
 
-            IgnoreProperties.Add("Text");
             await ApplyAllPropertiesAsync(tb);
             bool isload = true;
             // getter
-            if (Node.TryGetValue("Text", out var textVal))
+            if (Node.TryGetValue("Text", out var value))
             {
-                if(TryGetObjectValue(textVal, out var sourceObject, out var targetKey))
+                if(TryGetObjectValue(value, out var sourceObject, out var targetKey))
                 {
                     async Task UpdateText()
                     {
                         await Task.CompletedTask;
-                        var v = sourceObject.Get(targetKey).Value.AsString();
-                        if (tb.Text != v)
+                        if(sourceObject.TryGetValue(targetKey, out var result))
                         {
-                            tb.UIInvoke(c => c.Text = v);
+                            var content = result.AsString();
+                            if (tb.Text != content) tb.UIInvoke(c => c.Text = content);
                         }
                     }
                     await SubObjectChangedAsync(sourceObject, targetKey, UpdateText);
                     tb.TextChanged += (sender, e) =>
                     {
-                        if (!isload)
-                            sourceObject.Set(targetKey, new StringValue(tb.Text ?? string.Empty));
+                        sourceObject.Set(targetKey, new StringValue(tb.Text ?? string.Empty));
+                    };
+                }
+                else if(TryGetArrayValue(value, out var arrayValue, out var targetIndex))
+                {
+                    async Task UpdateText()
+                    {
+                        if (targetIndex >= arrayValue.Length) return;
+                        await Task.CompletedTask;
+                        var item = arrayValue.Get(targetIndex);
+                        var content = item.AsString();
+                        if (tb.Text != content) tb.UIInvoke(c => c.Text = content);
+                    }
+                    await SubArrayChangedAsync(arrayValue, targetIndex, UpdateText);
+                    tb.TextChanged += (sender, e) =>
+                    {
+                        if (targetIndex >= arrayValue.Length) return;
+                        var value = new StringValue(tb.Text ?? string.Empty);
+                        arrayValue.Set(targetIndex, value, Engine);
                     };
                 }
                 else
                 {
-                    tb.Text = textVal.AsString();
+                    tb.Text = value.AsString();
                 }
-
-               
             }
 
             isload = false;

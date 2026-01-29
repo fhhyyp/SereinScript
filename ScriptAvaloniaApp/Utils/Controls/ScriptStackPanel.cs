@@ -19,7 +19,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
 
             foreach (var (key, value) in Node.Properties)
             {
-                if (value.Value is ObjectValue child && ScriptControlFactory.IsControlType(key))
+                if (value is ObjectValue child && ScriptControlFactory.IsControlType(key))
                 {
                     var ctrl = await ScriptControlFactory.CreateAsync(key, child, Engine);
                     panel.Children.Add(ctrl);

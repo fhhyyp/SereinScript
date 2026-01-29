@@ -30,7 +30,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
             // Children
             foreach (var (key, value) in Node.Properties)
             {
-                if (value.Value is not ObjectValue child || !ScriptControlFactory.IsControlType(key))
+                if (value is not ObjectValue child || !ScriptControlFactory.IsControlType(key))
                     continue;
 
                 var ctrl = await ScriptControlFactory

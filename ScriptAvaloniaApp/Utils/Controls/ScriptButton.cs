@@ -19,42 +19,20 @@ namespace ScriptAvaloniaApp.Utils.Controls
         {
             var btn = new Button();
             await ApplyAllPropertiesAsync(btn);
-            if (Node.TryGetValue("@Click", out var v) && v.Value is FunctionValue func)
+            if (Node.TryGetValue("@Click", out var v) && v is FunctionValue func)
             {
-                /*if(func.ParameterCount == 1)
+                async void @Clieck(object? sender, RoutedEventArgs e)
                 {
-                    async void @Clieck(object? sender, RoutedEventArgs e)
+                    try
                     {
-                        try
-                        {
-                            var obj = new ObjectValue(new Dictionary<string, MemberValue>());
-                            obj.Set("sender", sender is Button btn ? new ClrObjectValue(btn) : Value.Null);
-                            obj.Set("e", new ClrObjectValue(e));
-
-                            await func.CallAsync(Engine, obj);
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                        }
+                        await func.CallAsync(Engine);
                     }
-                    btn.Click += @Clieck;
-                }
-                else*/
-                {
-                    async void @Clieck(object? sender, RoutedEventArgs e)
+                    catch (System.Exception ex)
                     {
-                        try
-                        {
-                            await func.CallAsync(Engine);
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                        }
+                        Debug.WriteLine(ex);
                     }
-                    btn.Click += @Clieck;
                 }
+                btn.Click += @Clieck;
             }
 
             return btn;

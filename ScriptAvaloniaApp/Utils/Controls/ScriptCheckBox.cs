@@ -26,7 +26,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 async Task Refresh()
                 {
                     await Task.CompletedTask;
-                    var value = sourceObject.Get(targetKey).Value.AsBool();
+                    var value = sourceObject.Get(targetKey).AsBool();
                     cb.IsChecked = value;
                 }
                await SubObjectChangedAsync(sourceObject, targetKey, Refresh);
