@@ -23,4 +23,9 @@ public sealed class SourceManager
         var src = GetSource(filePath);
         return src.Substring(start, length);
     }
+
+    public void ClearCache()
+    {
+        _sources.Clear();
+    }
 }

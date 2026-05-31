@@ -10,7 +10,9 @@ namespace ScriptLang.Runtime;
 public class ImportResolver
 {
     private readonly ScriptEngine _engine;
+
     private readonly ConcurrentDictionary<string, ObjectValue> _moduleCache;
+
     //private readonly string _baseDirectory;
 
     public ImportResolver(ScriptEngine engine/*, string baseDirectory*/)
@@ -34,14 +36,12 @@ public class ImportResolver
         if (!File.Exists(fullPath))
             throw new RuntimeException($"模块不存在: {fullPath}");
 
-        var scope = new Scope();
-
         // 统一入口：只允许走 engine
-        var result = await _engine.RunAsync(fullPath, scope);
-
+        var scope = new Scope();
+        var result = await _engine.RunModuleAsync(fullPath, scope);
         var exports = ExtractExports(result);
-
         _moduleCache.TryAdd(fullPath, exports);
+        scope.Clear();
         return exports;
     }
 

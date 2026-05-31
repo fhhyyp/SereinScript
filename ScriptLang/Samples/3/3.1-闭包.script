@@ -29,9 +29,10 @@ print(g(30)) // 期望 60
 
 
 // ======= 闭包函数嵌套========
-let fo = (x) => math.AddAsync(x, 10)
-let go = (x) => fo(x) * 2
-print(go(5))  // 30
+let foo = (a, b) => a * b
+let fo = (x) => foo(x, 10) // 50
+let go = (x) => fo(x) * 2 // 100
+print("闭包函数嵌套:" + go(5))  // 100
 
 
 

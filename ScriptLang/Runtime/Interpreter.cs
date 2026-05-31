@@ -1114,7 +1114,6 @@ public class Interpreter
         throw Error(member, $"无法访问 {target.GetType()} 上的属性 '{member.Property}'");
     }
 
-
     /// <summary>
     /// 访问索引
     /// </summary>

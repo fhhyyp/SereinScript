@@ -33,7 +33,15 @@ namespace ScriptLang
         public ScriptEngine()
         {
             ImportResolver = new ImportResolver(this);
-            BuiltinFunctions.RegisterAll(GlobalScope);
+            
+        }
+
+        public void ClearCache()
+        {
+            MainDirectory = string.Empty;
+            SourceManager.ClearCache();
+            ImportResolver.ClearCache();
+            GlobalScope.Clear();
         }
 
         /// <summary>
@@ -43,13 +51,20 @@ namespace ScriptLang
         /// <param name="filePath">文件路径</param>
         /// <param name="action">提供注册方法</param>
         /// <returns></returns>
-        public async Task<Value> RunAsync(string filePath,  Scope? scope = null)
+        public async Task<Value> StartAsync(string filePath,  Scope? scope = null)
         {
-            var script = await File.ReadAllTextAsync(filePath);
             if (string.IsNullOrWhiteSpace(MainDirectory) && Path.GetDirectoryName(filePath) is string mainDir)
             {
                 MainDirectory = mainDir;
             }
+            else
+            {
+                throw new Exception("当前正在运行");
+            }
+            GlobalScope.Clear();
+            BuiltinFunctions.RegisterAll(GlobalScope);
+
+            var script = await File.ReadAllTextAsync(filePath);
 
             SourceManager.AddSource(filePath, script);
 
@@ -71,9 +86,33 @@ namespace ScriptLang
 
             var interpreter = new Interpreter(this);
             var evalResult = await interpreter.EvaluateAsync(ast, scope ?? GlobalScope);
+            MainDirectory = string.Empty;
             return evalResult.Value;
         }
 
+
+        internal async Task<Value> RunModuleAsync(string filePath, Scope scope)
+        {
+       
+            var script = await File.ReadAllTextAsync(filePath);
+            SourceManager.AddSource(filePath, script);
+            var lexer = new Lexer.Lexer(script, filePath);
+            var tokens = lexer.ScanTokens();
+            var parser = new Parser.Parser(tokens, filePath);
+            var ast = parser.Parse();
+            if (parser.Diagnostics.Count > 0)
+            {
+                for (int index = 0; index < parser.Diagnostics.Count; index++)
+                {
+                    ParseException? diagnostic = parser.Diagnostics[index];
+                    Console.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
+                }
+                throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
+            }
+            var interpreter = new Interpreter(this);
+            var evalResult = await interpreter.EvaluateAsync(ast, scope);
+            return evalResult.Value;
+        }
 
         /// <summary>
         /// 由 <see cref="FunctionValue.CallAsync(ScriptEngine, List{Value})"/>
@@ -86,7 +125,7 @@ namespace ScriptLang
             return evalResult.Value;
         }
 
-
+      
     }
 
 

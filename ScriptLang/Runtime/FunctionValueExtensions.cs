@@ -31,7 +31,7 @@ public static class FunctionValueExtensions
             var interpreter = new Interpreter(engine);
 
             // 创建调用作用域（闭包作为父作用域）
-            var callScope = new Scope(closure);
+            var callScope = closure.CreateChildScope(); // new Scope(closure);
 
             for (int i = 0; i < function.Parameters.Count; i++)
             {

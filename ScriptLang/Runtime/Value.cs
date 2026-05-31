@@ -497,18 +497,8 @@ public record FunctionValue : Value
         {
             throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
         }
-        // 根据闭包类型创建不同的作用域
-        Scope callScope;
-       /* if (OptimizedClosure != null)
-        {
-            // 使用轻量级闭包：只包含实际使用的变量
-            callScope = new Scope(OptimizedClosure);
-        }
-        else*/
-        {
-            // 向后兼容：使用传统作用域链
-            callScope = new Scope(Closure);
-        }
+        // 创建作用域
+        Scope callScope = Closure.CreateChildScope();
 
         // 绑定参数（参数会遮蔽同名的闭包变量）
         for (int i = 0; i < Parameters.Count; i++)
@@ -518,6 +508,7 @@ public record FunctionValue : Value
 
         // 执行函数体
         var result = await engine.EvaluateAsync(Body, callScope);
+
         return result;
     }
 

@@ -23,6 +23,15 @@ public class Scope
     /// </summary>
     public IReadOnlyDictionary<string, VariableInfo> Variables => _variables;
 
+    /// <summary>
+    /// 清除作用域
+    /// </summary>
+    public void Clear()
+    {
+        Parent?.Clear();
+        _variables.Clear();
+    }
+
     public Scope(Scope? parent = null)
     {
         Parent = parent;
@@ -31,6 +40,7 @@ public class Scope
     /// <summary>
     /// 从轻量级闭包创建作用域（用于函数调用）
     /// </summary>
+    [Obsolete("暂时停止闭包优化方向开发", true)]
     public Scope(LightweightClosure closure)
     {
         Parent = null; // 轻量闭包已经包含了所有需要的父作用域变量
@@ -159,6 +169,8 @@ public class Scope
     {
         return new Scope(this);
     }
+
+   
 }
 
 /// <summary>

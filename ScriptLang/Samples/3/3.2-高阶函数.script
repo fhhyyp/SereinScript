@@ -8,5 +8,5 @@ let map = (arr, fn) => {
     result
 }
 
-let squares = map([1, 2, 3, 4], (x) => x * x)
+let squares = map([1, 2, 3, 4], x => x * x + 100)
 print("squares:", squares)  // 输出: squares: [1, 4, 9, 16]
