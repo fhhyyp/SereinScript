@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Dynamic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -75,33 +76,7 @@ public class Interpreter
         };
         var result = value.FormResult();
         return result;
-        /*var value = expr switch
-        {
-            //ReturnExpr returnExpr => await EvaluateReturnAsync(returnExpr, scope),
-            LiteralExpr literal => (EvaluateLiteral(literal)).FormResult(),
-            IdentifierExpr identifier => (await EvaluateIdentifierAsync(identifier, scope)).FormResult(),
-            LetExpr let => (await EvaluateLetAsync(let, scope)).FormResult(),
-            VarExpr var => (await EvaluateVarAsync(var, scope)).FormResult(),
-            AssignExpr assign => (await EvaluateAssignAsync(assign, scope)).FormResult(),
-            IndexAssignExpr indexAssign => (await EvaluateIndexAssignAsync(indexAssign, scope)).FormResult(),
-            BinaryExpr binary => (await EvaluateBinaryAsync(binary, scope)).FormResult(),
-            UnaryExpr unary => (await EvaluateUnaryAsync(unary, scope)).FormResult(),
-            ConditionalExpr conditional => (await EvaluateConditional(conditional, scope)).FormResult(),
-            IfExpr ifExpr => (await EvaluateIfAsync(ifExpr, scope)).FormResult(),
-            WhenExpr whenExpr => (await EvaluateWhenAsync(whenExpr, scope)).FormResult(),
-            ForExpr forExpr => (await EvaluateForAsync(forExpr, scope)).FormResult(),
-            LambdaExpr lambda => (EvaluateLambda(lambda, scope)).FormResult(),
-            CallExpr call => (await EvaluateCallAsync(call, scope)).FormResult(),
-            BlockExpr block => (await EvaluateBlockAsync(block, scope)).FormResult(),
-            ArrayLiteralExpr array => (await EvaluateArrayAsync(array, scope)).FormResult(),
-            ObjectLiteralExpr obj => (await EvaluateObjectAsync(obj, scope)).FormResult(),
-            MemberAccessExpr member => (await EvaluateMemberAccessAsync(member, scope)).FormResult(),
-            MemberAssignExpr memberAssign => (await EvaluateMemberAssignAsync(memberAssign, scope)).FormResult(),
-            IndexAccessExpr index => (await EvaluateIndexAccessAsync(index, scope)).FormResult(),
-            ImportStmt import => (await EvaluateImportAsync(import, scope)).FormResult(),
-            _ => throw Error(expr, $"未知的表达式类型")
-        };
-        return value;*/
+        
     }
 
     /// <summary>
@@ -133,7 +108,6 @@ public class Interpreter
                 break;
             }
         }
-
         return result.FormResult();
     }
 
@@ -162,10 +136,17 @@ public class Interpreter
         return literal.Value switch
         {
             null => Value.Null,
-            double d => new NumberValue(d),
-            int i => new NumberValue(i),
+            byte @byte => NumberValue<byte>.Create(@byte),
+            short @short => NumberValue<short>.Create(@short),
+            int @int => NumberValue<int>.Create(@int),
+            long @long => NumberValue<long>.Create(@long),
+            //uint @uint => NumberValue<uint>.Create(@uint),
+            //ulong @ulong => NumberValue<ulong>.Create(@ulong),
+            float @float => NumberValue<float>.Create(@float),
+            double @double => NumberValue<double>.Create(@double),
+            decimal @decimal => NumberValue<decimal>.Create(@decimal),
             string s => new StringValue(s),
-            bool b => new BoolValue(b),
+            bool b => BoolValue.Create(b),
             _ => throw Error(literal, $"不支持的字面量类型: {literal.Value?.GetType()}")
         };
     }
@@ -202,7 +183,31 @@ public class Interpreter
         if (binary.Op == "+")
         {
             if (left.IsNumber && right.IsNumber)
-                return new NumberValue(left.AsNumber() + right.AsNumber());
+            {
+                if(left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(left.As<decimal>() + right.As<decimal>());
+                }
+                else if(left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return NumberValue<double>.Create(left.As<double>() + right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(left.As<float>() + right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(left.As<long>() + right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(left.As<int>() + right.As<int>());
+                }
+                return NumberValue<double>.Create(left.As<double>() + right.As<double>());
+            }
+
+
             if (left.IsArray)
             {
                 if (right.IsArray)
@@ -228,7 +233,26 @@ public class Interpreter
         if (binary.Op == "-")
         {
             if (left.IsNumber && right.IsNumber)
-                return new NumberValue(left.AsNumber() - right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(left.As<decimal>() - right.As<decimal>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(left.As<float>() - right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(left.As<long>() - right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(left.As<int>() - right.As<int>());
+                }
+                return NumberValue<double>.Create(left.As<double>() - right.As<double>());
+            }
+
             if (left.IsArray)
             {
                 if (right.IsArray)
@@ -250,11 +274,34 @@ public class Interpreter
         if (binary.Op == "*")
         {
             if (left.IsNumber && right.IsNumber)
-                return new NumberValue(left.AsNumber() * right.AsNumber());
-            if (left.IsString && right.IsNumber)
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(left.As<decimal>() * right.As<decimal>());
+                }
+                else if (left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return NumberValue<double>.Create(left.As<double>() * right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(left.As<float>() * right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(left.As<long>() * right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(left.As<int>() * right.As<int>());
+                }
+                return NumberValue<double>.Create(left.As<double>() * right.As<double>());
+            }
+
+            if (left.IsString)
             {
                 var str = left.AsString();
-                var repeat = (int)right.AsNumber();
+                var repeat = right.As<int>();
                 return new StringValue(string.Concat(Enumerable.Repeat(str, repeat)));
             }
         }
@@ -262,59 +309,187 @@ public class Interpreter
         if (binary.Op == "/")
         {
             if (left.IsNumber && right.IsNumber)
-                return new NumberValue(left.AsNumber() / right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(left.As<decimal>() / right.As<decimal>());
+                }
+                else if (left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return NumberValue<double>.Create(left.As<double>() / right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(left.As<float>() / right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(left.As<long>() / right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(left.As<int>() / right.As<int>());
+                }
+                return NumberValue<double>.Create(left.As<double>() / right.As<double>());
+            }
         }
 
         if (binary.Op == "%")
         {
             if (left.IsNumber && right.IsNumber)
-                return new NumberValue(left.AsNumber() % right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(left.As<decimal>() % right.As<decimal>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(left.As<float>() % right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(left.As<long>() % right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(left.As<int>() % right.As<int>());
+                }
+                return NumberValue<double>.Create(left.As<double>() % right.As<double>());
+            }
         }
 
         // 比较运算
         if (binary.Op == "==")
-            return new BoolValue(IsEqual(left, right));
+            return BoolValue.Create(IsEqual(left, right));
 
         if (binary.Op == "!=")
-            return new BoolValue(!IsEqual(left, right));
+            return BoolValue.Create(!IsEqual(left, right));
 
         if (binary.Op == "<")
         {
             if (left.IsNumber && right.IsNumber)
-                return new BoolValue(left.AsNumber() < right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return BoolValue.Create(left.As<decimal>() < right.As<decimal>());
+                }
+                else if(left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return BoolValue.Create(left.As<double>() < right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return BoolValue.Create(left.As<float>() < right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return BoolValue.Create(left.As<long>() < right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return BoolValue.Create(left.As<int>() < right.As<int>());
+                }
+                return BoolValue.Create(left.As<double>() < right.As<double>());
+            }
             if (left.IsString && right.IsString)
-                return new BoolValue(string.Compare(left.AsString(), right.AsString()) < 0);
+                return BoolValue.Create(string.Compare(left.AsString(), right.AsString()) < 0);
         }
 
         if (binary.Op == "<=")
         {
             if (left.IsNumber && right.IsNumber)
-                return new BoolValue(left.AsNumber() <= right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return BoolValue.Create(left.As<decimal>() <= right.As<decimal>());
+                }
+                else if (left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return BoolValue.Create(left.As<double>() <= right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return BoolValue.Create(left.As<float>() <= right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return BoolValue.Create(left.As<long>() <= right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return BoolValue.Create(left.As<int>() <= right.As<int>());
+                }
+                return BoolValue.Create(left.As<double>() <= right.As<double>());
+            }
             if (left.IsString && right.IsString)
-                return new BoolValue(string.Compare(left.AsString(), right.AsString()) <= 0);
+                return BoolValue.Create(string.Compare(left.AsString(), right.AsString()) <= 0);
         }
 
         if (binary.Op == ">")
         {
             if (left.IsNumber && right.IsNumber)
-                return new BoolValue(left.AsNumber() > right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return BoolValue.Create(left.As<decimal>() > right.As<decimal>());
+                }
+                else if (left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return BoolValue.Create(left.As<double>() > right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return BoolValue.Create(left.As<float>() > right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return BoolValue.Create(left.As<long>() > right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return BoolValue.Create(left.As<int>() > right.As<int>());
+                }
+                return BoolValue.Create(left.As<double>() > right.As<double>());
+            }
             if (left.IsString && right.IsString)
-                return new BoolValue(string.Compare(left.AsString(), right.AsString()) > 0);
+                return BoolValue.Create(string.Compare(left.AsString(), right.AsString()) > 0);
         }
 
         if (binary.Op == ">=")
         {
             if (left.IsNumber && right.IsNumber)
-                return new BoolValue(left.AsNumber() >= right.AsNumber());
+            {
+                if (left.IsNumber_Decimal || right.IsNumber_Decimal)
+                {
+                    return BoolValue.Create(left.As<decimal>() >= right.As<decimal>());
+                }
+                else if (left.IsNumber_Double || right.IsNumber_Double)
+                {
+                    return BoolValue.Create(left.As<double>() >= right.As<double>());
+                }
+                else if (left.IsNumber_Float || right.IsNumber_Float)
+                {
+                    return BoolValue.Create(left.As<float>() >= right.As<float>());
+                }
+                else if (left.IsNumber_Long || right.IsNumber_Long)
+                {
+                    return BoolValue.Create(left.As<long>() >= right.As<long>());
+                }
+                else if (left.IsNumber_Int || right.IsNumber_Int)
+                {
+                    return BoolValue.Create(left.As<int>() >= right.As<int>());
+                }
+                return BoolValue.Create(left.As<double>() >= right.As<double>());
+            }
             if (left.IsString && right.IsString)
-                return new BoolValue(string.Compare(left.AsString(), right.AsString()) >= 0);
+                return BoolValue.Create(string.Compare(left.AsString(), right.AsString()) >= 0);
         }
 
         // 逻辑运算（短路求值）
         if (binary.Op == "&&" || binary.Op == "||")
         {
-            if (!IsTruthy(left)) return new BoolValue(false);
-            return new BoolValue(IsTruthy(right)); 
+            if (!IsTrue(left)) return BoolValue.Create(false);
+            return BoolValue.Create(IsTrue(right)); 
         }
 
         throw Error(binary, $"不支持的操作符 '{binary.Op}'，操作数类型为 {left.GetType()} 和 {right.GetType()}");
@@ -327,12 +502,34 @@ public class Interpreter
         if (unary.Op == "-")
         {
             if (operand.IsNumber)
-                return new NumberValue(-operand.AsNumber());
+            {
+                if (operand.IsNumber_Decimal)
+                {
+                    return NumberValue<decimal>.Create(-operand.As<decimal>());
+                }
+                else if (operand.IsNumber_Double)
+                {
+                    return NumberValue<double>.Create(-operand.As<double>());
+                }
+                else if (operand.IsNumber_Float)
+                {
+                    return NumberValue<float>.Create(-operand.As<float>());
+                }
+                else if (operand.IsNumber_Long)
+                {
+                    return NumberValue<long>.Create(-operand.As<long>());
+                }
+                else if (operand.IsNumber_Int)
+                {
+                    return NumberValue<int>.Create(-operand.As<int>());
+                }
+                return NumberValue<double>.Create(-operand.As<double>());
+            }
         }
 
         if (unary.Op == "!")
         {
-            return new BoolValue(!IsTruthy(operand));
+            return BoolValue.Create(!IsTrue(operand));
         }
 
         throw Error(unary, $"不支持的一元操作符 '{unary.Op}'，操作数类型为 {operand.GetType()}");
@@ -341,7 +538,7 @@ public class Interpreter
     private async Task<Value> EvaluateConditional(ConditionalExpr conditional, Scope scope)
     {
         Value cond = (await EvaluateAsync(conditional.Cond, scope)).Value;
-        return IsTruthy(cond) ? (await EvaluateAsync(conditional.Then, scope)).Value : (await EvaluateAsync(conditional.Else, scope)).Value;
+        return IsTrue(cond) ? (await EvaluateAsync(conditional.Then, scope)).Value : (await EvaluateAsync(conditional.Else, scope)).Value;
     }
 
     // ==================== 控制流 ====================
@@ -361,7 +558,7 @@ public class Interpreter
     private async Task<Value> EvaluateIfAsync(IfExpr ifExpr, Scope scope)
     {
         Value cond = (await EvaluateAsync(ifExpr.Cond, scope)).Value;
-        return IsTruthy(cond) ? (await EvaluateAsync(ifExpr.Then, scope)).Value: (await EvaluateAsync(ifExpr.Else, scope)).Value;
+        return IsTrue(cond) ? (await EvaluateAsync(ifExpr.Then, scope)).Value: (await EvaluateAsync(ifExpr.Else, scope)).Value;
     }
 
     private async Task<Value> EvaluateWhenAsync(WhenExpr whenExpr, Scope scope)
@@ -613,7 +810,7 @@ public class Interpreter
                         throw Error(member, "has() 期望字符串");
 
                     var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
-                    return new BoolValue(isContainsKey);
+                    return BoolValue.Create(isContainsKey);
                 }),
                 _ => throw Error(member, $"对象上找不到属性 '{member.Property}'"),
             };
@@ -626,9 +823,9 @@ public class Interpreter
             #region 原生数组方法
             return member.Property switch
             {
-                "count" => new NumberValue(arr.Elements.Count),
-                "length" => new NumberValue(arr.Elements.Count),
-                "copy" => new ArrayValue(arr.Elements.Select(x => x.Copy()).ToList()),
+                "count" => NumberValue<int>.Create(arr.Elements.Count),
+                "length" => NumberValue<int>.Create(arr.Elements.Count),
+                "copy" => new ArrayValue(arr.Elements.Select(x => x).ToList()),
                 "select" => new FunctionValue(
                     "select",
                     async args =>
@@ -655,7 +852,7 @@ public class Interpreter
                         foreach (var item in arr.Elements)
                         {
                             var callResult = await func.CallAsync(_engine, item);
-                            if (IsTruthy(callResult))
+                            if (IsTrue(callResult))
                                 result.Add(item);
                         }
                         return new ArrayValue(result);
@@ -677,8 +874,8 @@ public class Interpreter
                     "slice",
                     args =>
                     {
-                        int start = (int)args[0].AsNumber();
-                        int end = args.Count > 1 ? (int)args[1].AsNumber() : arr.Elements.Count;
+                        int start = args[0].As<int>();
+                        int end = args.Count > 1 ? args[1].As<int>() : arr.Elements.Count;
                         start = Math.Clamp(start, 0, arr.Elements.Count);
                         end = Math.Clamp(end, 0, arr.Elements.Count);
                         var slice = arr.Elements.GetRange(start, end - start);
@@ -699,14 +896,14 @@ public class Interpreter
                     if (args.Count != 1)
                         throw Error(member, "remove() 期望 1 个参数");
                     var state = arr.Remove(args[0], _engine);
-                    return new BoolValue(state);
+                    return BoolValue.Create(state);
                 }),
                 "removeAt" => new FunctionValue("removeAt", args =>
                 {
-                    if (args.Count != 1 || !args[0].IsNumber)
+                    if (args.Count != 1 || !args[0].IsNumber_Int)
                         throw Error(member, "removeAt() 期望一个数字");
 
-                    var index = (int)args[0].AsNumber();
+                    var index = args[0].As<int>();
                     if (index < 0) index = arr.Length + index;
                     arr.RemoveAt(index, _engine);
                     return Value.Null;
@@ -737,7 +934,7 @@ public class Interpreter
                     foreach (var item in arr.Elements)
                     {
                         var result = await func.CallAsync(_engine, item);
-                        if (IsTruthy(result))
+                        if (IsTrue(result))
                             return item;
                     }
 
@@ -754,11 +951,11 @@ public class Interpreter
                     for (int i = 0; i < arr.Elements.Count; i++)
                     {
                         var result = await func.CallAsync(_engine, arr.Elements[i]);
-                        if (IsTruthy(result))
-                            return new NumberValue(i);
+                        if (IsTrue(result))
+                            return NumberValue<int>.Create(i);
                     }
 
-                    return new NumberValue(-1);
+                    return NumberValue<int>.Create(-1);
                 }),
 
                 "any" => new FunctionValue("any", async args =>
@@ -772,11 +969,11 @@ public class Interpreter
                     foreach (var item in arr.Elements)
                     {
                         var result = await func.CallAsync(_engine, item);
-                        if (IsTruthy(result))
-                            return new BoolValue(true);
+                        if (IsTrue(result))
+                            return BoolValue.Create(true);
                     }
 
-                    return new BoolValue(false);
+                    return BoolValue.Create(false);
                 }),
 
                 "all" => new FunctionValue("all", async args =>
@@ -790,11 +987,11 @@ public class Interpreter
                     foreach (var item in arr.Elements)
                     {
                         var result = await func.CallAsync(_engine, item);
-                        if (!IsTruthy(result))
-                            return new BoolValue(false);
+                        if (!IsTrue(result))
+                            return BoolValue.Create(false);
                     }
 
-                    return new BoolValue(true);
+                    return BoolValue.Create(true);
                 }),
 
                 "join" => new FunctionValue("join", args =>
@@ -808,7 +1005,7 @@ public class Interpreter
                     var joinResult = string.Join(stringValue.AsString(), arr.Elements.Select(x => x.AsString()));
                     return new StringValue(joinResult);
                 }),
-                "onChanged" => new FunctionValue("onChanged", args =>
+                /*"onChanged" => new FunctionValue("onChanged", args =>
                 {
                     if (args.Count != 1)
                         throw Error(member, "onChanged() 期望 1 个参数");
@@ -819,7 +1016,7 @@ public class Interpreter
                     arr.AddOnChanged(functionValue);
 
                     return Value.Null;
-                }),
+                }),*/
                 _ => throw Error(member, $"未知的数组方法 '{member.Property}'")
             };
             #endregion
@@ -832,7 +1029,7 @@ public class Interpreter
             #region 原生方法列表
             return member.Property switch
             {
-                "length" => new NumberValue(str.Value.Length),
+                "length" => NumberValue<int>.Create(str.Value.Length),
                 "toString" => new FunctionValue(
                     "toString",
                     args =>
@@ -854,8 +1051,8 @@ public class Interpreter
                     {
                         if (args.Count < 1 || args.Count > 2)
                             throw Error(member, "substring() 期望 1 或 2 个参数");
-                        int start = (int)args[0].AsNumber();
-                        int length = args.Count == 2 ? (int)args[1].AsNumber() : str.Value.Length - start;
+                        int start = args[0].As<int>();
+                        int length = args.Count == 2 ? args[1].As<int>() : str.Value.Length - start;
                         return new StringValue(str.Value.Substring(start, length));
                     }),
                 "toUpper" => new FunctionValue(
@@ -884,21 +1081,21 @@ public class Interpreter
                     args =>
                     {
                         if (args.Count != 1) throw Error(member, "contains() 期望 1 个参数");
-                        return new BoolValue(str.Value.Contains(args[0].As<StringValue>().Value));
+                        return BoolValue.Create(str.Value.Contains(args[0].As<StringValue>().Value));
                     }),
                 "startsWith" => new FunctionValue(
                     "startsWith",
                     args =>
                     {
                         if (args.Count != 1) throw Error(member, "startsWith() 期望 1 个参数");
-                        return new BoolValue(str.Value.StartsWith(args[0].As<StringValue>().Value));
+                        return BoolValue.Create(str.Value.StartsWith(args[0].As<StringValue>().Value));
                     }),
                 "endsWith" => new FunctionValue(
                     "endsWith",
                     args =>
                     {
                         if (args.Count != 1) throw Error(member, "endsWith() 期望 1 个参数");
-                        return new BoolValue(str.Value.EndsWith(args[0].As<StringValue>().Value));
+                        return BoolValue.Create(str.Value.EndsWith(args[0].As<StringValue>().Value));
                     }),
                 _ => throw Error(member, $"未知的字符串方法 '{member.Property}'")
             };
@@ -929,17 +1126,17 @@ public class Interpreter
         Value target = (await EvaluateAsync(index.Target, scope)).Value;
         Value idx = (await EvaluateAsync(index.Index, scope)).Value;
 
-        if (target is ArrayValue arr && idx.IsNumber)
+        if (target is ArrayValue arr && idx.IsNumber_Int)
         {
-            int i = (int)idx.AsNumber();
+            int i = idx.As<int>();
             if (i < 0 || i >= arr.Elements.Count)
                 throw Error(index, $"数组索引越界: {i}");
             return arr.Get(i);
         }
 
-        if (target is StringValue str && idx.IsNumber)
+        if (target is StringValue str && idx.IsNumber_Int)
         {
-            int i = (int)idx.AsNumber();
+            int i = idx.As<int>();
             if (i < 0 || i >= str.Value.Length)
                 throw Error(index, $"字符串索引越界: {i}");
             return new StringValue(str.Value[i].ToString());
@@ -966,9 +1163,9 @@ public class Interpreter
         Value idx = (await EvaluateAsync(indexAssign.Index, scope)).Value;
         Value value = (await EvaluateAsync(indexAssign.Value, scope)).Value;
 
-        if (target is ArrayValue arr && idx.IsNumber)
+        if (target is ArrayValue arr && idx.IsNumber_Int)
         {
-            int i = (int)idx.AsNumber();
+            int i = (int)idx.As<int>();
             if (i < 0 || i >= arr.Elements.Count)
                 throw Error(indexAssign, $"数组索引越界: {i}");
             //arr.Elements[i] = value;
@@ -1111,18 +1308,25 @@ public class Interpreter
         if (type is null)
             return Value.Null;
 
-        // 基本类型
-        if (type == typeof(int) || type == typeof(short) || type == typeof(byte) || type == typeof(long))
-            return new NumberValue(System.Convert.ToDouble(clrValue));
-        if (type == typeof(float) || type == typeof(double) || type == typeof(decimal))
-            return new NumberValue(System.Convert.ToDouble(clrValue));
+        if (type == typeof(int))
+            return NumberValue<int>.Create(Convert.ToInt32(clrValue));
+        if (type == typeof(long))
+            return NumberValue<long>.Create(Convert.ToInt64(clrValue));
+        if (type == typeof(float))
+            return NumberValue<float>.Create(Convert.ToSingle(clrValue));
+        if (type == typeof(double))
+            return NumberValue<double>.Create(Convert.ToDouble(clrValue));
+        if (type == typeof(decimal))
+            return NumberValue<decimal>.Create(Convert.ToDecimal(clrValue));
+
         if (type == typeof(bool))
-            return new BoolValue(clrValue is bool);
+            return BoolValue.Create(clrValue is bool);
+
         if (type == typeof(string) || type == typeof(char))
             return new StringValue(clrValue?.ToString() ?? string.Empty);
 
         // 集合类型
-        if (clrValue is System.Collections.IEnumerable enumerable && clrValue is not string)
+        if (clrValue is IEnumerable enumerable && clrValue is not string)
         {
             var elements = new List<Value>();
             foreach (var item in enumerable)
@@ -1133,10 +1337,10 @@ public class Interpreter
         }
 
         // 字典类型
-        if (clrValue is System.Collections.IDictionary dict)
+        if (clrValue is IDictionary dict)
         {
             var properties = new Dictionary<string, Value>();
-            foreach (System.Collections.DictionaryEntry entry in dict)
+            foreach (DictionaryEntry entry in dict)
             {
                 var key = entry.Key?.ToString();
                 if (key != null)
@@ -1187,18 +1391,18 @@ public class Interpreter
         // 数值类型
         if (value.IsNumber)
         {
-            double num = value.AsNumber();
-            if (targetType == typeof(int)) return (int)num;
-            if (targetType == typeof(long)) return (long)num;
-            if (targetType == typeof(float)) return (float)num;
-            if (targetType == typeof(double)) return num;
-            if (targetType == typeof(decimal)) return (decimal)num;
-            if (targetType == typeof(short)) return (short)num;
-            if (targetType == typeof(byte)) return (byte)num;
-            if (targetType == typeof(sbyte)) return (sbyte)num;
-            if (targetType == typeof(uint)) return (uint)num;
-            if (targetType == typeof(ulong)) return (ulong)num;
-            if (targetType == typeof(ushort)) return (ushort)num;
+            //double num = value.AsNumber();
+            if (targetType == typeof(int)) return value.As<int>();
+            if (targetType == typeof(long)) return value.As<long>();
+            if (targetType == typeof(float)) return value.As<float>();
+            if (targetType == typeof(double)) return value.As<double>();
+            if (targetType == typeof(decimal)) return value.As<decimal>();
+            if (targetType == typeof(short)) return value.As<short>();
+            if (targetType == typeof(byte)) return value.As<byte>();
+            if (targetType == typeof(sbyte)) return value.As<sbyte>();
+            if (targetType == typeof(uint)) return value.As<uint>();
+            if (targetType == typeof(ulong)) return value.As<ulong>();
+            if (targetType == typeof(ushort)) return value.As<ushort>();
         }
 
         // 字符串
@@ -1358,17 +1562,17 @@ public class Interpreter
     /// </summary>
     /// <param name="value"></param>
     /// <returns></returns>
-    private static bool IsTruthy(Value value)
+    private static bool IsTrue(Value value)
     {
         return value switch
         {
             NullValue => false,
             BoolValue b => b.Value,
-            NumberValue n => n.Value != 0,
+            //NumberValue n => n.Value != 0,
             StringValue s => s.Value.Length > 0,
             ArrayValue a => a.Elements.Count > 0,
             ObjectValue o => o.Properties.Count > 0,
-            _ => true
+            _ => false,
         };
     }
 
@@ -1380,13 +1584,38 @@ public class Interpreter
     /// <returns></returns>
     private static bool IsEqual(Value left, Value right)
     {
-        if (left.GetType() != right.GetType())
-            return false;
+        
+
+        if (left.IsNumber && right.IsNumber)
+        {
+            if (left.IsNumber_Decimal|| right.IsNumber_Decimal)
+            {
+                return left.As<decimal>() == right.As<decimal>();
+            }
+            else if (left.IsNumber_Double || right.IsNumber_Double)
+            {
+                return Math.Abs(left.As<double>() - right.As<double>()) < double.Epsilon;
+            }
+            else if (left.IsNumber_Float || right.IsNumber_Float)
+            {
+                return Math.Abs(left.As<float>() - right.As<float>()) < double.Epsilon;
+            }
+            else if (left.IsNumber_Long || right.IsNumber_Long)
+            {
+                return left.As<long>() == right.As<long>();
+            }
+            else if (left.IsNumber_Int || right.IsNumber_Int)
+            {
+                return left.As<int>() == right.As<int>();
+            }
+        }
+
+        /*if (left.GetType() != right.GetType())
+            return false;*/
 
         return (left, right) switch
         {
             (NullValue, NullValue) => true,
-            (NumberValue nl, NumberValue nr) => Math.Abs(nl.Value - nr.Value) < double.Epsilon,
             (BoolValue bl, BoolValue br) => bl.Value == br.Value,
             (StringValue sl, StringValue sr) => sl.Value == sr.Value,
             (ArrayValue al, ArrayValue ar) =>

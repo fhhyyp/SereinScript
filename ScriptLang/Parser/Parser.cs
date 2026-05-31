@@ -157,7 +157,9 @@ public class Parser
     private ReturnExpr ParseReturnStatement()
     {
         if (PeekTypeHas(TokenType.Identifier, 
-            TokenType.Null, TokenType.Number, TokenType.String, TokenType.True, TokenType.Identifier, TokenType.False, 
+            TokenType.Null, 
+            TokenType.Number_Int, TokenType.Number_Double,
+            TokenType.String, TokenType.True, TokenType.Identifier, TokenType.False, 
             TokenType.LeftParen, 
             TokenType.LeftBracket,
             TokenType.LeftBrace
@@ -462,7 +464,9 @@ public class Parser
     {
         var startTokenIndex = _current;
         // 字面量
-        if (Match(TokenType.Number, TokenType.String, TokenType.True, TokenType.False, TokenType.Null))
+        if (Match(TokenType.Number_Int, TokenType.Number_Long, 
+            TokenType.Number_Float, TokenType.Number_Double, TokenType.Number_Decimal,
+            TokenType.String, TokenType.True, TokenType.False, TokenType.Null))
         {
             var endTokenIndex = _current;
             var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);

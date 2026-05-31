@@ -70,6 +70,9 @@
     <None Update="Samples\3\3.1-闭包.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Samples\test\test_closure_memory.script">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Samples\高级\linq\json.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -91,6 +94,10 @@
     <None Update="Samples\高级\pinia\look.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Samples\test\" />
   </ItemGroup>
 
 </Project>

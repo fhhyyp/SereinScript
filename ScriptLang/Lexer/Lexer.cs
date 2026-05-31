@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace ScriptLang.Lexer;
@@ -256,8 +257,9 @@ public class Lexer
         
         AddToken(TokenType.String, sb.ToString(), sb.ToString());
     }
-    
-    private void ReadNumber()
+
+    [Obsolete("已废弃", true)]
+    private void ReadNumber_t()
     {
         StringBuilder sb = new();
         
@@ -285,14 +287,410 @@ public class Lexer
         if (double.TryParse(numberStr, System.Globalization.NumberStyles.Any, 
             System.Globalization.CultureInfo.InvariantCulture, out double number))
         {
-            AddToken(TokenType.Number, numberStr, number);
+            AddToken(TokenType.Number_Double, numberStr, number);
         }
         else
         {
             AddToken(TokenType.Unknown, numberStr);
         }
     }
-    
+
+    #region 解析数值字面量
+    private void ReadNumber()
+    {
+        StringBuilder sb = new();
+
+        // 第一个数字已经在 ScanToken 中被读取，需要回退
+        _position--;
+        _column--;
+        if (_column < 1) _column = 1;
+
+        bool hasDecimalPoint = false;
+        bool isHexLiteral = false;
+
+        // 检查是否是十六进制 (0x 或 0X)
+        if (Peek() == '0' && (PeekNext() == 'x' || PeekNext() == 'X'))
+        {
+            sb.Append(Advance()); // '0'
+            sb.Append(Advance()); // 'x' 或 'X'
+            isHexLiteral = true;
+
+            // 读取十六进制数字
+            while (IsHexDigit(Peek()))
+            {
+                sb.Append(Advance());
+            }
+        }
+        // 检查是否是二进制 (0b 或 0B)
+        else if (Peek() == '0' && (PeekNext() == 'b' || PeekNext() == 'B'))
+        {
+            sb.Append(Advance()); // '0'
+            sb.Append(Advance()); // 'b' 或 'B'
+
+            // 读取二进制数字
+            while (Peek() == '0' || Peek() == '1')
+            {
+                sb.Append(Advance());
+            }
+        }
+        else
+        {
+            // 读取整数部分（十进制）
+            while (char.IsDigit(Peek()))
+            {
+                sb.Append(Advance());
+            }
+
+            // 处理小数部分
+            if (Peek() == '.' && char.IsDigit(PeekNext()))
+            {
+                hasDecimalPoint = true;
+                sb.Append(Advance()); // 小数点
+                while (char.IsDigit(Peek()))
+                {
+                    sb.Append(Advance());
+                }
+            }
+        }
+
+        // 读取数值类型后缀
+        string? suffix = ReadNumberSuffix();
+        if (suffix != null)
+        {
+            sb.Append(suffix);
+        }
+
+        string numberStr = sb.ToString();
+        string numberPart = isHexLiteral || numberStr.StartsWith("0b")
+            ? numberStr
+            : (suffix != null ? numberStr[..^suffix.Length] : numberStr);
+
+        // 解析并创建对应类型的Token
+        if (TryParseNumberWithSuffix(numberPart, suffix, out TokenType tokenType, out object? value))
+        {
+            AddToken(tokenType, numberStr, value);
+        }
+        else
+        {
+            AddToken(TokenType.Unknown, numberStr);
+        }
+        var t = this._tokens.Last();
+    }
+
+    /// <summary>
+    /// 读取数值类型后缀，返回后缀字符串（不含数字部分）
+    /// </summary>
+    private string? ReadNumberSuffix()
+    {
+        int startPos = _position;
+
+        if (char.ToLower(Peek()) == 'u')
+        {
+            Advance(); // 'u' 或 'U'
+
+            // 检查是否为 ul/UL
+            if (char.ToLower(Peek()) == 'l')
+            {
+                Advance(); // 'l' 或 'L'
+                return GetSuffixFromSource(startPos);
+            }
+
+            return GetSuffixFromSource(startPos);
+        }
+
+        if (char.ToLower(Peek()) == 'l')
+        {
+            Advance(); // 'l' 或 'L'
+            return GetSuffixFromSource(startPos);
+        }
+
+        if (char.ToLower(Peek()) == 'f')
+        {
+            Advance(); // 'f' 或 'F'
+            return GetSuffixFromSource(startPos);
+        }
+
+        if (char.ToLower(Peek()) == 'd')
+        {
+            Advance(); // 'd' 或 'D'
+            return GetSuffixFromSource(startPos);
+        }
+
+        if (char.ToLower(Peek()) == 'm')
+        {
+            Advance(); // 'm' 或 'M'
+            return GetSuffixFromSource(startPos);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 从源位置提取后缀字符串
+    /// </summary>
+    private string GetSuffixFromSource(int startPos)
+    {
+        // 这里假设 _source 是源代码字符串
+        int length = _position - startPos;
+        return _source.Substring(startPos, length);
+    }
+
+    /// <summary>
+    /// 判断字符是否是十六进制数字
+    /// </summary>
+    private bool IsHexDigit(char c)
+    {
+        return char.IsDigit(c) ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F');
+    }
+
+    /// <summary>
+    /// 根据后缀尝试解析数值
+    /// </summary>
+    private bool TryParseNumberWithSuffix(string numberStr, string? suffix,
+        out TokenType tokenType, out object? value)
+    {
+        tokenType = TokenType.Unknown;
+        value = null;
+
+        try
+        {
+            // 处理十六进制
+            if (numberStr.StartsWith("0x") || numberStr.StartsWith("0X"))
+            {
+                return TryParseHexNumber(numberStr, suffix, out tokenType, out value);
+            }
+
+            // 处理二进制
+            if (numberStr.StartsWith("0b") || numberStr.StartsWith("0B"))
+            {
+                return TryParseBinaryNumber(numberStr, suffix, out tokenType, out value);
+            }
+
+            // 根据后缀类型解析
+            switch (suffix?.ToLower())
+            {
+                case null: // 无后缀 - 自动推断
+                    if (numberStr.Contains('.'))
+                    {
+                        // 浮点数默认为 double
+                        if (double.TryParse(numberStr, NumberStyles.Any,
+                            CultureInfo.InvariantCulture, out double d))
+                        {
+                            tokenType = TokenType.Number_Double;
+                            value = d;
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        // 整数默认为 int，超出范围则为 long
+                        if (int.TryParse(numberStr, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out int i))
+                        {
+                            tokenType = TokenType.Number_Int;
+                            value = i;
+                            return true;
+                        }
+                        if (long.TryParse(numberStr, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out long l))
+                        {
+                            tokenType = TokenType.Number_Long;
+                            value = l;
+                            return true;
+                        }
+                        // 超大整数回退到 double
+                        if (double.TryParse(numberStr, NumberStyles.Any,
+                            CultureInfo.InvariantCulture, out double bigNum))
+                        {
+                            tokenType = TokenType.Number_Double;
+                            value = bigNum;
+                            return true;
+                        }
+                    }
+                    break;
+
+                case "f":
+                    if (float.TryParse(numberStr, NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out float f))
+                    {
+                        tokenType = TokenType.Number_Float;
+                        value = f;
+                        return true;
+                    }
+                    break;
+
+                case "d":
+                    if (double.TryParse(numberStr, NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out double dVal))
+                    {
+                        tokenType = TokenType.Number_Double;
+                        value = dVal;
+                        return true;
+                    }
+                    break;
+
+                case "m":
+                    if (decimal.TryParse(numberStr, NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out decimal m))
+                    {
+                        tokenType = TokenType.Number_Decimal;
+                        value = m;
+                        return true;
+                    }
+                    break;
+
+                case "l":
+                    if (long.TryParse(numberStr, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out long lVal))
+                    {
+                        tokenType = TokenType.Number_Long;
+                        value = lVal;
+                        return true;
+                    }
+                    break;
+
+               /* case "u":
+                    if (uint.TryParse(numberStr, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out uint uVal))
+                    {
+                        tokenType = TokenType.Number_UInt;
+                        value = uVal;
+                        return true;
+                    }
+                    break;
+
+                case "ul":
+                    if (ulong.TryParse(numberStr, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out ulong ulVal))
+                    {
+                        tokenType = TokenType.Number_ULong;
+                        value = ulVal;
+                        return true;
+                    }
+                    break;*/
+            }
+        }
+        catch
+        {
+            // 解析失败
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 解析十六进制数字
+    /// </summary>
+    private bool TryParseHexNumber(string hexStr, string? suffix,
+        out TokenType tokenType, out object? value)
+    {
+        tokenType = TokenType.Unknown;
+        value = null;
+
+        // 移除 0x 前缀
+        string hexPart = hexStr[2..];
+
+        try
+        {
+            long intValue = Convert.ToInt64(hexPart, 16);
+
+            switch (suffix?.ToLower())
+            {
+                case null:
+                    if (intValue <= int.MaxValue)
+                    {
+                        tokenType = TokenType.Number_Int;
+                        value = (int)intValue;
+                    }
+                    else
+                    {
+                        tokenType = TokenType.Number_Long;
+                        value = intValue;
+                    }
+                    return true;
+
+                case "l":
+                    tokenType = TokenType.Number_Long;
+                    value = intValue;
+                    return true;
+
+               /* case "u":
+                    tokenType = TokenType.Number_UInt;
+                    value = (uint)intValue;
+                    return true;
+
+                case "ul":
+                    tokenType = TokenType.Number_ULong;
+                    value = (ulong)intValue;
+                    return true;*/
+            }
+        }
+        catch
+        {
+            // 解析失败
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 解析二进制数字
+    /// </summary>
+    private bool TryParseBinaryNumber(string binStr, string? suffix,
+        out TokenType tokenType, out object? value)
+    {
+        tokenType = TokenType.Unknown;
+        value = null;
+
+        // 移除 0b 前缀
+        string binPart = binStr[2..];
+
+        try
+        {
+            long intValue = Convert.ToInt64(binPart, 2);
+
+            switch (suffix?.ToLower())
+            {
+                case null:
+                    if (intValue <= int.MaxValue)
+                    {
+                        tokenType = TokenType.Number_Int;
+                        value = (int)intValue;
+                    }
+                    else
+                    {
+                        tokenType = TokenType.Number_Long;
+                        value = intValue;
+                    }
+                    return true;
+
+                case "l":
+                    tokenType = TokenType.Number_Long;
+                    value = intValue;
+                    return true;
+
+                /*case "u":
+                    tokenType = TokenType.Number_UInt;
+                    value = (uint)intValue;
+                    return true;
+
+                case "ul":
+                    tokenType = TokenType.Number_ULong;
+                    value = (ulong)intValue;
+                    return true;*/
+            }
+        }
+        catch
+        {
+            // 解析失败
+        }
+
+        return false;
+    }
+    #endregion
+
     private void ReadIdentifier()
     {
         StringBuilder sb = new();

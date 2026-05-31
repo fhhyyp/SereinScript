@@ -207,11 +207,6 @@ namespace ScriptLang.Runtime
     /// </summary>
     public class LightweightClosure
     {
-        public Scope ConvertScope()
-        {
-            return new Scope(this);
-        }
-
         /// <summary>
         /// 捕获的变量（变量名 -> 值）
         /// </summary>
@@ -287,37 +282,17 @@ namespace ScriptLang.Runtime
             {
                 if (scope.TryGetValue(varName, out var info))
                 {
-                    // 对于基本类型且不可变的值，进行深拷贝以断开引用
-                    if (!info.IsMutable && IsValueType(info.Value))
-                    {
-                        capturedVars[varName] = new VariableInfo(
-                            info.Value.Copy(),
-                            false,
-                            IsCaptured: true
-                        );
-                    }
-                    else
-                    {
-                        // 对于可变或引用类型，保持引用（但标记为已捕获）
-                        capturedVars[varName] = new VariableInfo(
+                    capturedVars[varName] = new VariableInfo(
                             info.Value,
                             info.IsMutable,
                             IsCaptured: true
                         );
-                    }
                 }
             }
 
             return new LightweightClosure(capturedVars, parentClosure);
         }
 
-        /// <summary>
-        /// 判断是否为值类型（可以安全拷贝）
-        /// </summary>
-        private static bool IsValueType(Value value)
-        {
-            return value is NumberValue or StringValue or BoolValue or NullValue;
-        }
     }
 
 }

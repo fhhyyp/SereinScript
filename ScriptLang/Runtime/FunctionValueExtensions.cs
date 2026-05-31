@@ -39,6 +39,7 @@ public static class FunctionValueExtensions
             }
 
             var result = await interpreter.EvaluateAsync(body, callScope);
+
             return result.Value;
         };
     }
@@ -217,12 +218,24 @@ public static class FunctionValueAdapter
         var type = arg.GetType();
 
         // 基本类型
-        if (type == typeof(int) || type == typeof(short) || type == typeof(byte) || type == typeof(long))
-            return new NumberValue(System.Convert.ToDouble(arg));
-        if (type == typeof(float) || type == typeof(double) || type == typeof(decimal))
-            return new NumberValue(System.Convert.ToDouble(arg));
+
+        if (type == typeof(byte))
+            return NumberValue<byte>.Create(Convert.ToByte(arg));
+        if (type == typeof(short))
+            return NumberValue<short>.Create(Convert.ToInt16(arg));
+        if (type == typeof(int))
+            return NumberValue<int>.Create(Convert.ToInt32(arg));
+        if (type == typeof(long))
+            return NumberValue<long>.Create(Convert.ToInt64(arg));
+        if (type == typeof(float))
+            return NumberValue<float>.Create(Convert.ToSingle(arg));
+        if (type == typeof(double))
+            return NumberValue<double>.Create(Convert.ToDouble(arg));
+        if (type == typeof(decimal))
+            return NumberValue<decimal>.Create(Convert.ToDecimal(arg));
+
         if (type == typeof(bool))
-            return new BoolValue((bool)arg);
+            return BoolValue.Create((bool)arg);
         if (type == typeof(string) || type == typeof(char))
             return new StringValue(arg.ToString()!);
 
@@ -245,14 +258,22 @@ public static class FunctionValueAdapter
         if (typeof(TReturn) == typeof(Value))
             return (TReturn)(object)value;
 
-        // 处理 NumberValue → 数值类型
-        if (value.IsNumber)
+        // 处理数值类型
+        if (value.IsNumber_Int && value.As<int>() is TReturn r_int32)
         {
-            double num = value.AsNumber();
-            if (typeof(TReturn) == typeof(int)) return (TReturn)(object)(int)num;
-            if (typeof(TReturn) == typeof(double)) return (TReturn)(object)num;
-            if (typeof(TReturn) == typeof(float)) return (TReturn)(object)(float)num;
-            if (typeof(TReturn) == typeof(long)) return (TReturn)(object)(long)num;
+            return r_int32;
+        }
+        if (value.IsNumber_Double && value.As<double>() is TReturn r_double)
+        {
+            return r_double;
+        }
+        if (value.IsNumber_Float && value.As<float>() is TReturn r_float)
+        {
+            return r_float;
+        }
+        if (value.IsNumber_Double && value.As<long>() is TReturn r_int64)
+        {
+            return r_int64;
         }
 
         // 处理 StringValue → string

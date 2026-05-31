@@ -94,8 +94,22 @@ public enum TokenType
     From,
 
     // 字面量
-    /// <summary>token 值是数字 `123` 或 `12.34`</summary>
-    Number,
+    /// <summary>token 是 数值型</summary>
+    Number_Int,
+    /// <summary>token 是 数值型</summary>
+    Number_Long,       // 42L
+    /// <summary>token 是 数值型</summary>
+    Number_Float,      // 3.14f
+    /// <summary>token 是 数值型</summary>
+    Number_Double,     // 3.14 或 3.14d
+    /// <summary>token 是 数值型</summary>
+    Number_Decimal,    // 10.5m
+    /// <summary>token 是 数值型</summary>
+    /*Number_UInt,       // 100u
+    /// <summary>token 是 数值型</summary>
+    Number_ULong,      // 100ul*/
+
+
     /// <summary>token 值是字符串 `hello`</summary>
     String,
     /// <summary>token 值是布尔值 `true`</summary>

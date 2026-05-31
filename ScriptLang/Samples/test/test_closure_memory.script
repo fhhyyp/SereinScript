@@ -1,0 +1,66 @@
+// print("type:" + typeof(42))
+// print("type:" + typeof(42l))
+// print("type:" + typeof(42L))
+// print("type:" + typeof(3.14f))
+// print("type:" + typeof(3.14d))
+// print("type:" + typeof(3.14))
+// print("type:" + typeof(10.5m))
+
+// print("42 == 42 :" + (42 == 42))
+// print("42L == 42L :" + (42L == 42L))
+// print("3.14f == 3.14f :" + (3.14f == 3.14f))
+// print("3.14d == 3.14d :" + (3.14d == 3.14d))
+// print("3.14m == 3.14m :" + (3.14m == 3.14m))
+// 
+// print("===========")
+
+// print("3.14d == 3.14f :" + (3.14d == 3.14f))
+
+// print("42 == 42l :" + (42 == 42l))
+// print("42 == 42.0f :" + (42 == 42.0f))
+// print("42 == 42.0d :" + (42 == 42.0d))
+// print("42 == 42m :" + (42 == 42m))
+// print("42l == 42.0f :" + (42l == 42.0f))
+// print("42l == 42.0d :" + (42l == 42.0d))
+// print("42l == 42.0m :" + (42l == 42.0m))
+// print("42.0d == 42.0m :" + (42.0d == 42.0m))
+// print("42.0f == 42.0m :" + (42.0f == 42.0m))
+
+// print("===========")
+// 
+// print("43 > 42l :" + (43 - 42l))
+// print("3.15d > 3.14f :" + (3.15d - 3.14f))
+// print("43 > 42f :" + (43 - 42f))
+// print("43 > 42d :" + (43 - 42d))
+// print("43 > 42m :" + (43 - 42m))
+// print("43L > 42f :" + (43L - 42f))
+// print("43L > 42d :" + (43L - 42d))
+// print("43L > 42m :" + (43L - 42m))
+// print("43d > 42m :" + (43d - 42m))
+// print("43f > 42m :" + (43f - 42m))
+
+let createHugeData = () => {
+    var hugeArray = []
+    
+    // 创建大数组
+    for i in range(0, 100000) {
+        hugeArray = hugeArray + {
+            id = i,
+            name = "item_" + i,
+            data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            nested = {
+                x = i * 1,
+                y = i * 2,
+                z = i * 3
+            }
+        }
+    }
+    
+    // 只使用 hugeArray 的长度
+    return () => hugeArray.length  // 闭包应该只捕获 length，而不是整个 hugeArray
+}
+
+let getLength = createHugeData()
+let length = getLength()
+return length
+

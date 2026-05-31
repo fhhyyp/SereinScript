@@ -31,7 +31,7 @@ public class CallbackTest
 
         foreach (var item in items)
         {
-            var predicateValue = await predicate.CallAsync(new List<Value> { new NumberValue(item) }, interpreter);
+            var predicateValue = await predicate.CallAsync(new List<Value> { NumberValue.Create(item) }, interpreter);
             if (predicateValue.IsBool && predicateValue.AsBool())
             {
                 result.Add(item);
@@ -52,7 +52,7 @@ public class CallbackTest
 
         foreach (var item in items)
         {
-            var mappedValue = await mapper.CallAsync(new List<Value> { new NumberValue(item) }, interpreter);
+            var mappedValue = await mapper.CallAsync(new List<Value> { NumberValue.Create(item) }, interpreter);
             result.Add(mappedValue.AsString());
         }
 
@@ -70,7 +70,7 @@ public class CallbackTest
 
         foreach (var item in items)
         {
-            var result = await reducer.CallAsync(new List<Value> { new NumberValue(accumulator), new NumberValue(item) }, interpreter);
+            var result = await reducer.CallAsync(new List<Value> { NumberValue.Create(accumulator), NumberValue.Create(item) }, interpreter);
             if (result.IsNumber)
                 accumulator = (int)result.AsNumber();
         }
@@ -87,7 +87,7 @@ public class CallbackTest
         for (int i = 0; i < count; i++)
         {
             await Task.Delay(50);
-            await callback.CallAsync(new List<Value> { new NumberValue(i) }, interpreter);
+            await callback.CallAsync(new List<Value> { NumberValue.Create(i) }, interpreter);
         }
     }
 }

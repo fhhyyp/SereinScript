@@ -9,17 +9,41 @@ namespace ScriptLang.Runtime
     {
         public static void RegisterAll(Scope scope)
         {
+            
+            scope.Define("gc", new FunctionValue("gc", async (args) =>
+            {
+                GC.Collect();
+                return Value.Null;
+            }));
+            
+            scope.Define("sleep", new FunctionValue("sleep", async (args) =>
+            {
+                if (args.Count != 1 || !args[0].IsNumber_Int)
+                    throw new RuntimeException("sleep() 期望 1 个参数");
+
+                var index = args[0].As<int>();
+                await Task.Delay(index);
+                return Value.Null;
+            }));
+
             // typeof
             scope.Define("typeof", new FunctionValue("typeof", (args) =>
             {
                 if (args.Count != 1)
-                    throw new RuntimeException("typeof 期望恰好 1 个参数");
+                    throw new RuntimeException("typeof() 期望 1 个参数");
 
                 var value = args[0];
 
                 string typeStr = value switch
                 {
-                    NumberValue => "number",
+                    NumberValue<byte> => "byte",
+                    NumberValue<short> => "short",
+                    NumberValue<int> => "int",
+                    NumberValue<long> => "long",
+                    NumberValue<float> => "float",
+                    NumberValue<double> => "double",
+                    NumberValue<decimal> => "decimal",
+
                     StringValue => "string",
                     BoolValue => "boolean",
                     ArrayValue => "array",
@@ -51,19 +75,19 @@ namespace ScriptLang.Runtime
             {
                 if (args.Count == 1)
                 {
-                    int count = (int)args[0].AsNumber();
+                    int count = args[0].As<int>();
                     var elements = new List<Value>();
                     for (int i = 0; i < count; i++)
-                        elements.Add(new NumberValue(i));
+                        elements.Add(NumberValue<int>.Create(i));
                     return new ArrayValue(elements);
                 }
                 else if (args.Count == 2)
                 {
-                    int start = (int)args[0].AsNumber();
-                    int end = (int)args[1].AsNumber();
+                    int start = args[0].As<int>();
+                    int end = args[1].As<int>();
                     var elements = new List<Value>();
                     for (int i = start; i < end; i++)
-                        elements.Add(new NumberValue(i));
+                        elements.Add(NumberValue<int>.Create(i));
                     return new ArrayValue(elements);
                 }
                 throw new RuntimeException("range() 期望 1 或 2 个参数");
@@ -76,11 +100,10 @@ namespace ScriptLang.Runtime
                     throw new RuntimeException("len() 期望 1 个参数");
                 var lenValue = args[0] switch
                 {
-                    StringValue s => new NumberValue(s.Value.Length),
-                    ArrayValue a => a.GetLength(),
+                    StringValue s => NumberValue<int>.Create(s.Value.Length),
+                    ArrayValue a => NumberValue<int>.Create(a.Length),
                     _ => throw new RuntimeException("len() 期望字符串或数组")
                 };
-
                 return lenValue;
             }));
 
@@ -97,7 +120,7 @@ namespace ScriptLang.Runtime
                     throw new RuntimeException("map() 期望字符串键");
 
                 bool exists = obj.Properties.ContainsKey(key.Value);
-                return new BoolValue(exists);
+                return BoolValue.Create(exists);
             }));*/
 
             // keys
@@ -121,9 +144,9 @@ namespace ScriptLang.Runtime
 
                 return args[0] switch
                 {
-                    NumberValue n => new BoolValue(n.Value > 0),
-                    StringValue s => new BoolValue(bool.TryParse(s.Value, out var value)),
-                    BoolValue b => new BoolValue(b.Value),
+                    NumberValue<int> n_int32 => BoolValue.Create(n_int32.Value > 0),
+                    StringValue s => BoolValue.Create(bool.TryParse(s.Value, out var value)),
+                    BoolValue b => b,
                     _ => throw new RuntimeException("bool() 无法转换该值")
                 };
             }));
@@ -136,9 +159,10 @@ namespace ScriptLang.Runtime
 
                 return args[0] switch
                 {
-                    NumberValue n => new NumberValue((int)n.Value),
-                    StringValue s => new NumberValue(int.TryParse(s.Value, out var value) ? value : 0),
-                    BoolValue b => new NumberValue(b.Value ? 1 : 0),
+                    NumberValue<int> number_int32 => number_int32,
+                    NumberValue<double> number_double => NumberValue<int>.Create((int)number_double.Value),
+                    StringValue s => NumberValue<int>.Create(int.TryParse(s.Value, out var value) ? value : 0),
+                    BoolValue b => NumberValue<int>.Create(b.Value ? 1 : 0),
                     _ => throw new RuntimeException("int() 无法转换该值")
                 };
             }));
@@ -151,9 +175,10 @@ namespace ScriptLang.Runtime
 
                 return args[0] switch
                 {
-                    NumberValue n => new NumberValue((double)n.Value),
-                    StringValue s => new NumberValue(double.TryParse(s.Value, out var value) ? value : 0),
-                    BoolValue b => new NumberValue(b.Value ? 1 : 0),
+                    NumberValue<int> number_int32 => NumberValue<double>.Create(number_int32.Value),
+                    NumberValue<double> number_double => number_double,
+                    StringValue s => NumberValue<double>.Create(double.Parse(s.Value)),
+                    BoolValue b => NumberValue<double>.Create(b.Value ? 1 : 0),
                     _ => throw new RuntimeException("double() 无法转换该值")
                 };
             }));
@@ -166,7 +191,8 @@ namespace ScriptLang.Runtime
 
                 return args[0] switch
                 {
-                    NumberValue n => new StringValue(n.Value.ToString()),
+                    NumberValue<int> number_int32 => new StringValue(number_int32.Value.ToString()),
+                    NumberValue<double> number_double => new StringValue(number_double.Value.ToString()),
                     StringValue s => new StringValue(s.Value),
                     BoolValue b => new StringValue(b.Value ? Boolean.TrueString : Boolean.FalseString),
                     _ => throw new RuntimeException("str() 无法转换该值")
