@@ -1,6 +1,5 @@
 using ScriptLang.Lexer;
-using ScriptLang.Runtime;
-using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace ScriptLang.Parser;
 
@@ -14,6 +13,10 @@ public class Parser
     private string _filePath;
     private Token _currentToken => _tokens[_current];
 
+    public List<ParseException> Diagnostics { get; } = [];
+
+
+
     /// <summary>
     /// 创建 SourceSpan 对象
     /// </summary>
@@ -22,7 +25,11 @@ public class Parser
     /// <returns></returns>
     public SourceSpan GetSourceSpan(int startIndex, int endIndex)
     {
-        (Token start, Token end) = (_tokens[startIndex], _tokens[endIndex - 1]);
+        if (endIndex <= 0) endIndex = 1;
+        Token start = _tokens[Math.Max(0, startIndex)];
+        Token end = _tokens[Math.Min(_tokens.Count - 1, endIndex - 1)];
+
+        //(Token start, Token end) = (_tokens[startIndex], _tokens[endIndex - 1]);
         return new SourceSpan(
             FilePath: start.FilePath ?? string.Empty,
             Start: start.StartIndex,
@@ -79,10 +86,17 @@ public class Parser
 
             return ParseExpression();
         }
-        catch (ParseException)
+        catch (ParseException ex)
         {
-            //Synchronize();
-            throw;
+            Diagnostics.Add(ex);
+
+            Synchronize();
+
+            int start = Math.Max(_current - 1, 0);
+            int end = Math.Min(_current + 1, _tokens.Count - 1);
+            var span = GetSourceSpan(start, end);
+
+            return GetErrorExpr(ex, span); 
         }
     }
 
@@ -91,7 +105,7 @@ public class Parser
     private ImportStmt ParseImportDeclaration()
     {
         // 解析 import { member1, member2 } from "filepath"
-        Consume(TokenType.LeftBrace, "Expect '{' after 'import'");
+        Consume(TokenType.LeftBrace, "在 'import' 之后需要 '{'");
         var startTokenIndex = _current;
         var members = new List<string>();
 
@@ -100,28 +114,27 @@ public class Parser
         {
             do
             {
-                Token member = Consume(TokenType.Identifier, "Expect member name in import list");
+                Token member = Consume(TokenType.Identifier, "在 import 列表中需要成员名称");
                 members.Add(member.Lexeme);
             }
             while (Match(TokenType.Comma));
         }
 
-        Consume(TokenType.RightBrace, "Expect '}' after import list");
-        Consume(TokenType.From, "Expect 'from' after import members");
+        Consume(TokenType.RightBrace, "在 import 列表之后需要 '}'");
+        Consume(TokenType.From, "在 import 成员之后需要 'from'");
 
-        Token filePathToken = Consume(TokenType.String, "Expect file path string after 'from'");
+        Token filePathToken = Consume(TokenType.String, "在 'from' 之后需要文件路径字符串");
         var endTokenIndex = _current;
 
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
 
         return new ImportStmt(members, filePathToken.Lexeme, sourceSpan);
     }
-
     private LetExpr ParseLetDeclaration()
     {
         var startTokenIndex = _current;
-        Token name = Consume(TokenType.Identifier, "Expect variable name after 'let'");
-        Consume(TokenType.Equal, "Expect '=' after variable name");
+        Token name = Consume(TokenType.Identifier, "在 'let' 之后需要变量名");
+        Consume(TokenType.Equal, "在变量名之后需要 '='");
         Expr value = ParseExpression();
 
         var endTokenIndex = _current;
@@ -132,8 +145,8 @@ public class Parser
     private VarExpr ParseVarDeclaration()
     {
         var startTokenIndex = _current;
-        Token name = Consume(TokenType.Identifier, "Expect variable name after 'var'");
-        Consume(TokenType.Equal, "Expect '=' after variable name");
+        Token name = Consume(TokenType.Identifier, "在 'var' 之后需要变量名");
+        Consume(TokenType.Equal, "在变量名之后需要 '='");
         Expr value = ParseExpression();
 
         var endTokenIndex = _current;
@@ -220,7 +233,7 @@ public class Parser
                 return new MemberAssignExpr(memberAccess.Target, memberAccess.Property, value, memberAccess.SafeNull, sourceSpan);
             }
 
-            throw Error(equals, "Invalid assignment target");
+            throw Error(equals, "无效的赋值目标");
         }
 
         return expr;
@@ -368,7 +381,7 @@ public class Parser
             {
                 Token op = Previous();
                 startTokenIndex = _current ;
-                Token name = Consume(TokenType.Identifier, "Expect property name after '.'");
+                Token name = Consume(TokenType.Identifier, "在 '.' 之后需要属性名");
                 bool safeNull = op.Type == TokenType.QuestionDot;
 
                 var endTokenIndex = _current;
@@ -387,29 +400,59 @@ public class Parser
     private Expr ParseCallArguments(Expr target)
     {
         var args = new List<Expr>();
-        
         var startTokenIndex = _current;
+
         if (!Check(TokenType.RightParen))
         {
             do
             {
-                var arg = ParseExpression();
-                args.Add(arg);
-            } while (Match(TokenType.Comma));
+                try
+                {
+                    args.Add(ParseExpression());
+                }
+                catch (ParseException ex)
+                {
+                    Diagnostics.Add(ex);
+                    var itemSpan = GetSourceSpan(_current, _current + 1);
+                    var ee = GetErrorExpr(ex, itemSpan);
+                    args.Add(ee);
+                    Synchronize();
+                }
+            }
+            while (Match(TokenType.Comma));
         }
-        
-        Consume(TokenType.RightParen, "Expect ')' after arguments");
+
+        Consume(TokenType.RightParen, "在参数之后需要 ')'");
 
         var endTokenIndex = _current;
-        var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
-        return new CallExpr(target, args, sourceSpan);
+        var span = GetSourceSpan(startTokenIndex, endTokenIndex);
+        return new CallExpr(target, args, span);
+
+
+        /* var args = new List<Expr>();
+
+         var startTokenIndex = _current;
+         if (!Check(TokenType.RightParen))
+         {
+             do
+             {
+                 var arg = ParseExpression();
+                 args.Add(arg);
+             } while (Match(TokenType.Comma));
+         }
+
+         Consume(TokenType.RightParen, "Expect ')' after arguments");
+
+         var endTokenIndex = _current;
+         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
+         return new CallExpr(target, args, sourceSpan);*/
     }
     
     private Expr ParseIndexAccess(Expr target)
     {
         var startTokenIndex = _current;
         Expr index = ParseExpression();
-        Consume(TokenType.RightBracket, "Expect ']' after index");
+        Consume(TokenType.RightBracket, "在索引之后需要 ']'");
         var endTokenIndex = _current;
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new IndexAccessExpr(target, index, sourceSpan);
@@ -436,15 +479,11 @@ public class Parser
             {
                 // 普通括号表达式
                 Expr expr = ParseExpression();
-                Consume(TokenType.RightParen, "Expect ')' after expression");
+                Consume(TokenType.RightParen, "在表达式之后需要 ')'");
                 return expr;
             }
         }
         
-        if(_currentToken.Line == 14)
-        {
-
-        }
         // 标识符 / 单参数Lambda
         if (Match(TokenType.Identifier))
         {
@@ -491,7 +530,20 @@ public class Parser
             return ParseArrayLiteral();
         }
 
-        throw Error(Peek(), "Expect expression");
+        //throw Error(Peek(), "Expect expression");
+        // 代替异常
+        var token = Peek();
+        var error = Error(token, "需要表达式");
+        Diagnostics.Add(error);
+
+        Advance(); // 吃掉一个 token，防止死循环
+
+        var span = GetSourceSpan(
+            Math.Max(_current - 1, 0),
+            Math.Min(_current + 1, _tokens.Count - 1)
+        );
+
+        return GetErrorExpr(error, span);  
     }
 
     // ==================== 复杂表达式解析 ====================
@@ -577,41 +629,41 @@ public class Parser
             // 可能是单参数: a => ...
             // 也可能是多参数的第一个: (a, b) => ...
             // 需要向前看
-            
+
             if (Match(TokenType.Identifier))
             {
                 parameters.Add(Previous().Lexeme);
-                
+
                 if (Match(TokenType.Comma))
                 {
                     // 多参数，继续读取
                     do
                     {
-                        parameters.Add(Consume(TokenType.Identifier, "Expect parameter name").Lexeme);
+                        parameters.Add(Consume(TokenType.Identifier, "需要参数名").Lexeme);
                     } while (Match(TokenType.Comma));
-                    
-                    Consume(TokenType.RightParen, "Expect ')' after parameters");
+
+                    Consume(TokenType.RightParen, "在参数之后需要 ')'");
                 }
                 else if (Check(TokenType.RightParen))
                 {
                     // 单参数，需要消费 )
-                    Consume(TokenType.RightParen, "Expect ')' after parameter");
+                    Consume(TokenType.RightParen, "在参数之后需要 ')'");
                 }
-                
-                Consume(TokenType.Arrow, "Expect '=>' after parameters");
+
+                Consume(TokenType.Arrow, "在参数之后需要 '=>'");
             }
         }
         else if (Check(TokenType.RightParen))
         {
             // 空参数: () => expr
-            Consume(TokenType.RightParen, "Expect ')' for lambda");
-            Consume(TokenType.Arrow, "Expect '=>' after parameters");
+            Consume(TokenType.RightParen, "Lambda 表达式需要 ')'");
+            Consume(TokenType.Arrow, "在参数之后需要 '=>'");
         }
         else
         {
-            throw Error(Peek(), "Expect identifier or ')' for lambda");
+            throw Error(Peek(), "Lambda 表达式需要标识符或 ')'");
         }
-        
+
         Expr body;
         // 检查 body 是否是 block
         if (Check(TokenType.LeftBrace))
@@ -626,7 +678,7 @@ public class Parser
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new LambdaExpr(parameters, body, sourceSpan);
     }
-    
+
     /// <summary>
     /// 解析循环语句
     /// </summary>
@@ -682,7 +734,7 @@ public class Parser
         var sourceSpan_if = GetSourceSpan(startTokenIndex, endTokenIndex_if);
         return new IfExpr(condition, thenBranch, elseBranch, sourceSpan_if);
     }
-    
+
     /// <summary>
     /// 解析代码块 { ... }
     /// </summary>
@@ -690,21 +742,23 @@ public class Parser
     private BlockExpr ParseBlock()
     {
         var startTokenIndex = _current;
-        Consume(TokenType.LeftBrace, "Expect '{' to start block");
+        Consume(TokenType.LeftBrace, "需要 '{' 开始代码块");
+
         var statements = new List<Expr>();
-        
+
         while (!Check(TokenType.RightBrace) && !IsAtEnd())
         {
-            var statement = ParseDeclarationOrStatement();
-            statements.Add(statement);
+            statements.Add(ParseDeclarationOrStatement());
         }
-        
-        Consume(TokenType.RightBrace, "Expect '}' to end block");
+
+        Consume(TokenType.RightBrace, "需要 '}' 结束代码块");
+
         var endTokenIndex = _current;
-        var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
-        return new BlockExpr(statements, sourceSpan);
+        var span = GetSourceSpan(startTokenIndex, endTokenIndex);
+        return new BlockExpr(statements, span);
+
     }
-    
+
     /// <summary>
     /// 解析模式匹配
     /// </summary>
@@ -726,7 +780,7 @@ public class Parser
                 // 解析模式表达式
                 Expr pattern = ParseExpression();
 
-                Consume(TokenType.Arrow, "Expect '=>' in when clause");
+                Consume(TokenType.Arrow, "在 when 子句中需要 '=>'");
 
                 // 支持块语句作为 when 子句体
                 Expr body;
@@ -748,12 +802,12 @@ public class Parser
                 {
                     if (!Check(TokenType.RightBrace))
                     {
-                        throw Error(Peek(), "Expect ',' or '}' after when clause");
+                        throw Error(Peek(), "在 when 子句之后需要 ',' 或 '}'");
                     }
                 }
             }
 
-            Consume(TokenType.RightBrace, "Expect '}' after when clauses");
+            Consume(TokenType.RightBrace, "在 when 子句之后需要 '}'");
         }
         else
         {
@@ -763,7 +817,7 @@ public class Parser
                 var startTokenIndex_when = _current;
 
                 Expr pattern = ParseExpression();
-                Consume(TokenType.Arrow, "Expect '=>' in when clause");
+                Consume(TokenType.Arrow, "在 when 子句中需要 '=>'");
 
                 Expr body;
                 if (Check(TokenType.LeftBrace))
@@ -796,11 +850,11 @@ public class Parser
     private ForExpr ParseForExpression()
     {
         var startTokenIndex = _current;
-        string varName = Consume(TokenType.Identifier, "Expect variable name after 'for'").Lexeme;
-        Consume(TokenType.In, "Expect 'in' after variable name");
+        string varName = Consume(TokenType.Identifier, "在 'for' 之后需要变量名").Lexeme;
+        Consume(TokenType.In, "在变量名之后需要 'in'");
         Expr iterable = ParseExpression();
         Expr body;
-        
+
         // 检查后面是否是 { 开头的 block
         if (Check(TokenType.LeftBrace))
         {
@@ -815,7 +869,7 @@ public class Parser
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new ForExpr(varName, iterable, body, sourceSpan);
     }
-    
+
     /// <summary>
     /// 解析对象定义
     /// </summary>
@@ -824,7 +878,7 @@ public class Parser
     {
         var startTokenIndex = _current;
         var properties = new List<ObjectProperty>();
-        
+
         if (!Check(TokenType.RightBrace))
         {
             do
@@ -846,9 +900,9 @@ public class Parser
                 }
                 else
                 {
-                    throw Error(Peek(), "Expect property key");
+                    throw Error(Peek(), "需要属性键");
                 }
-                
+
                 if (Match(TokenType.Equal))
                 {
                     Expr value = ParseExpression();
@@ -869,14 +923,14 @@ public class Parser
                 }
             } while (Match(TokenType.Comma));
         }
-        
-        Consume(TokenType.RightBrace, "Expect '}' after object properties");
+
+        Consume(TokenType.RightBrace, "在对象属性之后需要 '}'");
 
         var endTokenIndex = _current;
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new ObjectLiteralExpr(properties, sourceSpan);
     }
-    
+
     /// <summary>
     /// 解析数组定义
     /// </summary>
@@ -886,7 +940,7 @@ public class Parser
 
         var startTokenIndex = _current;
         var elements = new List<Expr>();
-        
+
         if (!Check(TokenType.RightBracket))
         {
             do
@@ -894,8 +948,8 @@ public class Parser
                 elements.Add(ParseExpression());
             } while (Match(TokenType.Comma));
         }
-        
-        Consume(TokenType.RightBracket, "Expect ']' after array elements");
+
+        Consume(TokenType.RightBracket, "在数组元素之后需要 ']'");
         var endTokenIndex = _current;
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new ArrayLiteralExpr(elements, sourceSpan);
@@ -995,10 +1049,38 @@ public class Parser
     /// <returns></returns>
     private Token Consume(TokenType type, string message)
     {
-        if (Check(type)) return Advance();
-        throw Error(Peek(), message);
+        if (Check(type))
+            return Advance();
+
+        // 1. 生成并记录 diagnostic
+        var error = Error(Peek(), message);
+        Diagnostics.Add(error);
+
+        // 2. 尝试恢复：如果当前 token 看起来是“同步点”，不吃
+        if (IsRecoverableBoundary(Peek().Type))
+            return Peek();
+
+        // 3. 否则吃掉一个 token，避免死循环
+        Advance();
+
+        // 4. 返回一个“占位 token”
+        return Previous();
     }
-    
+
+    private bool IsRecoverableBoundary(TokenType type)
+    {
+        return type switch
+        {
+            TokenType.Semicolon => true,
+            TokenType.RightParen => true,
+            TokenType.RightBrace => true,
+            TokenType.RightBracket => true,
+            TokenType.Comma => true,
+            TokenType.EOF => true,
+            _ => false
+        };
+    }
+
     /// <summary>
     /// 
     /// </summary>
@@ -1007,12 +1089,21 @@ public class Parser
     /// <returns></returns>
     private ParseException Error(Token token, string message)
     {
-        string location = $"[File {token.FilePath} Line {token.Line}, Column {token.Column}]";
-        string tokenInfo = $"Found '{token.Lexeme}' (type: {token.Type})";
-        string fullMessage = $"{location} {message}. {tokenInfo}";
+        string location = $"[文件 {token.FilePath} 第 {token.Line} 行, 第 {token.Column} 列]";
+        string tokenInfo = $"找到 '{token.Lexeme}' (类型: {token.Type})";
+        string fullMessage = $"{message}。 {tokenInfo} {location} ";
         return new ParseException(token, fullMessage);
     }
-    
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ErrorExpr GetErrorExpr(Exception exception, SourceSpan sourceSpan)
+    {
+        return new ErrorExpr(exception.Message, sourceSpan);
+    }
+
+    /// <summary>
+    /// 错误恢复
+    /// </summary>
     private void Synchronize()
     {
         Advance();
@@ -1027,6 +1118,8 @@ public class Parser
                 case TokenType.Var:
                 case TokenType.If:
                 case TokenType.For:
+                case TokenType.Return:
+                case TokenType.Import:
                     return;
             }
             

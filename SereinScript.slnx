@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="ScriptAvaloniaApp/ScriptAvaloniaApp.csproj" Id="40f3f8ce-0062-4746-8dd2-813a790f9660" />
   <Project Path="ScriptLang/ScriptLang.csproj" />
+  <Project Path="SereinScript.LSP/SereinScript.LSP.csproj" />
 </Solution>

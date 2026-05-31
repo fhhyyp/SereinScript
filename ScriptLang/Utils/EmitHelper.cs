@@ -253,20 +253,17 @@ namespace ScriptLang.Utils
             if (!isTask)
             {
                 emitType = EmitMethodType.Func;
-                @delegate = dynamicMethod.CreateDelegate(
-                    typeof(Func<object, object[], object>));
+                @delegate = dynamicMethod.CreateDelegate(typeof(Func<object, object[], object>));
             }
             else if (isTaskGeneric)
             {
                 emitType = EmitMethodType.TaskHasResult;
-                @delegate = dynamicMethod.CreateDelegate(
-                    typeof(Func<object, object[], Task<object>>));
+                @delegate = dynamicMethod.CreateDelegate(typeof(Func<object, object[], Task<object>>));
             }
             else
             {
                 emitType = EmitMethodType.Task;
-                @delegate = dynamicMethod.CreateDelegate(
-                    typeof(Func<object, object[], Task>));
+                @delegate = dynamicMethod.CreateDelegate(typeof(Func<object, object[], Task>));
 
                 Func<object, object[], Task> func = (Func<object, object[], Task>)@delegate;
             }

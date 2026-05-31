@@ -8,64 +8,40 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        // 默认运行 demo.script
-        var scriptPath = args.Length > 0 ? args[0] : "./Samples/LINQ/run-linq.script";
-        
-        if (!File.Exists(scriptPath))
+#if DEBUG
+        args = ["./Samples/3/3.4-快速排序.script"];
+        args = ["./Samples/3/3.5-矩阵运算.script"];
+        args = ["./Samples/高级/pinia/run-import.script"];
+        args = ["./Samples/高级/linq/run-linq.script"];
+#endif
+        //args = [".\\Samples\\2\\2.2-条件表达式.script"];
+        if (args.Length == 0) 
         {
-            Console.WriteLine($"Error: Script file not found: {scriptPath}");
+            Console.WriteLine("需要指定调用的 script 文件路径");
             return;
         }
 
+        var exePath = AppDomain.CurrentDomain.BaseDirectory;
+        var scriptPath = Path.GetFullPath( Path.Combine(exePath, args[0]));
+        if (!File.Exists(scriptPath))
+        {
+            Console.WriteLine($"文件不存在: {scriptPath}");
+            return;
+        }
         try
         {
-            var source = File.ReadAllText(scriptPath);
-
-            ScriptEngine scriptEngine = new ScriptEngine();
-          /*  // 1. 词法分析
-            var lexerObj = new Lexer.Lexer(source);
-            var tokens = lexerObj.ScanTokens();
-
-            // 2. 语法分析
-            var parser = new Parser.Parser(filePath: tokens);
-            var ast = parser.Parse();
-
-            // 3. 异步执行
-            var interpreter = new Interpreter("Samples/LINQ");
-            var scope = new Scope(null);
-            BuiltinFunctions.RegisterAll(scope);*/
-
-            // 仅在 CLR 测试脚本中注册 CLR 对象
-            
-
-            var sw = Stopwatch.StartNew(); // 开始计时
-            var result = await scriptEngine.RunAsync(source, scriptPath, (scope) =>
-            {
-                if (scriptPath.Contains("CLR") || scriptPath.Contains("4.1")
-                || scriptPath.Contains("4.2") || scriptPath.Contains("4.3"))
-                {
-                    var testPerson = new TestPerson
-                    {
-                        Name = "Alice",
-                        Age = 25,
-                        Hobbies = new List<string> { "Reading", "Coding", "Gaming" }
-                    };
-                    scope.Define("person", new ClrObjectValue(testPerson));
-                    scope.Define("asyncService", new ClrObjectValue(new TestAsyncService()));
-                    //scope.Define("callbackTest", new ClrObjectValue(new CallbackTest()));
-                }
-                scope.Define("math", new ClrObjectValue(new TestMath()));
-            });
-            sw.Stop(); // 停止计时
+            var scriptEngine = new ScriptEngine();
+            var sw = Stopwatch.StartNew();
+            var result = await scriptEngine.RunAsync(scriptPath);
+            sw.Stop();
             Console.WriteLine($"耗时: {sw.ElapsedMilliseconds} ms");
-
-
-            // 4. 输出结果
-            Console.WriteLine($"Result: {result}");
+            Console.WriteLine($"结果: {result}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex}");
+            Console.WriteLine($"异常: {ex}");
         }
+
     }
+
 }

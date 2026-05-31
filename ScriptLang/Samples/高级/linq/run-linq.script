@@ -1,0 +1,12 @@
+import { array } from "linq.script"
+
+let arr = array([1, 2, 3, 4, 213, 451, 2, 542, 534, 12, 3, 34, 51, 23, 412, 32, 54, 1, 32, 245])
+let result1 = arr.where(x => x % 2 == 0)
+				.select(x => x / 10)
+				.orderBy()
+				.toArray()
+
+let result2 = arr.orderBy().toArray()
+
+print(result1)
+print(result2)

@@ -2,6 +2,22 @@ using System.Text;
 
 namespace ScriptLang.Lexer;
 
+/// <summary>
+/// 词法解析器提示
+/// </summary>
+/// <param name="Message"></param>
+/// <param name="FilePath"></param>
+/// <param name="Line"></param>
+/// <param name="Column"></param>
+/// <param name="Length"></param>
+public record LexDiagnostic(
+    string Message,
+    string FilePath,
+    int Line,
+    int Column,
+    int Length
+);
+
 
 
 /// <summary>
@@ -15,10 +31,14 @@ public class Lexer
     private int _line = 1;
     private int _column = 1;
 
-    //private readonly string filePath;
     public string? FilePath { get; set; } = string.Empty;
-    
-   
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public List<LexDiagnostic> Diagnostics { get; } = [];
+
+
     public Lexer(string source, string filePath)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -143,13 +163,67 @@ public class Lexer
                     ReadNumber(); // 解析数值
                 else if (char.IsLetter(c) || c == '_' || c == '@')
                     ReadIdentifier();
+                //else
+                //    AddToken(TokenType.Unknown, c.ToString()); 
                 else
+                {
+                    // 新增错误提示
+                    Diagnostics.Add(new LexDiagnostic(
+                        $"意外的字符 '{c}'",
+                        FilePath ?? string.Empty,
+                        _line,
+                        _column - 1,
+                        1
+                    ));
                     AddToken(TokenType.Unknown, c.ToString());
+                }
                 break;
         }
     }
-    
+
     private void ReadString()
+    {
+        int startLine = _line;
+        int startColumn = _column;
+        int startPos = _position;
+
+        StringBuilder sb = new();
+
+        while (!IsAtEnd() && Peek() != '"')
+        {
+            if (Peek() == '\n')
+                break;
+
+            if (Peek() == '\\' && PeekNext() != '\0')
+            {
+                Advance();
+                sb.Append(Advance());
+            }
+            else
+            {
+                sb.Append(Advance());
+            }
+        }
+
+        bool closed = !IsAtEnd() && Peek() == '"';
+        if (closed)
+            Advance();
+
+        AddToken(TokenType.String, sb.ToString(), sb.ToString());
+
+        if (!closed)
+        {
+            Diagnostics.Add(new LexDiagnostic(
+                "未终止的字符串字面量",
+                FilePath ?? string.Empty,
+                startLine,
+                startColumn,
+                _position - startPos
+            ));
+        }
+    }
+
+    private void ReadString_v1()
     {
         StringBuilder sb = new();
         

@@ -10,52 +10,30 @@ namespace ScriptLang
 {
     public sealed class ScriptEngine
     {
-        public ImportResolver ImportResolver => _importResolver;
-        public SourceManager SourceManager => _sourceManager;
-        public Scope GlobalScope => _globalScope;
-
-        private readonly SourceManager _sourceManager = new SourceManager();
-        private readonly Scope _globalScope = new Scope();
-        private readonly ImportResolver _importResolver;
-        private readonly string _baseDirectory;
-
-        public ScriptEngine(string? baseDirectory =  null)
-        {
-            if (string.IsNullOrWhiteSpace(baseDirectory))
-            {
-                baseDirectory =  Directory.GetCurrentDirectory();
-            }
-            BuiltinFunctions.RegisterAll(_globalScope);
-            _baseDirectory = baseDirectory;
-            _importResolver = new ImportResolver(this, baseDirectory);
-        }
-
-
-        public async Task<Value> LoadAndRunAsync(string scriptFile, Action<Scope>? action = null)
-        {
-            if (!File.Exists(scriptFile))
-            {
-                var f = Path.Combine(_baseDirectory, scriptFile);
-                if (!File.Exists(f))
-                {
-                    throw new Exception($"Not found script file : {scriptFile}");
-                }
-                scriptFile = f;
-            }
-            var script = await File.ReadAllTextAsync(scriptFile);
-            var value = await RunAsync(script, scriptFile, action);
-            return value;
-        }
+        /// <summary>
+        /// 脚本依赖导入工具
+        /// </summary>
+        public ImportResolver ImportResolver { get; private set; } 
 
         /// <summary>
-        /// 由 <see cref="FunctionValue.CallAsync(ScriptEngine, List{Value})"/>
-        /// 执行 AST 并返回 Value
+        /// 脚本源文件管理
         /// </summary>
-        public async Task<Value> EvaluateAsync(Expr expr, Scope? scope = null)
+        public SourceManager SourceManager { get; } = new SourceManager();
+
+        /// <summary>
+        /// 默认的全局作用域
+        /// </summary>
+        public Scope GlobalScope { get; } = new Scope();
+
+        /// <summary>
+        /// 脚本主路径
+        /// </summary>
+        public string MainDirectory { get; private set; } = string.Empty;
+
+        public ScriptEngine()
         {
-            var interpreter = new Interpreter(this);
-            var evalResult = await  interpreter.EvaluateAsync(expr, scope ?? _globalScope);
-            return evalResult.Value;
+            ImportResolver = new ImportResolver(this);
+            BuiltinFunctions.RegisterAll(GlobalScope);
         }
 
         /// <summary>
@@ -65,9 +43,15 @@ namespace ScriptLang
         /// <param name="filePath">文件路径</param>
         /// <param name="action">提供注册方法</param>
         /// <returns></returns>
-        public async Task<Value> RunAsync(string script, string filePath = "<memory>", Action<Scope>? action = null)
+        public async Task<Value> RunAsync(string filePath,  Scope? scope = null)
         {
-            _sourceManager.AddSource(filePath, script);
+            var script = await File.ReadAllTextAsync(filePath);
+            if (string.IsNullOrWhiteSpace(MainDirectory) && Path.GetDirectoryName(filePath) is string mainDir)
+            {
+                MainDirectory = mainDir;
+            }
+
+            SourceManager.AddSource(filePath, script);
 
             var lexer = new Lexer.Lexer(script, filePath);
             var tokens = lexer.ScanTokens();
@@ -75,11 +59,33 @@ namespace ScriptLang
             var parser = new Parser.Parser(tokens, filePath);
             var ast = parser.Parse();
 
+            if (parser.Diagnostics.Count > 0) 
+            {
+                for (int index = 0; index < parser.Diagnostics.Count; index++)
+                {
+                    ParseException? diagnostic = parser.Diagnostics[index];
+                    Console.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
+                }
+                throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
+            }
 
             var interpreter = new Interpreter(this);
-            var evalResult = await interpreter.EvaluateAsync(ast, _globalScope);
+            var evalResult = await interpreter.EvaluateAsync(ast, scope ?? GlobalScope);
             return evalResult.Value;
         }
+
+
+        /// <summary>
+        /// 由 <see cref="FunctionValue.CallAsync(ScriptEngine, List{Value})"/>
+        /// 执行 AST 并返回 Value
+        /// </summary>
+        public async Task<Value> EvaluateAsync(Expr expr, Scope? scope = null)
+        {
+            var interpreter = new Interpreter(this);
+            var evalResult = await interpreter.EvaluateAsync(expr, scope ?? GlobalScope);
+            return evalResult.Value;
+        }
+
 
     }
 

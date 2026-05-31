@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="vscode-extension\node_modules\.bin\mkdirp" />
+    <None Include="vscode-extension\node_modules\.bin\mkdirp.cmd" />
+    <None Include="vscode-extension\node_modules\.bin\mkdirp.ps1" />
+    <None Include="vscode-extension\node_modules\.bin\rimraf" />
+    <None Include="vscode-extension\node_modules\.bin\rimraf.cmd" />
+    <None Include="vscode-extension\node_modules\.bin\rimraf.ps1" />
+    <None Include="vscode-extension\node_modules\.bin\semver" />
+    <None Include="vscode-extension\node_modules\.bin\semver.cmd" />
+    <None Include="vscode-extension\node_modules\.bin\semver.ps1" />
+    <None Include="vscode-extension\node_modules\.bin\tsc" />
+    <None Include="vscode-extension\node_modules\.bin\tsc.cmd" />
+    <None Include="vscode-extension\node_modules\.bin\tsc.ps1" />
+    <None Include="vscode-extension\node_modules\.bin\tsserver" />
+    <None Include="vscode-extension\node_modules\.bin\tsserver.cmd" />
+    <None Include="vscode-extension\node_modules\.bin\tsserver.ps1" />
+    <None Include="vscode-extension\node_modules\balanced-match\.github\FUNDING.yml" />
+    <None Include="vscode-extension\node_modules\brace-expansion\.github\FUNDING.yml" />
+    <None Include="vscode-extension\node_modules\fstream\node_modules\.bin\rimraf" />
+    <None Include="vscode-extension\node_modules\fstream\node_modules\.bin\rimraf.cmd" />
+    <None Include="vscode-extension\node_modules\fstream\node_modules\.bin\rimraf.ps1" />
+    <None Include="vscode-extension\node_modules\minimist\.github\FUNDING.yml" />
+    <None Include="vscode-extension\node_modules\unzipper\.circleci\config.yml" />
+    <None Include="vscode-extension\node_modules\vscode-test\.github\workflows\ci.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScriptLang\ScriptLang.csproj" />
+  </ItemGroup>
+
+</Project>

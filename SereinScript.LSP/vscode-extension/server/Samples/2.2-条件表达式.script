@@ -1,0 +1,12 @@
+﻿// ==================== 条件表达式 ====================
+let num = 25
+if num > 20 then {
+    print("big")
+} else {
+    print("small")
+}
+// 输出: big
+
+// 三元表达式
+let status = if num > 30 then "high" else "low"
+print("status:", status)  // 输出: status: low

@@ -27,7 +27,6 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 async Task Refresh()
                 {
                     List<Control> controls = new List<Control>();
-                    Debug.WriteLine(arr);
                     foreach (var item  in arr.Elements)
                     {
                         var uiValue = await templateFunc.CallAsync(Engine, item);

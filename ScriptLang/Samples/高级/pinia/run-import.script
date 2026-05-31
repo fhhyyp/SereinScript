@@ -1,0 +1,11 @@
+import { store } from "test-import.script"
+import { look } from "look.script"
+
+// print(store)
+look()
+store.actions.increment(5)
+print(store.getters.getData()) 
+look()
+
+store.actions.increment(-50)
+look()

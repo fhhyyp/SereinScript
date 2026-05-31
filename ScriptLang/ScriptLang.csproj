@@ -9,82 +9,86 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="Samples\1.6-复杂对象.script">
+    <Compile Remove="Runtime\FreeVariableAnalyzer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Samples\1\1.6-复杂对象.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\3.5-矩阵运算.script">
+    <None Update="Samples\3\3.5-矩阵运算.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\3.4-快速排序.script">
+    <None Update="Samples\3\3.4-快速排序.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\4.3-CLR回调.script">
+    <None Update="Samples\4\4.3-CLR回调.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\4.1-CLR对象.script">
+    <None Update="Samples\4\4.1-CLR对象.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\4.2-异步调用.script">
+    <None Update="Samples\4\4.2-异步调用.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.2-变量声明.script">
+    <None Update="Samples\1\1.2-变量声明.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\2.1-逻辑运算.script">
+    <None Update="Samples\2\2.1-逻辑运算.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.6-数组.script">
+    <None Update="Samples\1\1.6-数组.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.5-对象.script">
+    <None Update="Samples\1\1.5-对象.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\2.3-循环.script">
+    <None Update="Samples\2\2.3-循环.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\2.4-模式匹配.script">
+    <None Update="Samples\2\2.4-模式匹配.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.3-字符串操作.script">
+    <None Update="Samples\1\1.3-字符串操作.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\2.2-条件表达式.script">
+    <None Update="Samples\2\2.2-条件表达式.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.4-函数.script">
+    <None Update="Samples\1\1.4-函数.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1.1-基础运算.script">
+    <None Update="Samples\1\1.1-基础运算.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\3.2-高阶函数.script">
+    <None Update="Samples\3\3.2-高阶函数.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\3.3-递归.script">
+    <None Update="Samples\3\3.3-递归.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\3.1-闭包.script">
+    <None Update="Samples\3\3.1-闭包.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\LINQ\json.script">
+    <None Update="Samples\高级\linq\json.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\LINQ\linq.script">
+    <None Update="Samples\高级\linq\linq.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\LINQ\run-linq.script">
+    <None Update="Samples\高级\linq\run-linq.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\高级-实现pinia\pinia.script">
+    <None Update="Samples\高级\pinia\pinia.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\高级-实现pinia\run-import.script">
+    <None Update="Samples\高级\pinia\run-import.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\高级-实现pinia\test-import.script">
+    <None Update="Samples\高级\pinia\test-import.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\高级-实现pinia\test.script">
+    <None Update="Samples\高级\pinia\look.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

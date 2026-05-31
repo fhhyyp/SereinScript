@@ -10,6 +10,7 @@ namespace ScriptLang.Runtime;
 public static class FunctionValueExtensions
 {
 
+
     public static Func<Value[], Task<Value>> ToDelegate(this FunctionValue function, ScriptEngine engine, Scope? parentScope = null)
     {
         if (function.IsNative)
@@ -24,7 +25,7 @@ public static class FunctionValueExtensions
         return async args =>
         {
             if (args.Length != paramCount)
-                throw new RuntimeException($"Function expects {paramCount} arguments, but got {args.Length}");
+                throw new RuntimeException($"函数期望 {paramCount} 个参数，但实际传入 {args.Length} 个");
 
             // 使用传入 ScriptEngine 的统一 Interpreter
             var interpreter = new Interpreter(engine);
@@ -42,52 +43,6 @@ public static class FunctionValueExtensions
         };
     }
 
-   /* /// <summary>
-    /// 将 FunctionValue 转换为可变参数委托
-    /// </summary>
-    public static Func<Value[], Task<Value>> ToDelegate(this FunctionValue function)
-    {
-        if (function.IsNative)
-        {
-            // 原生函数转换
-            return async args =>
-            {
-                var result = function.NativeFunc!(args.ToList());
-                return result;
-            };
-        }
-
-        // DSL Lambda 函数转换
-        var closure = function.Closure;
-        var body = function.Body;
-        var paramCount = function.ParameterCount;
-        
-        var interpreter = new Interpreter();
-
-        return async args =>
-        {
-            // 验证参数数量
-            if (args.Length != paramCount)
-            {
-                throw new RuntimeException(
-                    $"Function expects {paramCount} arguments, but got {args.Length}");
-            }
-
-            // 创建调用作用域（闭包作为父作用域）
-            var callScope = new Scope(closure);
-
-            // 绑定参数
-            for (int i = 0; i < function.Parameters.Count; i++)
-            {
-                callScope.Define(function.Parameters[i], args[i]);
-            }
-
-            // 执行函数体
-            var result = await interpreter.EvaluateAsync(body, callScope);
-            return result.Value;
-        };
-    }
-*/
     /// <summary>
     /// 将 FunctionValue 转换为 0 参数委托
     /// </summary>
@@ -165,7 +120,7 @@ public static class FunctionValueAdapter
         var invokeMethod = delegateType.GetMethod("Invoke");
 
         if (invokeMethod == null)
-            throw new ArgumentException("Target type must be a delegate", nameof(TDelegate));
+            throw new ArgumentException("目标类型必须是委托", nameof(TDelegate));
 
         // 创建适配器闭包
         return CreateAdapter(@delegate, invokeMethod, paramCount);
@@ -198,7 +153,7 @@ public static class FunctionValueAdapter
         }
         else
         {
-            throw new ArgumentException("Generic adapter only supports 0-3 parameters", "delegate");
+            throw new ArgumentException("泛型适配器仅支持 0-3 个参数", "delegate");
         }
 
         return (Delegate)method.Invoke(null, new object[] { @delegate, paramCount })!;
@@ -312,14 +267,14 @@ public static class FunctionValueAdapter
         if (value.IsNull)
         {
             if (typeof(TReturn).IsValueType && System.Nullable.GetUnderlyingType(typeof(TReturn)) == null)
-                throw new InvalidCastException($"Cannot convert null to non-nullable value type {typeof(TReturn).Name}");
+                throw new InvalidCastException($"无法将 null 转换为不可为 null 的值类型 {typeof(TReturn).Name}");
             return default!;
         }
 
         // 处理 ClrObjectValue → 目标类型
-        if (value is ClrObjectValue clrObj && typeof(TReturn).IsAssignableFrom(clrObj.Target.GetType()))
-            return (TReturn)clrObj.Target;
+        if (value is ClrObjectValue clrObj && clrObj.ClrObject is not null && typeof(TReturn).IsAssignableFrom(clrObj.ClrObject.GetType()))
+            return (TReturn)clrObj.ClrObject;
 
-        throw new InvalidCastException($"Cannot convert Value ({value.GetType()}) to {typeof(TReturn).Name}");
+        throw new InvalidCastException($"无法将 Value ({value.GetType()}) 转换为 {typeof(TReturn).Name}");
     }
 }

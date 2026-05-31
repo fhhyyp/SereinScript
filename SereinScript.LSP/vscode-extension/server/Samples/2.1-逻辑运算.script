@@ -1,0 +1,5 @@
+﻿let flag = true
+let flag2 = false
+print("flag && flag2:", flag && flag2)  // 输出: flag && flag2: false
+print("flag || flag2:", flag || flag2)  // 输出: flag || flag2: true
+print("!flag:", !flag)  // 输出: !flag: false

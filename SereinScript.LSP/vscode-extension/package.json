@@ -1,0 +1,53 @@
+{
+  "name": "sereinscript-vscode",
+  "displayName": "SereinScript Language Support",
+  "description": "Language support for SereinScript DSL",
+  "version": "0.1.1",
+  "publisher": "sereinscript",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:sereinscript"
+  ],
+  "main": "out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "sereinscript",
+        "extensions": [
+          ".script"
+        ],
+        "aliases": [
+          "SereinScript"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sereinscript",
+        "scopeName": "source.sereinscript",
+        "path": "./syntaxes/sereinscript.tmLanguage.json"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/vscode": "^1.60.0",
+    "typescript": "^4.9.0",
+    "vscode-test": "^1.6.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./node_modules/vscode-test/bin/test.js"
+  }
+}

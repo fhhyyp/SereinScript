@@ -27,6 +27,7 @@ namespace ScriptAvaloniaApp.Utils
             ScriptControlFactory.Register(nameof(Slider), (n, i) => new ScriptSlider(n, i));
             ScriptControlFactory.Register(nameof(ProgressBar), (n, i) => new ScriptProgressBar(n, i)); 
             ScriptControlFactory.Register(nameof(TabControl), (n, i) => new ScriptTabControl(n, i));
+            ScriptControlFactory.Register(nameof(ScrollViewer), (n, i) => new ScriptScrollViewer(n, i));
 
 
         }

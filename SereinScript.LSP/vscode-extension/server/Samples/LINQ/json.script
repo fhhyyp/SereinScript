@@ -1,0 +1,64 @@
+
+let json = (obj) => {
+	var o = obj
+
+	let jsonObject = {
+		value = o,
+		get = (path) => {
+			var parts = path.split(".")
+			var cur = o
+			for p in parts {
+				cur = cur[p]
+			}
+			cur
+		},
+		
+		set = (path, value) => {
+			var parts = path.split(".")
+			var cur = o
+			for i in range(0, len(parts)-2) {
+				cur = cur[parts[i]]
+			}
+			cur[parts.last()] = value
+			o
+		},
+	}
+}
+
+
+let toJson = (obj) => {
+    when typeof(obj) {
+        "bool" => bool(obj),
+        "number" => double(obj),
+        "string"=> obj.toString(),
+        "null" => "null",
+	    "array" => {
+            var items = []
+            for item in obj {
+                items + toJson(item)
+            }
+            "[" + items.join(",") + "]"
+        },
+        "object" => {
+            var props = []
+            for key in obj.keys {
+                var val = obj[key]
+                if typeof(val) == "function" then {
+                    val = "\"function\""
+                } else {
+                    val = toJson(val)
+                }
+                props = props + ("\"" + key + "\":" + val)
+            }
+            "{" + props.join(",") + "}"
+        },
+        _ => "\"unknown\""
+    }
+}
+
+
+
+{
+	json,
+    toJson  
+}

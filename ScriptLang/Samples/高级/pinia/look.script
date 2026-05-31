@@ -1,0 +1,14 @@
+import { store } from "test-import.script"
+
+let look = () => {
+	print("")       
+	print("---------------------------------------------------")       
+	print("current state :")       
+	print("x    : ", store.state.x)       
+	print("y    : ", store.state.y)     
+	print("data : ", store.getters.getData()) 
+	print("---------------------------------------------------")       
+	print("")       
+}
+
+{look = look}

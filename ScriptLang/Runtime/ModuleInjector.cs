@@ -19,7 +19,7 @@ public static class ModuleInjector
             // 检查 exports 是否包含该成员
             if (!exports.Properties.TryGetValue(memberName, out var memberValue))
             {
-                throw new RuntimeException($"Module does not export member '{memberName}'");
+                throw new RuntimeException($"模块未导出成员 '{memberName}'");
             }
 
             // 将成员值定义到当前作用域

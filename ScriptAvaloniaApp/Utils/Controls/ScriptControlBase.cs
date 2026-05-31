@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia.Animation;
+using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
 using ScriptLang;
@@ -7,11 +8,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using static System.Collections.Specialized.BitVector32;
+using Color = Avalonia.Media.Color;
 
 namespace ScriptAvaloniaApp.Utils.Controls
 {
@@ -35,7 +38,8 @@ namespace ScriptAvaloniaApp.Utils.Controls
             foreach (var (key, value) in Node.Properties)
             {
                 // 跳过子控件
-                if (IgnoreProperties.Contains(key) && value is ObjectValue && ScriptControlFactory.IsControlType(key))
+                if (IgnoreProperties.Contains(key) || 
+                    (value is ObjectValue && ScriptControlFactory.IsControlType(key)))
                     continue;
 
                 await TryBindAsync(control, key, value);
@@ -269,6 +273,15 @@ namespace ScriptAvaloniaApp.Utils.Controls
                 return ParseColor(s);
             }
 
+            // IBrush
+            if (targetType.IsAssignableTo(typeof(Avalonia.Media.IBrush)))
+            {
+                var s = v.AsString();
+                var color = ParseColor(s);
+                var brush = new SolidColorBrush(color);
+                return brush;
+            }
+
             // Thickness
             if (targetType == typeof(Avalonia.Thickness))
             {
@@ -285,6 +298,7 @@ namespace ScriptAvaloniaApp.Utils.Controls
             // fallback
             return v.AsString();
         }
+
 
         private Avalonia.Thickness ParseThickness(Value v)
         {
@@ -335,6 +349,8 @@ namespace ScriptAvaloniaApp.Utils.Controls
 
             throw new FormatException($"Unsupported color format: {input}");
         }
+
+       
 
         internal async Task SubConvertAsync(Value value, Func<Task> refresh)
         {

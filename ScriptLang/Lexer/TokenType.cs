@@ -6,112 +6,112 @@ namespace ScriptLang.Lexer;
 public enum TokenType
 {
     // 单字符 Token
-    /// <summary>token is `(`</summary>
+    /// <summary>token 是 `(`</summary>
     LeftParen,
-    /// <summary>token is `)`</summary>
+    /// <summary>token 是 `)`</summary>
     RightParen,
-    /// <summary>token is `{`</summary>
+    /// <summary>token 是 `{`</summary>
     LeftBrace,
-    /// <summary>token is `}`</summary>
+    /// <summary>token 是 `}`</summary>
     RightBrace,
-    /// <summary>token is `[`</summary>
+    /// <summary>token 是 `[`</summary>
     LeftBracket,
-    /// <summary>token is `]`</summary>
+    /// <summary>token 是 `]`</summary>
     RightBracket,
-    /// <summary>token is `,`</summary>
+    /// <summary>token 是 `,`</summary>
     Comma,
-    /// <summary>token is `.`</summary>
+    /// <summary>token 是 `.`</summary>
     Dot,
-    /// <summary>token is `?.`</summary>
+    /// <summary>token 是 `?.`</summary>
     QuestionDot,
-    /// <summary>token is `:`</summary>
+    /// <summary>token 是 `:`</summary>
     Colon,
-    /// <summary>token is `;`</summary>
+    /// <summary>token 是 `;`</summary>
     Semicolon,
 
     // 运算符
-    /// <summary>token is `+`</summary>
+    /// <summary>token 是 `+`</summary>
     Plus,
-    /// <summary>token is `-`</summary>
+    /// <summary>token 是 `-`</summary>
     Minus,
-    /// <summary>token is `*`</summary>
+    /// <summary>token 是 `*`</summary>
     Star,
-    /// <summary>token is `/`</summary>
+    /// <summary>token 是 `/`</summary>
     Slash,
-    /// <summary>token is `%`</summary>
+    /// <summary>token 是 `%`</summary>
     Percent,
 
-    /// <summary>token is `=`</summary>
+    /// <summary>token 是 `=`</summary>
     Equal,              // =
-    /// <summary>token is `==`</summary>
+    /// <summary>token 是 `==`</summary>
     EqualEqual,
-    /// <summary>token is `!=`</summary>
+    /// <summary>token 是 `!=`</summary>
     BangEqual,
 
-    /// <summary>token is `&lt;`</summary>  
+    /// <summary>token 是 `&lt;`</summary>  
     Less,
-    /// <summary>token is `&lt;=`</summary>  
+    /// <summary>token 是 `&lt;=`</summary>  
     LessEqual,
-    /// <summary>token is `&gt;`</summary>
+    /// <summary>token 是 `&gt;`</summary>
     Greater,            // >
-    /// <summary>token is `&gt;=`</summary>
+    /// <summary>token 是 `&gt;=`</summary>
     GreaterEqual,
 
-    /// <summary>token is `!`</summary>
+    /// <summary>token 是 `!`</summary>
     Bang,
-    /// <summary>token is `&&`</summary>
+    /// <summary>token 是 `&&`</summary>
     And,
-    /// <summary>token is `||`</summary>
+    /// <summary>token 是 `||`</summary>
     Or,
 
-    /// <summary>token is `=>`</summary>
+    /// <summary>token 是 `=>`</summary>
     Arrow,
 
     // 关键字
-    /// <summary>token is `let`</summary>
+    /// <summary>token 是 `let`</summary>
     Let,
-    /// <summary>token is `var`</summary>
+    /// <summary>token 是 `var`</summary>
     Var,
-    /// <summary>token is `if`</summary>
+    /// <summary>token 是 `if`</summary>
     If,
-    /// <summary>token is `then`</summary>
+    /// <summary>token 是 `then`</summary>
     Then,
-    /// <summary>token is `else`</summary>
+    /// <summary>token 是 `else`</summary>
     Else,
-    /// <summary>token is `when`</summary>
+    /// <summary>token 是 `when`</summary>
     When,
-    /// <summary>token is `for`</summary>
+    /// <summary>token 是 `for`</summary>
     For,
-    /// <summary>token is `in`</summary>
+    /// <summary>token 是 `in`</summary>
     In,
-    /// <summary>token is `return`</summary>
+    /// <summary>token 是 `return`</summary>
     Return,
 
     // 模块导入
-    /// <summary>token is `import`</summary>
+    /// <summary>token 是 `import`</summary>
     Import,
-    /// <summary>token is `from`</summary>
+    /// <summary>token 是 `from`</summary>
     From,
 
     // 字面量
-    /// <summary>token value is number `123` or `12.34` </summary>
+    /// <summary>token 值是数字 `123` 或 `12.34`</summary>
     Number,
-    /// <summary>token value is string `hello`</summary>
+    /// <summary>token 值是字符串 `hello`</summary>
     String,
-    /// <summary>token value is boolean `true` </summary>
+    /// <summary>token 值是布尔值 `true`</summary>
     True,
-    /// <summary>token value is boolean `false`</summary>
+    /// <summary>token 值是布尔值 `false`</summary>
     False,
-    /// <summary>token value is null</summary>
+    /// <summary>token 值是 null</summary>
     Null,
 
     // 标识符
-    /// <summary>token is an identifier, whose value is a variable name, member name, or method name.</summary>
-    Identifier, 
+    /// <summary>token 是一个标识符，其值为变量名、成员名或方法名</summary>
+    Identifier,
 
     // 特殊
-    /// <summary>end of file</summary>
+    /// <summary>文件结束</summary>
     EOF,
-    /// <summary>unknown token </summary>
+    /// <summary>未知 token</summary>
     Unknown
 }

@@ -1,3 +1,4 @@
+using ScriptLang.Parser;
 using ScriptLang.Utils;
 using System;
 using System.Collections;
@@ -6,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace ScriptLang.Runtime;
 
@@ -36,29 +38,6 @@ public enum ChangeType
 /// </summary>
 public abstract record Value
 {
-    /// <summary>
-    /// 对象与数组的值的来源
-    /// </summary>
-    public Value? Source { get; set; }
-
-    /// <summary>
-    /// 用于定位当前值在 <see cref="Source"/>中的 PropertyName / ItemIndex
-    /// <para/>
-    /// 对于 <see cref="ObjectValue"/> 而言， 该值通常是 <see cref="StringValue"/>，用于调用 (<see cref="ObjectValue.Get(string)"/>)
-    /// <para/>
-    /// 对于 <see cref="ArrayValue"/> 而言， 该值通常是 <see cref="NumberValue"/>，用于调用 (<see cref="ArrayValue.Get(int)"/>)
-    /// </summary>
-    public Value? Target { get; set; }
-
-    /*/// <summary>
-    /// 值在源中的标记名称
-    /// </summary>
-    public string? TargetKey { get; set; }
-    /// <summary>
-    /// 值在源中的索引
-    /// </summary>
-    public int TargetIndex { get; set; } = -1;*/
-
     public static readonly Value Null = new NullValue();
 
     public abstract T As<T>();
@@ -83,21 +62,20 @@ public abstract record Value
     {
         return this switch
         {
+            ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
+            BoolValue b => b.Value ? "true" : "false",
+            ClrMethodValue cm => $"<clr:func>{cm.Delegate.MethodInfo.DeclaringType?.Name}.{cm.Delegate.MethodInfo.Name}()",
+            ClrObjectValue co => $"<clr:obj>{co.ClrObject?.GetType().FullName}>",
+            FunctionValue f => $"<func>{string.Join(',', f.Parameters)}>",
             NullValue => "null",
             NumberValue n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            StringValue s => $"\"{s.Value}\"",
-            BoolValue b => b.Value ? "true" : "false",
-            //MemberValue m => $"<menber:({m.Value.GetType().Name}){m.Value}>",
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
-            ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
-            FunctionValue f => $"<function:{string.Join(',', f.Parameters)}>",
-            ClrObjectValue co => $"<CLR:{co.Target?.GetType().Name}>",
-            ClrMethodValue cm => $"<CLR Method:{cm.Delegate.MethodInfo.DeclaringType?.Name}.{cm.Delegate.MethodInfo.Name}>",
+            StringValue s => $"\"{s.Value}\"",
             _ => "unknown"
         };
     }
 
-
+    internal abstract Value Copy();
 }
 
 /// <summary>
@@ -111,6 +89,8 @@ public record NullValue : Value
         if (typeof(T) == typeof(NullValue)) return (T)(object)this;
         throw new InvalidCastException($"Cannot cast NullValue to {typeof(T)}");
     }
+
+    internal override Value Copy() => Value.Null;
 }
 
 /// <summary>
@@ -124,6 +104,8 @@ public record NumberValue(double Value) : Value
         if (typeof(T) == typeof(NumberValue)) return (T)(object)this;
         throw new InvalidCastException($"Cannot cast NumberValue to {typeof(T)}");
     }
+
+    internal override Value Copy() => new NumberValue(Value);
 }
 
 /// <summary>
@@ -138,6 +120,8 @@ public record StringValue(string Value) : Value
         if (typeof(T) == typeof(string)) return (T)(object)Value;
         throw new InvalidCastException($"Cannot cast StringValue to {typeof(T)}");
     }
+
+    internal override Value Copy() => new StringValue(Value);
 }
 
 /// <summary>
@@ -151,18 +135,8 @@ public record BoolValue(bool Value) : Value
         if (typeof(T) == typeof(BoolValue)) return (T)(object)this;
         throw new InvalidCastException($"Cannot cast BoolValue to {typeof(T)}");
     }
+    internal override Value Copy() => new BoolValue(Value);
 }
-
-/*/// <summary>
-/// 对象成员
-/// </summary>
-/// <param name="MemberName">值名称</param>
-/// <param name="Value">值内容</param>
-/// <param name="Source">值来源</param>
-public record MemberValue(string MemberName, Value Value) : Value
-{
-    public override T As<T>() => Value.As<T>();
-}*/
 
 /// <summary>
 /// 对象值（map/record）
@@ -171,16 +145,21 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value, IObserv
 {
     public event Action<ValueChange>? Changed;
 
+
+    internal override Value Copy()
+    {
+        var values = new Dictionary<string, Value>();
+        foreach(var property in Properties)
+        {
+            var key = property.Key;
+            var value = property.Value.Copy();
+            values[key] = value;
+        }
+        return new ObjectValue(values);
+    }
+
     public void Set(string key, Value value)
     {
-       /* var menberValue = new MemberValue(key, value);
-        if(menberValue.Source is null)
-        {
-            menberValue.Source = this;
-            menberValue.TargetKey = key;
-        }*/
-        
-
         Properties.TryGetValue(key, out var old);
         Properties[key] = value;
         Changed?.Invoke(new ValueChange(
@@ -196,11 +175,11 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value, IObserv
     public bool TryGetValue(string key, [NotNullWhen(true)]out Value? value)
     {
         var state = Properties.TryGetValue(key, out value);
-        if (value?.Source is null)
+        /*if (value?.Source is null)
         {
             value?.Target = new StringValue(key);
             value?.Source = this;
-        }
+        }*/
         return state;
     }
 
@@ -226,6 +205,7 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
 
     private readonly List<FunctionValue> OnChangeds = new List<FunctionValue>();
 
+   
     internal void AddOnChanged(FunctionValue functionValue)
     {
         OnChangeds.Add(functionValue);
@@ -246,24 +226,18 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
         }
     }
 
-    private void Track()
+    internal override Value Copy()
     {
-        foreach(var (item, index) in Elements.Select((x, i) => (x, i)))
-        {
-            if(item.Target is NumberValue numberValue)
-            {
-                item.Target = numberValue with
-                {
-                    Value = index
-                };
-            }
-        }
+        var array = Elements.Select(x => x.Copy()).ToList();
+        return new ArrayValue(array);
     }
+
+
 
     public void Add(Value v, ScriptEngine engine)
     {
         Elements.Add(v);
-        Track();
+        //Track();
         PublicEvent(new ValueChange( 
             this, (Elements.Count - 1).ToString(), null, v, ChangeType.Add), engine);
     }
@@ -273,7 +247,7 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
         if (Elements.Count == 0) return Value.Null;
         var last = Elements[^1];
         Elements.RemoveAt(Elements.Count - 1);
-        Track();
+        //Track();
         PublicEvent(new ValueChange(
             this, null, last, null, ChangeType.Remove), engine);
         return last;
@@ -284,7 +258,7 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
 
         var old = Elements[index];
         Elements.RemoveAt(index);
-        Track();
+        //Track();
         PublicEvent(new ValueChange(
             this, index.ToString(), old, null, ChangeType.Remove), engine);
     }
@@ -302,7 +276,7 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
 
         var old = Elements[index];
         Elements[index] = v;
-        Track();
+        //Track();
         PublicEvent(new ValueChange(
             this, index.ToString(), old, v, ChangeType.Set), engine);
     }
@@ -310,38 +284,38 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
     public void Reverse(ScriptEngine engine)
     {
         Elements.Reverse();
-        Track();
+        //Track();
         PublicEvent(new ValueChange(this, null, null, null, ChangeType.Set), engine);
     }
     public Value Get(NumberValue index)
     {
         var value = Elements[(int)index.Value];
-        if(value.Source is null)
+        /*if(value.Source is null)
         {
             value.Source = this;
             value.Target = index;
-        }
+        }*/
         return value;
     }
 
     public Value Get(int index)
     {
         var value = Elements[index];
-        if (value.Source is null)
+        /*if (value.Source is null)
         {
             value.Source = this;
             value.Target = new NumberValue(index);
-        }
+        }*/
         return value;
     }
     internal NumberValue GetLength()
     {
         var value = new NumberValue(Length);
-        if (value.Source is null)
+        /*if (value.Source is null)
         {
             value.Source = this;
             value.Target = new StringValue(nameof(Length));
-        }
+        }*/
         return value;
     }
 
@@ -352,19 +326,185 @@ public record ArrayValue(List<Value> Elements) : Value, IObservableValue
         throw new InvalidCastException($"Cannot cast ArrayValue to {typeof(T)}");
     }
 
+}
+
+/// <summary>
+/// 函数值（Lambda + 闭包）
+/// </summary>
+public record FunctionValue : Value
+{
+    /// <summary>
+    /// 参数名列表
+    /// </summary>
+    public List<string> Parameters { get; }
+
+    /// <summary>
+    /// 函数体（AST 表达式）
+    /// </summary>
+    public Parser.Expr Body { get; }
+
+    /// <summary>
+    /// 闭包作用域（捕获定义时的环境）
+    /// </summary>
+    public Scope Closure { get; }
+
+    /// <summary>
+    /// 轻量级闭包（优化版本）
+    /// </summary>
+    public LightweightClosure? OptimizedClosure { get; private set; }
 
 
+    /// <summary>
+    /// 是否是原生函数
+    /// </summary>
+    public bool IsNative { get; }
 
-    /* public override bool Equals(ArrayValue? other)
-     {
-         foreach (var (item, index) in Elements.Select((v, i) => (v, i)))
-         {
-             if (!item.Equals(other?.Elements[index]))
-                 return false;
-         }
-         return true;
-     }*/
+    /// <summary>
+    /// 是否为原生异步函数
+    /// </summary>
+    public bool IsNativeTask { get; }
 
+    /// <summary>
+    /// 原生函数委托
+    /// </summary>
+    public Func<List<Value>, Value>? NativeFunc { get; }
+
+    /// <summary>
+    /// 原生异步函数委托
+    /// </summary>
+    public Func<List<Value>, Task<Value>>? NativeTask { get; }
+
+    /// <summary>
+    /// 参数数量
+    /// </summary>
+    public int ParameterCount => Parameters.Count;
+
+    /// <summary>
+    /// 创建 DSL Lambda 函数（优化版本）
+    /// </summary>
+    public FunctionValue(LambdaExpr lambda, Scope closure)
+    {
+        var parameters = lambda.Params;
+        var body = lambda.Body;
+        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
+        Body = body ?? throw new ArgumentNullException(nameof(body));
+        // 使用轻量级闭包
+        var freeVariables = ClosureAnalyzer.AnalyzeFreeVariables(lambda, closure);
+        OptimizedClosure = LightweightClosure.CreateFromScope(closure, freeVariables);
+        Closure = closure!; // 不保存完整作用域
+        IsNative = false;
+    }
+
+    /// <summary>
+    /// 创建原生函数（C# 代码实现）
+    /// </summary>
+    public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
+    {
+        Parameters = new List<string>();
+        Body = null!;
+        Closure = null!;
+        NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+        IsNative = true;
+    }
+
+    /// <summary>
+    /// 创建原生函数（C# 代码实现）
+    /// </summary>
+    public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
+    {
+        Parameters = new List<string>();
+        Body = null!;
+        Closure = null!;
+        NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+        IsNativeTask = true;
+    }
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+        throw new InvalidCastException($"Cannot cast FunctionValue to {typeof(T)}");
+    }
+    internal override Value Copy()
+    {
+        return this;
+    }
+
+
+    /// <summary>
+    /// 调用函数（优化版本）
+    /// </summary>
+    public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
+    {
+        if (args.Count != ParameterCount)
+        {
+            throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
+        }
+        if (IsNative)
+        {
+            return NativeFunc!(args);
+        }
+        else if (IsNativeTask)
+        {
+            return await NativeTask!(args);
+        }
+        // 根据闭包类型创建不同的作用域
+        Scope callScope;
+        if (OptimizedClosure != null)
+        {
+            // 使用轻量级闭包：只包含实际使用的变量
+            callScope = new Scope(OptimizedClosure);
+        }
+        else
+        {
+            // 向后兼容：使用传统作用域链
+            callScope = new Scope(Closure);
+        }
+
+        // 绑定参数（参数会遮蔽同名的闭包变量）
+        for (int i = 0; i < Parameters.Count; i++)
+        {
+            callScope.Define(Parameters[i], args[i]);
+        }
+
+        // 执行函数体
+        var result = await engine.EvaluateAsync(Body, callScope);
+        return result;
+    }
+
+    /// <summary>
+    /// 调用函数
+    /// </summary>
+    public async Task<Value> CallAsync2(ScriptEngine engine, params List<Value> args)
+    {
+        // 验证参数数量
+        if (args.Count != ParameterCount)
+        {
+            throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
+        }
+
+        if (IsNative)
+        {
+            return NativeFunc!(args);
+        }
+        else if (IsNativeTask)
+        {
+            return await NativeTask!(args);
+        }
+
+
+        // 创建新的作用域，闭包作为父作用域
+        var callScope = new Scope(Closure);
+
+        // 绑定参数
+        for (int i = 0; i < Parameters.Count; i++)
+        {
+            callScope.Define(Parameters[i], args[i]);
+        }
+
+        // 执行函数体
+        var result = await engine.EvaluateAsync(Body, callScope);
+        return result;
+    }
 }
 
 /// <summary>
@@ -375,14 +515,21 @@ public record ClrObjectValue(object? Target) : Value
     /// <summary>
     /// 获取包装的 C# 对象
     /// </summary>
-    public object? Target { get; } = Target; //?? throw new ArgumentNullException(nameof(Target));
+    public object? ClrObject { get; } = Target; //?? throw new ArgumentNullException(nameof(Target));
+
+
+    internal override Value Copy()
+    {
+        return new ClrObjectValue(Target);
+    }
+
 
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ClrObjectValue)) return (T)(object)this;
-        if (Target is T typed) return typed;
-        throw new InvalidCastException($"Cannot cast ClrObjectValue({Target.GetType()}) to {typeof(T)}");
+        if (ClrObject is T typed) return typed;
+        throw new InvalidCastException($"Cannot cast ClrObjectValue({ClrObject.GetType()}) to {typeof(T)}");
     }
 
     /// <summary>
@@ -391,12 +538,12 @@ public record ClrObjectValue(object? Target) : Value
     public Dictionary<string, object> GetDebugProperties()
     {
         var result = new Dictionary<string, object>();
-        var properties = Target.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        var properties = ClrObject.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
         foreach (var prop in properties)
         {
             try
             {
-                var value = prop.GetValue(Target);
+                var value = prop.GetValue(ClrObject);
                 result[prop.Name] = value ?? "null";
             }
             catch
@@ -413,6 +560,11 @@ public record ClrObjectValue(object? Target) : Value
 /// </summary>
 public record ClrMethodValue : Value
 {
+    internal override Value Copy()
+    {
+        return this;
+    }
+
     public ClrMethodValue(MethodInfo methodInfo)
     {
         DelegateDetails delegateDetails = new DelegateDetails(methodInfo);
@@ -420,6 +572,7 @@ public record ClrMethodValue : Value
         IsStatic = methodInfo.IsStatic;
         ReturnType = methodInfo.ReturnType;
         Delegate = delegateDetails;
+        //_methodInfo = methodInfo;
     }
 
     /// <summary>

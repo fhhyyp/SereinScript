@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -31,13 +32,6 @@ public class Interpreter
         _engine = engine;
     }
 
-    /*/// <summary>
-    /// 构造函数
-    /// </summary>
-    public Interpreter(string? baseDirectory = null)
-    {
-        _importResolver = new ImportResolver(this, baseDirectory);
-    }*/
 
     /// <summary>
     /// 异步执行主入口
@@ -46,11 +40,44 @@ public class Interpreter
     {
         if (expr is Parser.Program program)
             return await EvaluateProgramAsync(program, scope);
-
+        if(expr is ReturnExpr returnExpr)
+        {
+            var t = await EvaluateReturnAsync(returnExpr, scope);
+            return t;
+        }
+        
         var value = expr switch
         {
-            ReturnExpr returnExpr => await EvaluateReturnAsync(returnExpr, scope),
-            ImportStmt import => (await EvaluateImportAsync(import, scope)).FormResult(),
+            //ReturnExpr returnExpr => await EvaluateReturnAsync(returnExpr, scope),
+            LiteralExpr literal => EvaluateLiteral(literal),
+            IdentifierExpr identifier => await EvaluateIdentifierAsync(identifier, scope),
+            LetExpr let => await EvaluateLetAsync(let, scope),
+            VarExpr var => await EvaluateVarAsync(var, scope),
+            AssignExpr assign => await EvaluateAssignAsync(assign, scope),
+            IndexAssignExpr indexAssign => await EvaluateIndexAssignAsync(indexAssign, scope),
+            BinaryExpr binary => await EvaluateBinaryAsync(binary, scope),
+            UnaryExpr unary => await EvaluateUnaryAsync(unary, scope),
+            ConditionalExpr conditional => await EvaluateConditional(conditional, scope),
+            IfExpr ifExpr => await EvaluateIfAsync(ifExpr, scope),
+            WhenExpr whenExpr => await EvaluateWhenAsync(whenExpr, scope),
+            ForExpr forExpr => await EvaluateForAsync(forExpr, scope),
+            LambdaExpr lambda => EvaluateLambda(lambda, scope),
+            CallExpr call => await EvaluateCallAsync(call, scope),
+            BlockExpr block => await EvaluateBlockAsync(block, scope),
+            ArrayLiteralExpr array => await EvaluateArrayAsync(array, scope),
+            ObjectLiteralExpr obj => await EvaluateObjectAsync(obj, scope),
+            MemberAccessExpr member => await EvaluateMemberAccessAsync(member, scope),
+            MemberAssignExpr memberAssign => await EvaluateMemberAssignAsync(memberAssign, scope),
+            IndexAccessExpr index => await EvaluateIndexAccessAsync(index, scope),
+            ImportStmt import => await EvaluateImportAsync(import, scope),
+            ErrorExpr error => EvaluateError(error, scope),
+            _ => throw Error(expr, "未知的表达式类型")
+        };
+        var result = value.FormResult();
+        return result;
+        /*var value = expr switch
+        {
+            //ReturnExpr returnExpr => await EvaluateReturnAsync(returnExpr, scope),
             LiteralExpr literal => (EvaluateLiteral(literal)).FormResult(),
             IdentifierExpr identifier => (await EvaluateIdentifierAsync(identifier, scope)).FormResult(),
             LetExpr let => (await EvaluateLetAsync(let, scope)).FormResult(),
@@ -71,9 +98,21 @@ public class Interpreter
             MemberAccessExpr member => (await EvaluateMemberAccessAsync(member, scope)).FormResult(),
             MemberAssignExpr memberAssign => (await EvaluateMemberAssignAsync(memberAssign, scope)).FormResult(),
             IndexAccessExpr index => (await EvaluateIndexAccessAsync(index, scope)).FormResult(),
-            _ => throw Error(expr, $"Unknown expression type")
+            ImportStmt import => (await EvaluateImportAsync(import, scope)).FormResult(),
+            _ => throw Error(expr, $"未知的表达式类型")
         };
-        return value;
+        return value;*/
+    }
+
+    /// <summary>
+    /// 解析错误表达式
+    /// </summary>
+    /// <param name="error"></param>
+    /// <param name="scope"></param>
+    /// <returns></returns>
+    private Value EvaluateError(ErrorExpr error, Scope scope)
+    {
+        throw Error(error, $"解析发生异常:{error.Message}");
     }
 
 
@@ -105,6 +144,7 @@ public class Interpreter
     /// </summary>
     private async Task<Value> EvaluateImportAsync(ImportStmt import, Scope scope)
     {
+        
         // 使用 ImportResolver 解析模块
         var exports = await _importResolver.ResolveAsync(import);
 
@@ -126,7 +166,7 @@ public class Interpreter
             int i => new NumberValue(i),
             string s => new StringValue(s),
             bool b => new BoolValue(b),
-            _ => throw Error(literal, $"Unsupported literal type: {literal.Value?.GetType()}")
+            _ => throw Error(literal, $"不支持的字面量类型: {literal.Value?.GetType()}")
         };
     }
 
@@ -270,14 +310,14 @@ public class Interpreter
                 return new BoolValue(string.Compare(left.AsString(), right.AsString()) >= 0);
         }
 
-        // 逻辑运算
-        if (binary.Op == "&&")
-            return new BoolValue(IsTruthy(left) && IsTruthy(right));
+        // 逻辑运算（短路求值）
+        if (binary.Op == "&&" || binary.Op == "||")
+        {
+            if (!IsTruthy(left)) return new BoolValue(false);
+            return new BoolValue(IsTruthy(right)); 
+        }
 
-        if (binary.Op == "||")
-            return new BoolValue(IsTruthy(left) || IsTruthy(right));
-
-        throw Error(binary, $"Unsupported operator '{binary.Op}' for types {left.GetType()} and {right.GetType()}");
+        throw Error(binary, $"不支持的操作符 '{binary.Op}'，操作数类型为 {left.GetType()} 和 {right.GetType()}");
     }
 
     private async Task<Value> EvaluateUnaryAsync(UnaryExpr unary, Scope scope)
@@ -295,7 +335,7 @@ public class Interpreter
             return new BoolValue(!IsTruthy(operand));
         }
 
-        throw Error(unary, $"Unsupported unary operator '{unary.Op}' for type {operand.GetType()}");
+        throw Error(unary, $"不支持的一元操作符 '{unary.Op}'，操作数类型为 {operand.GetType()}");
     }
 
     private async Task<Value> EvaluateConditional(ConditionalExpr conditional, Scope scope)
@@ -354,14 +394,7 @@ public class Interpreter
                 {
                     var loopScope = scope.CreateChildScope();
                     Value? element = array.Elements[i];
-                    if (i == 0)
-                    {
-                        loopScope.Define(forExpr.VarName, element);
-                    }
-                    else
-                    {
-                        loopScope.Set(forExpr.VarName, element);
-                    }
+                    loopScope.Define(forExpr.VarName, element);
                     var evalResult = await EvaluateAsync(forExpr.Body, loopScope);
                     result = evalResult.Value; 
                     if (evalResult.HasValue)
@@ -392,7 +425,7 @@ public class Interpreter
         }*/
         else
         {
-            throw Error(forExpr, "For loop expects array");
+            throw Error(forExpr, "For 循环期望数组");
         }
 
         return result;
@@ -402,12 +435,14 @@ public class Interpreter
 
     private Value EvaluateLambda(LambdaExpr lambda, Scope scope)
     {
-        return new FunctionValue(lambda.Params, lambda.Body, scope);
+        return new FunctionValue(lambda, scope);
+        //return new FunctionValue(lambda.Params, lambda.Body, scope, optimize: true);
     }
 
     private async Task<Value> EvaluateCallAsync(CallExpr call, Scope scope)
     {
-        Value target = (await EvaluateAsync(call.Target, scope)).Value;
+        var result = await EvaluateAsync(call.Target, scope);
+        Value target = result.Value;
 
         var args = new List<Value>();
         foreach (var arg in call.Args)
@@ -427,8 +462,8 @@ public class Interpreter
         {
             return await CallClrMethodAsync(call, clrMethod, args);
         }
-        
-        throw Error(call, $"Can only call functions, got {target.GetType()}");
+
+        throw Error(call, $"只能调用函数，实际得到 {target.GetType()}");
     }
 
     // =================/// <summary>
@@ -480,29 +515,65 @@ public class Interpreter
    /// <returns></returns>
     private async Task<Value> EvaluateObjectAsync(ObjectLiteralExpr obj, Scope scope)
     {
-        var properties = new Dictionary<string, Value>();
+        // 第一阶段：创建空对象外壳
+        var objValue = new ObjectValue(new Dictionary<string, Value>());
+
+
+
+        // 创建增强的作用域，包含对象自身的引用
+        var objectScope = scope.CreateChildScope();
+        objectScope.Define("this", objValue, isMutable: false);  // 提供this引用
+
+        // 先占位：为所有属性创建占位符，避免"未定义"错误
+        foreach (var prop in obj.Properties)
+        {
+            if (!objectScope.IsDefinedLocally(prop.Key))
+            {
+                objectScope.Define(prop.Key, Value.Null, isMutable: true);  // 占位符
+            }
+        }
+
+
+        // 第二阶段：逐个求值并更新
+        foreach (var prop in obj.Properties)
+        {
+            var key = prop.Key;
+
+            if (scope.TryGetValue(key, out var var))
+            {
+                // 更新对象属性
+                objValue.Set(key, var.Value);
+                if (objectScope.IsDefinedLocally(key))
+                {
+                    objectScope.Set(key, var.Value);
+                }
+            }
+            else
+            {
+                var result = await EvaluateAsync(prop.Value, objectScope);
+                objValue.Set(key, result.Value);
+            }
+            /*else
+            {
+               
+            }*/
+
+
+            // 更新作用域中的占位符（使后续属性可以引用前面的属性）
+            
+        }
+
+        return objValue;
+
+        /*var properties = new Dictionary<string, Value>();
         foreach (var prop in obj.Properties)
         {
             var key = prop.Key;
             var value = (await EvaluateAsync(prop.Value, scope)).Value;
-            /*if(value.Source is not null)
-            {
-                value.Source = value.Source;
-
-
-                value.TargetKey = value.TargetKey;
-                value.TargetIndex = value.TargetIndex;
-            }*/
             properties[prop.Key] = value;
         }
         var objValue = new ObjectValue(properties);
-        /*var temparr = objValue.Properties.Select(x => x.Value).Where(x => x.Value.Source is null).ToList();
-        foreach (var item in temparr)
-        {
-            item.Value.TargetKey = item.TargetKey;
-            item.Value.Source = objValue ;
-        }*/
-        return objValue;
+        return objValue;*/
     }
 
     /// <summary>
@@ -536,15 +607,15 @@ public class Interpreter
                 "has" => new FunctionValue("has", args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "has() expects 1 argument");
+                        throw Error(member, "has() 期望 1 个参数");
 
                     if (args[0] is not StringValue stringValue)
-                        throw Error(member, "has() expects string");
+                        throw Error(member, "has() 期望字符串");
 
                     var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
                     return new BoolValue(isContainsKey);
                 }),
-                _ => throw Error(member, $"Property '{member.Property}' not found on object"),
+                _ => throw Error(member, $"对象上找不到属性 '{member.Property}'"),
             };
             #endregion
         }
@@ -555,29 +626,30 @@ public class Interpreter
             #region 原生数组方法
             return member.Property switch
             {
+                "count" => new NumberValue(arr.Elements.Count),
                 "length" => new NumberValue(arr.Elements.Count),
-                "map" => new FunctionValue(
-                    "map",
+                "copy" => new ArrayValue(arr.Elements.Select(x => x.Copy()).ToList()),
+                "select" => new FunctionValue(
+                    "select",
                     async args =>
                     {
-                        if (args.Count != 1) throw Error(member, "map() expects 1 argument");
-                        if (args[0] is not FunctionValue func) throw Error(member, "map() expects a function");
+                        if (args.Count != 1) throw Error(member, "select() 期望 1 个参数");
+                        if (args[0] is not FunctionValue func) throw Error(member, "select() 期望一个函数");
 
                         var result = new List<Value>();
                         foreach (var item in arr.Elements)
                         {
-                            // 调用函数
                             var callResult = await func.CallAsync(_engine, item);
                             result.Add(callResult);
                         }
                         return new ArrayValue(result);
                     }),
-                "filter" => new FunctionValue(
-                    "filter",
+                "where" => new FunctionValue(
+                    "where",
                     async args =>
                     {
-                        if (args.Count != 1) throw Error(member, "filter() expects 1 argument");
-                        if (args[0] is not FunctionValue func) throw Error(member, "filter() expects a function");
+                        if (args.Count != 1) throw Error(member, "where() 期望 1 个参数");
+                        if (args[0] is not FunctionValue func) throw Error(member, "where() 期望一个函数");
 
                         var result = new List<Value>();
                         foreach (var item in arr.Elements)
@@ -592,8 +664,8 @@ public class Interpreter
                     "forEach",
                     async args =>
                     {
-                        if (args.Count != 1) throw Error(member, "forEach() expects 1 argument");
-                        if (args[0] is not FunctionValue func) throw Error(member, "forEach() expects a function");
+                        if (args.Count != 1) throw Error(member, "forEach() 期望 1 个参数");
+                        if (args[0] is not FunctionValue func) throw Error(member, "forEach() 期望一个函数");
 
                         foreach (var item in arr.Elements)
                         {
@@ -625,14 +697,14 @@ public class Interpreter
                 "remove" => new FunctionValue("remove", args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "remove() expects 1 argument");
+                        throw Error(member, "remove() 期望 1 个参数");
                     var state = arr.Remove(args[0], _engine);
                     return new BoolValue(state);
                 }),
                 "removeAt" => new FunctionValue("removeAt", args =>
                 {
                     if (args.Count != 1 || !args[0].IsNumber)
-                        throw Error(member, "removeAt() expects a number");
+                        throw Error(member, "removeAt() 期望一个数字");
 
                     var index = (int)args[0].AsNumber();
                     if (index < 0) index = arr.Length + index;
@@ -657,10 +729,10 @@ public class Interpreter
                 "find" => new FunctionValue("find", async args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "find() expects 1 argument");
+                        throw Error(member, "find() 期望 1 个参数");
 
                     if (args[0] is not FunctionValue func)
-                        throw Error(member, "find() expects a function as argument");
+                        throw Error(member, "find() 期望一个函数作为参数");
 
                     foreach (var item in arr.Elements)
                     {
@@ -669,15 +741,15 @@ public class Interpreter
                             return item;
                     }
 
-                    return Value.Null; // 没有匹配的返回 null
+                    return Value.Null;
                 }),
                 "findIndex" => new FunctionValue("findIndex", async args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "findIndex() expects 1 argument");
+                        throw Error(member, "findIndex() 期望 1 个参数");
 
                     if (args[0] is not FunctionValue func)
-                        throw Error(member, "findIndex() expects a function as argument");
+                        throw Error(member, "findIndex() 期望一个函数作为参数");
 
                     for (int i = 0; i < arr.Elements.Count; i++)
                     {
@@ -689,14 +761,13 @@ public class Interpreter
                     return new NumberValue(-1);
                 }),
 
-                // some
-                "some" => new FunctionValue("some", async args =>
+                "any" => new FunctionValue("any", async args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "some() expects 1 argument");
+                        throw Error(member, "any() 期望 1 个参数");
 
                     if (args[0] is not FunctionValue func)
-                        throw Error(member, "some() expects a function as argument");
+                        throw Error(member, "any() 期望一个函数作为参数");
 
                     foreach (var item in arr.Elements)
                     {
@@ -708,14 +779,13 @@ public class Interpreter
                     return new BoolValue(false);
                 }),
 
-                // every
-                "every" => new FunctionValue("every", async args =>
+                "all" => new FunctionValue("all", async args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "every() expects 1 argument");
+                        throw Error(member, "all() 期望 1 个参数");
 
                     if (args[0] is not FunctionValue func)
-                        throw Error(member, "every() expects a function as argument");
+                        throw Error(member, "all() 期望一个函数作为参数");
 
                     foreach (var item in arr.Elements)
                     {
@@ -727,14 +797,13 @@ public class Interpreter
                     return new BoolValue(true);
                 }),
 
-                // every
                 "join" => new FunctionValue("join", args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "join() expects 1 argument");
+                        throw Error(member, "join() 期望 1 个参数");
 
                     if (args[0] is not StringValue stringValue)
-                        throw Error(member, "join() expects a function as argument");
+                        throw Error(member, "join() 期望一个字符串作为参数");
 
                     var joinResult = string.Join(stringValue.AsString(), arr.Elements.Select(x => x.AsString()));
                     return new StringValue(joinResult);
@@ -742,17 +811,16 @@ public class Interpreter
                 "onChanged" => new FunctionValue("onChanged", args =>
                 {
                     if (args.Count != 1)
-                        throw Error(member, "onChanged() expects 1 argument");
+                        throw Error(member, "onChanged() 期望 1 个参数");
 
                     if (args[0] is not FunctionValue functionValue)
-                        throw Error(member, "onChanged() expects function");
+                        throw Error(member, "onChanged() 期望函数");
 
                     arr.AddOnChanged(functionValue);
 
-                    //var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
                     return Value.Null;
                 }),
-                _ => throw Error(member, $"Unknown array method '{member.Property}'")
+                _ => throw Error(member, $"未知的数组方法 '{member.Property}'")
             };
             #endregion
         }
@@ -775,7 +843,7 @@ public class Interpreter
                     "split",
                     args =>
                     {
-                        if (args.Count != 1) throw Error(member, "split() expects 1 argument");
+                        if (args.Count != 1) throw Error(member, "split() 期望 1 个参数");
                         var sep = args[0].As<StringValue>().Value;
                         var parts = str.Value.Split(sep);
                         return new ArrayValue(parts.Select(s => (Value)new StringValue(s)).ToList());
@@ -785,58 +853,59 @@ public class Interpreter
                     args =>
                     {
                         if (args.Count < 1 || args.Count > 2)
-                            throw Error(member, "substring() expects 1 or 2 arguments");
+                            throw Error(member, "substring() 期望 1 或 2 个参数");
                         int start = (int)args[0].AsNumber();
                         int length = args.Count == 2 ? (int)args[1].AsNumber() : str.Value.Length - start;
                         return new StringValue(str.Value.Substring(start, length));
                     }),
-                "toUpperCase" => new FunctionValue(
-                    "toUpperCase",
+                "toUpper" => new FunctionValue(
+                    "toUpper",
                     args =>
                     {
-                        if (args.Count != 0) throw Error(member, "toUpperCase() expects no arguments");
+                        if (args.Count != 0) throw Error(member, "toUpper() 期望 0 个参数");
                         return new StringValue(str.Value.ToUpperInvariant());
                     }),
-                "toLowerCase" => new FunctionValue(
-                    "toLowerCase",
+                "toLower" => new FunctionValue(
+                    "toLower",
                     args =>
                     {
-                        if (args.Count != 0) throw Error(member, "toLowerCase() expects no arguments");
+                        if (args.Count != 0) throw Error(member, "toLower() 期望 0 个参数");
                         return new StringValue(str.Value.ToLowerInvariant());
                     }),
                 "trim" => new FunctionValue(
                     "trim",
                     args =>
                     {
-                        if (args.Count != 0) throw Error(member, "trim() expects no arguments");
+                        if (args.Count != 0) throw Error(member, "trim() 期望 0 个参数");
                         return new StringValue(str.Value.Trim());
                     }),
                 "contains" => new FunctionValue(
                     "contains",
                     args =>
                     {
-                        if (args.Count != 1) throw Error(member, "contains() expects 1 argument");
+                        if (args.Count != 1) throw Error(member, "contains() 期望 1 个参数");
                         return new BoolValue(str.Value.Contains(args[0].As<StringValue>().Value));
                     }),
                 "startsWith" => new FunctionValue(
                     "startsWith",
                     args =>
                     {
-                        if (args.Count != 1) throw Error(member, "startsWith() expects 1 argument");
+                        if (args.Count != 1) throw Error(member, "startsWith() 期望 1 个参数");
                         return new BoolValue(str.Value.StartsWith(args[0].As<StringValue>().Value));
                     }),
                 "endsWith" => new FunctionValue(
                     "endsWith",
                     args =>
                     {
-                        if (args.Count != 1) throw Error(member, "endsWith() expects 1 argument");
+                        if (args.Count != 1) throw Error(member, "endsWith() 期望 1 个参数");
                         return new BoolValue(str.Value.EndsWith(args[0].As<StringValue>().Value));
                     }),
-                _ => throw Error(member, $"Unknown string method '{member.Property}'")
+                _ => throw Error(member, $"未知的字符串方法 '{member.Property}'")
             };
 
             #endregion
         }
+
 
 
         // 处理 ClrObjectValue（CLR 对象）
@@ -845,7 +914,76 @@ public class Interpreter
             return AccessClrProperty(member, clrObj, member.Property);
         }
 
-        throw Error(member, $"Cannot access property '{member.Property}' on {target.GetType()}");
+        throw Error(member, $"无法访问 {target.GetType()} 上的属性 '{member.Property}'");
+    }
+
+
+    /// <summary>
+    /// 访问索引
+    /// </summary>
+    /// <param name="index"></param>
+    /// <param name="scope"></param>
+    /// <returns></returns>
+    private async Task<Value> EvaluateIndexAccessAsync(IndexAccessExpr index, Scope scope)
+    {
+        Value target = (await EvaluateAsync(index.Target, scope)).Value;
+        Value idx = (await EvaluateAsync(index.Index, scope)).Value;
+
+        if (target is ArrayValue arr && idx.IsNumber)
+        {
+            int i = (int)idx.AsNumber();
+            if (i < 0 || i >= arr.Elements.Count)
+                throw Error(index, $"数组索引越界: {i}");
+            return arr.Get(i);
+        }
+
+        if (target is StringValue str && idx.IsNumber)
+        {
+            int i = (int)idx.AsNumber();
+            if (i < 0 || i >= str.Value.Length)
+                throw Error(index, $"字符串索引越界: {i}");
+            return new StringValue(str.Value[i].ToString());
+        }
+
+        if (target is ObjectValue obj && idx is StringValue key)
+        {
+            if (obj.TryGetValue(key.Value, out var value))
+            {
+                return value;
+            }
+            throw Error(index, $"对象中未找到键 '{key.Value}'");
+        }
+
+        throw Error(index, $"无效的索引访问，类型为 {target.GetType()}");
+    }
+
+    /// <summary>
+    /// 索引赋值（arr[index] = value）
+    /// </summary>
+    private async Task<Value> EvaluateIndexAssignAsync(IndexAssignExpr indexAssign, Scope scope)
+    {
+        Value target = (await EvaluateAsync(indexAssign.Target, scope)).Value;
+        Value idx = (await EvaluateAsync(indexAssign.Index, scope)).Value;
+        Value value = (await EvaluateAsync(indexAssign.Value, scope)).Value;
+
+        if (target is ArrayValue arr && idx.IsNumber)
+        {
+            int i = (int)idx.AsNumber();
+            if (i < 0 || i >= arr.Elements.Count)
+                throw Error(indexAssign, $"数组索引越界: {i}");
+            //arr.Elements[i] = value;
+            arr.Set(i, value, _engine);
+            return value;
+        }
+
+        if (target is ObjectValue obj && idx is StringValue key)
+        {
+            obj.Set(key.Value, value);
+            //obj.Properties[key.Value] = value;
+            return value;
+        }
+
+        throw Error(indexAssign, $"无法对 {target.GetType()} 类型的索引进行赋值");
     }
 
     /// <summary>
@@ -883,113 +1021,7 @@ public class Interpreter
             return value;
         }
 
-        throw Error(memberAssign, $"Cannot assign property '{memberAssign.Property}' on {target.GetType()}");
-    }
-
-    /// <summary>
-    /// 访问索引
-    /// </summary>
-    /// <param name="index"></param>
-    /// <param name="scope"></param>
-    /// <returns></returns>
-    private async Task<Value> EvaluateIndexAccessAsync(IndexAccessExpr index, Scope scope)
-    {
-        Value target = (await EvaluateAsync(index.Target, scope)).Value;
-        Value idx = (await EvaluateAsync(index.Index, scope)).Value;
-
-        if (target is ArrayValue arr && idx.IsNumber)
-        {
-            int i = (int)idx.AsNumber();
-            if (i < 0 || i >= arr.Elements.Count)
-                throw Error(index, $"Array index out of bounds: {i}");
-            return arr.Get(i);
-        }
-
-        if (target is StringValue str && idx.IsNumber)
-        {
-            int i = (int)idx.AsNumber();
-            if (i < 0 || i >= str.Value.Length)
-                throw Error(index, $"String index out of bounds: {i}");
-            return new StringValue(str.Value[i].ToString());
-        }
-
-        if (target is ObjectValue obj && idx is StringValue key)
-        {
-            if (obj.TryGetValue(key.Value, out var value))
-            {
-                return value;
-            }
-            throw Error(index, $"Key '{key.Value}' not found in object");
-        }
-
-        throw Error(index, $"Invalid index access on {target.GetType()}");
-    }
-
-    /// <summary>
-    /// 索引赋值（arr[index] = value）
-    /// </summary>
-    private async Task<Value> EvaluateIndexAssignAsync(IndexAssignExpr indexAssign, Scope scope)
-    {
-        Value target = (await EvaluateAsync(indexAssign.Target, scope)).Value;
-        Value idx = (await EvaluateAsync(indexAssign.Index, scope)).Value;
-        Value value = (await EvaluateAsync(indexAssign.Value, scope)).Value;
-
-        if (target is ArrayValue arr && idx.IsNumber)
-        {
-            int i = (int)idx.AsNumber();
-            if (i < 0 || i >= arr.Elements.Count)
-                throw Error(indexAssign, $"Array index out of bounds: {i}");
-            //arr.Elements[i] = value;
-            arr.Set(i, value, _engine);
-            return value;
-        }
-
-        if (target is ObjectValue obj && idx is StringValue key)
-        { 
-            obj.Set(key.Value, value);
-            //obj.Properties[key.Value] = value;
-            return value;
-        }
-
-        throw Error(indexAssign, $"Cannot assign to index on {target.GetType()}");
-    }
-
-    // ==================== 辅助方法 ====================
-
-    private static bool IsTruthy(Value value)
-    {
-        return value switch
-        {
-            NullValue => false,
-            BoolValue b => b.Value,
-            NumberValue n => n.Value != 0,
-            StringValue s => s.Value.Length > 0,
-            ArrayValue a => a.Elements.Count > 0,
-            ObjectValue o => o.Properties.Count > 0,
-            _ => true
-        };
-    }
-
-    private static bool IsEqual(Value left, Value right)
-    {
-        if (left.GetType() != right.GetType())
-            return false;
-
-        return (left, right) switch
-        {
-            (NullValue, NullValue) => true,
-            (NumberValue nl, NumberValue nr) => Math.Abs(nl.Value - nr.Value) < double.Epsilon,
-            (BoolValue bl, BoolValue br) => bl.Value == br.Value,
-            (StringValue sl, StringValue sr) => sl.Value == sr.Value,
-            (ArrayValue al, ArrayValue ar) =>
-                al.Elements.Count == ar.Elements.Count &&
-                al.Elements.Zip(ar.Elements).All(p => IsEqual(p.First, p.Second)),
-            (ObjectValue ol, ObjectValue or) =>
-                ol.Properties.Count == or.Properties.Count &&
-                ol.Properties.All(kv =>
-                    or.Properties.TryGetValue(kv.Key, out var v) && IsEqual(kv.Value, v)),
-            _ => left.As<object>() == right.As<object>(),
-        };
+        throw Error(memberAssign, $"无法为 {target.GetType()} 上的属性 '{memberAssign.Property}' 赋值");
     }
 
     /// <summary>
@@ -1002,14 +1034,14 @@ public class Interpreter
     /// </summary>
     private void SetClrProperty(MemberAssignExpr memberAssign, ClrObjectValue clrObj, string propertyName, Value value)
     {
-        var type = clrObj.Target!.GetType();
+        var type = clrObj.ClrObject!.GetType();
         var member = GetOrAddMemberInfo(type, propertyName, memberAssign);
 
         if (member is not PropertyInfo prop || !prop.CanWrite)
-            throw Error(memberAssign, $"Property '{propertyName}' not found or not writable on CLR object");
+            throw Error(memberAssign, $"CLR 对象上未找到属性 '{propertyName}' 或该属性不可写");
 
         var newValue = ConvertScriptValueToClrValue(memberAssign, value, prop.PropertyType);
-        prop.SetValue(clrObj.Target, newValue);
+        prop.SetValue(clrObj.ClrObject, newValue);
     }
 
     /// <summary>
@@ -1017,7 +1049,7 @@ public class Interpreter
     /// </summary>
     private Value AccessClrProperty(MemberAccessExpr member, ClrObjectValue clrObj, string propertyName)
     {
-        var type = clrObj.Target!.GetType();
+        var type = clrObj.ClrObject!.GetType();
         var memberInfo = GetOrAddMemberInfo(type, propertyName, member);
 
         try
@@ -1025,22 +1057,22 @@ public class Interpreter
             switch (memberInfo)
             {
                 case PropertyInfo prop:
-                    var val = prop.GetValue(clrObj.Target);
+                    var val = prop.GetValue(clrObj.ClrObject);
                     return ConvertClrValueToScriptValue(val);
 
                 case MethodInfo method:
                     var methodValue = new ClrMethodValue(method);
                     if (!method.IsStatic)
-                        methodValue = methodValue with { TargetInstance = clrObj.Target };
+                        methodValue = methodValue with { TargetInstance = clrObj.ClrObject };
                     return methodValue;
 
                 default:
-                    throw Error(member, $"Member '{propertyName}' not supported on CLR type {type.Name}");
+                    throw Error(member, $"CLR 类型 {type.Name} 不支持成员 '{propertyName}'");
             }
         }
         catch (Exception ex)
         {
-            throw Error(member, $"Error accessing member '{propertyName}': {ex.Message}");
+            throw Error(member, $"访问成员 '{propertyName}' 时出错: {ex.Message}");
         }
     }
 
@@ -1061,70 +1093,11 @@ public class Interpreter
             ?? type.GetMethod(name, flags);
 
         if (member == null)
-            throw Error(expr, $"Property or method '{name}' not found on CLR type {type.Name}");
+            throw Error(expr, $"CLR 类型 {type.Name} 上未找到属性或方法 '{name}'");
 
         _memberInfoCaches[key] = member;
         return member;
     }
-
-    /*// ==================== CLR 互操作 ====================
-    private readonly Dictionary<(Type, string), MemberInfo> _memberInfoCaches = [];
-
-    /// <summary>
-    /// 设置CLR对象
-    /// </summary>
-    private void SetClrProperty(MemberAssignExpr memberAssign, ClrObjectValue clrObj, string propertyName, Value value)
-    {
-        var type = clrObj.Target.GetType();
-        var key = (type, propertyName);
-        if (!_memberInfoCaches.TryGetValue(key, out var memberInfo)
-            || memberInfo is not PropertyInfo prop)
-        {
-            var t_prop = clrObj.Target.GetType().GetProperty(propertyName);
-            if (t_prop == null || !t_prop.CanWrite)
-                throw Error(memberAssign, $"Property '{propertyName}' not found or not writable on CLR object");
-            prop = t_prop;
-        }
-        var newValue = ConvertScriptValueToClrValue(memberAssign, value, prop.PropertyType);
-        prop.SetValue(clrObj.Target, newValue);
-    }
-    /// <summary>
-    /// 访问 CLR 对象的属性
-    /// </summary>
-    private Value AccessClrProperty(MemberAccessExpr member, ClrObjectValue clrObj, string propertyName)
-    {
-        var targetType = clrObj.Target.GetType();
-        var bindingFlags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
-
-        var property = targetType.GetProperty(propertyName, bindingFlags);
-
-        if (property == null)
-        {
-            // 尝试查找方法（方法可以作为值返回）
-            var method = targetType.GetMethod(propertyName, bindingFlags);
-            if (method != null)
-            {
-                var methodValue = new ClrMethodValue(method);
-                if (!method.IsStatic)
-                {
-                    methodValue = methodValue with { TargetInstance = clrObj.Target };
-                }
-                return methodValue;
-            }
-            throw Error(member, $"Property or method '{propertyName}' not found on CLR type {targetType.Name}");
-        }
-
-        try
-        {
-            var value = property.GetValue(clrObj.Target);
-            return ConvertClrValueToScriptValue(value);
-        }
-        catch (Exception ex)
-        {
-            throw Error(member, $"Error accessing property '{propertyName}': {ex.Message}");
-        }
-    }
-*/
 
     /// <summary>
     /// 将 CLR 值转换为脚本 Value
@@ -1168,9 +1141,9 @@ public class Interpreter
                 var key = entry.Key?.ToString();
                 if (key != null)
                 {
-                    var vakue = ConvertClrValueToScriptValue(entry.Value);
+                    var value = ConvertClrValueToScriptValue(entry.Value);
                     //var member = new MemberValue(key, vakue);
-                    properties[key] = vakue;
+                    properties[key] = value;
                 }
             }
             return new ObjectValue(properties);
@@ -1198,7 +1171,7 @@ public class Interpreter
         if (value.IsNull)
         {
             if (targetType.IsValueType && Nullable.GetUnderlyingType(targetType) == null)
-                throw Error(expr, $"Cannot assign null to non-nullable value type {targetType.Name}");
+                throw Error(expr, $"无法将 null 赋值给不可为 null 的值类型 {targetType.Name}");
             return null;
         }
 
@@ -1206,9 +1179,9 @@ public class Interpreter
         // 处理 ClrObjectValue（直接返回包装的对象）
         if (value is ClrObjectValue clrObj)
         {
-            if (targetType.IsAssignableFrom(clrObj.Target!.GetType()))
-                return clrObj.Target;
-            throw Error(expr, $"CLR object of type {clrObj.Target.GetType().Name} cannot be cast to {targetType.Name}");
+            if (targetType.IsAssignableFrom(clrObj.ClrObject!.GetType()))
+                return clrObj.ClrObject;
+            throw Error(expr, $"无法将类型为 {clrObj.ClrObject.GetType().Name} 的 CLR 对象转换为 {targetType.Name}");
         }
 
         // 数值类型
@@ -1280,13 +1253,25 @@ public class Interpreter
             }
         }
 
-        throw Error(expr, $"Cannot convert script value of type {value.GetType()} to CLR type {targetType.Name}");
+        throw Error(expr, $"无法将类型为 {value.GetType()} 的脚本值转换为 CLR 类型 {targetType.Name}");
     }
 
-
+    /// <summary>
+    /// 在当前作用域获取成员
+    /// </summary>
+    /// <param name="identifier"></param>
+    /// <param name="scope"></param>
+    /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private async Task<Value> EvaluateIdentifierAsync(IdentifierExpr identifier, Scope scope)
     {
-        return scope.Get(identifier.Name);
+        var name = identifier.Name;
+        if (scope.TryGetValue(name, out var info)
+            || _engine.GlobalScope.TryGetValue(name, out info))
+        {
+            return info.Value;
+        }
+        throw new RuntimeException($"未定义的变量 '{name}'");
     }
 
 
@@ -1304,7 +1289,7 @@ public class Interpreter
             int requiredParams = parameters.Count(p => !p.IsOptional);
             if (args.Count < requiredParams)
             {
-                throw Error(call, $"CLR method expects at least {requiredParams} arguments, but got {args.Count}");
+                throw Error(call, $"CLR 方法期望至少 {requiredParams} 个参数，但实际收到 {args.Count} 个");
             }
         }
         else if (args.Count > parameters.Length)
@@ -1312,7 +1297,7 @@ public class Interpreter
             var lastParam = parameters.LastOrDefault();
             if (lastParam == null || System.Attribute.GetCustomAttribute(lastParam, typeof(System.ParamArrayAttribute)) == null)
             {
-                throw Error(call, $"CLR method expects {parameters.Length} arguments, but got {args.Count}");
+                throw Error(call, $"CLR 方法期望 {parameters.Length} 个参数，但实际收到 {args.Count} 个");
             }
         }
 
@@ -1339,24 +1324,82 @@ public class Interpreter
         }
         catch (System.Reflection.TargetInvocationException tie)
         {
-            throw Error(call, $"CLR method invocation failed: {tie.InnerException?.Message ?? tie.Message}");
+            throw Error(call, $"CLR 方法调用失败: {tie.InnerException?.Message ?? tie.Message}");
         }
         catch (Exception ex)
         {
-            throw Error(call, $"Failed to invoke CLR method: {ex.Message}");
+            throw Error(call, $"调用 CLR 方法时出错: {ex.Message}");
         }
     }
 
+    // ==================== 辅助方法 ====================
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="expr"></param>
+    /// <param name="message"></param>
+    /// <returns></returns>
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private RuntimeException Error(Expr expr, string message)
     {
         var ss = expr.SourceSpan;
         var filePath = ss.FilePath;
         var slice = _engine.SourceManager.GetSlice(filePath, ss.Start, ss.Length);
-        
-        string tokenInfo = $"(type: {expr.GetType()})";
+
+        string tokenInfo = $"(类型: {expr.GetType()})";
         string fullMessage = $"{message}{tokenInfo} {Environment.NewLine}  `{slice}` {ss.ToString()}";
         return new RuntimeException(expr, fullMessage);
     }
+
+    /// <summary>
+    /// 判断值是否可用
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    private static bool IsTruthy(Value value)
+    {
+        return value switch
+        {
+            NullValue => false,
+            BoolValue b => b.Value,
+            NumberValue n => n.Value != 0,
+            StringValue s => s.Value.Length > 0,
+            ArrayValue a => a.Elements.Count > 0,
+            ObjectValue o => o.Properties.Count > 0,
+            _ => true
+        };
+    }
+
+    /// <summary>
+    /// 判断值是否相等
+    /// </summary>
+    /// <param name="left"></param>
+    /// <param name="right"></param>
+    /// <returns></returns>
+    private static bool IsEqual(Value left, Value right)
+    {
+        if (left.GetType() != right.GetType())
+            return false;
+
+        return (left, right) switch
+        {
+            (NullValue, NullValue) => true,
+            (NumberValue nl, NumberValue nr) => Math.Abs(nl.Value - nr.Value) < double.Epsilon,
+            (BoolValue bl, BoolValue br) => bl.Value == br.Value,
+            (StringValue sl, StringValue sr) => sl.Value == sr.Value,
+            (ArrayValue al, ArrayValue ar) =>
+                al.Elements.Count == ar.Elements.Count &&
+                al.Elements.Zip(ar.Elements).All(p => IsEqual(p.First, p.Second)),
+            (ObjectValue ol, ObjectValue or) =>
+                ol.Properties.Count == or.Properties.Count &&
+                ol.Properties.All(kv =>
+                    or.Properties.TryGetValue(kv.Key, out var v) && IsEqual(kv.Value, v)),
+            _ => left.As<object>() == right.As<object>(),
+        };
+    }
+
 
 }
 

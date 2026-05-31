@@ -1,0 +1,35 @@
+// CLR 对象互操作测试
+
+print("=== CLR 对象属性访问 ===")
+print(person.Name)
+print(person.Age)
+
+print("=== CLR 对象方法调用 ===")
+print(person.Greet())
+print(person.AddYears(5))
+
+print("=== CLR 集合 ===")
+print(person.Hobbies)
+print(person.Hobbies[0])
+
+print("=== CLR 静态方法（通过对象包装）===")
+print(math.Max(10, 20))
+print(math.Min(10, 20))
+print(math.Clamp(5, 10, 30))
+print(math.Clamp(15, 10, 30))
+print(math.Clamp(35, 10, 30))
+
+print("=== CLR 集合迭代 ===")
+for hobby in person.Hobbies {
+  print(hobby)
+}
+
+print("=== CLR 对象作为参数 ===")
+let greetResult = person.Greet()
+print("Greet result: " + greetResult)
+
+print("=== CLR 方法参数类型转换 ===")
+print(person.AddYears(10.5))  // 脚本传 double，CLR 方法接收 int
+
+print("=== CLR 对象完整测试完成 ===")
+person

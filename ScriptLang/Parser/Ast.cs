@@ -38,12 +38,26 @@ public record SourceSpan(
 /// </summary>
 public abstract record Expr(SourceSpan SourceSpan);
 
+
+/// <summary>
+/// 解析异常表达式(占位，让 AST 不断裂)
+/// </summary>
+/// <param name="Message"></param>
+/// <param name="SourceSpan"></param>
+public record ErrorExpr(string Message, SourceSpan SourceSpan) : Expr(SourceSpan);
+
 // ==================== 字面量表达式 ====================
 
 /// <summary>
 /// 字面量表达式
 /// </summary>
-public record LiteralExpr(object? Value, SourceSpan SourceSpan) : Expr(SourceSpan);
+public record LiteralExpr(object? Value, SourceSpan SourceSpan) : Expr(SourceSpan)
+{
+    public override string ToString()
+    {
+        return Value?.ToString() ?? "Value.Null";
+    }
+}
 
 /// <summary>
 /// 标识符引用表达式
