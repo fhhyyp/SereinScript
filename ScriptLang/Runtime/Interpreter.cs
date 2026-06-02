@@ -1,5 +1,6 @@
 using ScriptLang.Lexer;
 using ScriptLang.Parser;
+using ScriptLang.Runtime.ByteCode;
 using System;
 using System.Collections;
 using System.Diagnostics;
@@ -18,28 +19,41 @@ namespace ScriptLang.Runtime;
 /// <summary>
 /// 解释器（执行器）
 /// </summary>
-public class Interpreter
+public class Interpreter(ScriptEngine engine)
 {
-    private readonly ImportResolver _importResolver;
-    private readonly SourceManager _sourceManager;
-    private readonly Scope _globalScope;
-    private readonly ScriptEngine _engine;
+    private readonly ScriptEngine _engine = engine;
 
-    public Interpreter(ScriptEngine engine)
+    private readonly ImportResolver _importResolver = engine.ImportResolver;
+    //private readonly SourceManager _sourceManager;
+    //private readonly Scope _globalScope;
+
+    public CancellationTokenSource CancellationTokenSource { get; } = new CancellationTokenSource();
+    public CancellationToken Token => CancellationTokenSource.Token;
+
+    /// <summary>
+    /// 外部调用
+    /// </summary>
+    /// <param name="expr"></param>
+    /// <param name="scope"></param>
+    /// <returns></returns>
+    public async Task<Value> MainEvaluateAsync(Expr expr, Scope scope)
     {
-        _importResolver = engine.ImportResolver;
-        _sourceManager = engine.SourceManager;
-        _globalScope = engine.GlobalScope;
-        _engine = engine;
+        var result = await EvaluateAsync(expr, scope);
+        var value = result.Value;
+        return value;
     }
-
 
     /// <summary>
     /// 异步执行主入口
     /// </summary>
-    public async Task<EvalResult> EvaluateAsync(Expr expr, Scope scope)
+    private async Task<EvalResult> EvaluateAsync(Expr expr, Scope scope)
     {
-        if (expr is Parser.Program program)
+        if(Token.IsCancellationRequested)
+        {
+            throw new RuntimeException($"代码执行已被取消");
+        }
+
+        if (expr is Parser.ProgramExpr program)
             return await EvaluateProgramAsync(program, scope);
         if(expr is ReturnExpr returnExpr)
         {
@@ -74,7 +88,8 @@ public class Interpreter
             ErrorExpr error => EvaluateError(error, scope),
             _ => throw Error(expr, "未知的表达式类型")
         };
-        var result = value.FormResult();
+       
+        var result = EvalResult.FormResult(value);
         return result;
         
     }
@@ -93,11 +108,11 @@ public class Interpreter
 
     // ==================== 基础表达式 ====================
 
-    private async Task<EvalResult> EvaluateProgramAsync(Parser.Program program, Scope scope)
+    private async Task<EvalResult> EvaluateProgramAsync(Parser.ProgramExpr program, Scope scope)
     {
         Value result = Value.Null;
-        EvalResult evalResult = EvalResult.FormResult(result);
-
+        EvalResult evalResult = EvalResult.Null;
+       
         foreach (var stmt in program.Statements)
         {
             evalResult = await EvaluateAsync(stmt, scope);
@@ -108,7 +123,7 @@ public class Interpreter
                 break;
             }
         }
-        return result.FormResult();
+        return EvalResult.FormResult(result);
     }
 
     // ==================== Import 表达式 ====================
@@ -118,12 +133,32 @@ public class Interpreter
     /// </summary>
     private async Task<Value> EvaluateImportAsync(ImportStmt import, Scope scope)
     {
-        
+#if  DEBUG
+        //Console.WriteLine("==== import ====");
+        //Console.WriteLine($"path     : {import.FilePath}");
+        //Console.WriteLine($"scope id : {scope.Guid}");
+#endif
         // 使用 ImportResolver 解析模块
-        var exports = await _importResolver.ResolveAsync(import);
+        var filePath = import.FilePath;
+        var exports = await _importResolver.ResolveAsync(filePath, scope);
 
         // 将模块成员注入当前作用域
-        ModuleInjector.InjectMembers(exports, import.Members, scope);
+        foreach((var member, var alias) in import.Members)
+        {
+            if (!exports.TryGetValue(member, out var value))
+            {
+                throw new RuntimeException($"无法导入 '{member}' ，请检查 import 模块导出对象");
+            }
+            var name = string.IsNullOrWhiteSpace(alias) ? member : alias;
+            scope.Define(name, value);
+        }
+
+       /* foreach ((var name, var member) in exports.Properties)
+        {
+            //Console.WriteLine($"注入'{name}'  {member}");
+            // 将成员值定义到当前作用域
+            scope.Define(name, member);
+        }*/
 
         // ImportStmt 返回 void
         return Value.Null;
@@ -153,16 +188,19 @@ public class Interpreter
 
     private async Task<Value> EvaluateLetAsync(LetExpr let, Scope scope)
     {
-        Value value = (await EvaluateAsync(let.Value, scope)).Value;
-        scope.Define(let.Name, value, isMutable: false);
-        return value;
+        var v = scope.Define(let.Name, Value.Null, isMutable: true);
+        Value value = (await EvaluateAsync(let.Value, scope)).Value; 
+        scope.Set(let.Name, value);
+        v.IsMutable = false;
+        return Value.Null;
     }
 
-    private async Task<Value> EvaluateVarAsync(VarExpr varExpr, Scope scope)
+    private async Task<Value> EvaluateVarAsync(VarExpr var, Scope scope)
     {
-        Value value = (await EvaluateAsync(varExpr.Value, scope)).Value;
-        scope.Define(varExpr.Name, value, isMutable: true);
-        return value;
+        scope.Define(var.Name, Value.Null, isMutable: true);
+        Value value = (await EvaluateAsync(var.Value, scope)).Value;
+        scope.Set(var.Name, value);
+        return Value.Null;
     }
 
     private async Task<Value> EvaluateAssignAsync(AssignExpr assign, Scope scope)
@@ -177,8 +215,26 @@ public class Interpreter
     private async Task<Value> EvaluateBinaryAsync(BinaryExpr binary, Scope scope)
     {
         Value left = (await EvaluateAsync(binary.Left, scope)).Value;
-        Value right = (await EvaluateAsync(binary.Right, scope)).Value;
+        
+        // 逻辑运算（短路求值）
+        if (binary.Op == "&&")
+        {
+            if (!IsTrue(left))
+                return BoolValue.False;
+            Value right2 = (await EvaluateAsync(binary.Right, scope)).Value;
+            return BoolValue.Create(IsTrue(right2));
+        }
 
+        if (binary.Op == "||")
+        {
+            if (IsTrue(left))
+                return BoolValue.True;
+            Value right2 = (await EvaluateAsync(binary.Right, scope)).Value;
+            return BoolValue.Create(IsTrue(right2));
+        }
+
+
+        Value right = (await EvaluateAsync(binary.Right, scope)).Value;
         // 数值运算
         if (binary.Op == "+")
         {
@@ -313,22 +369,6 @@ public class Interpreter
                 if (left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
                     return NumberValue<decimal>.Create(left.As<decimal>() / right.As<decimal>());
-                }
-                else if (left.IsNumber_Double || right.IsNumber_Double)
-                {
-                    return NumberValue<double>.Create(left.As<double>() / right.As<double>());
-                }
-                else if (left.IsNumber_Float || right.IsNumber_Float)
-                {
-                    return NumberValue<float>.Create(left.As<float>() / right.As<float>());
-                }
-                else if (left.IsNumber_Long || right.IsNumber_Long)
-                {
-                    return NumberValue<long>.Create(left.As<long>() / right.As<long>());
-                }
-                else if (left.IsNumber_Int || right.IsNumber_Int)
-                {
-                    return NumberValue<int>.Create(left.As<int>() / right.As<int>());
                 }
                 return NumberValue<double>.Create(left.As<double>() / right.As<double>());
             }
@@ -485,12 +525,7 @@ public class Interpreter
                 return BoolValue.Create(string.Compare(left.AsString(), right.AsString()) >= 0);
         }
 
-        // 逻辑运算（短路求值）
-        if (binary.Op == "&&" || binary.Op == "||")
-        {
-            if (!IsTrue(left)) return BoolValue.Create(false);
-            return BoolValue.Create(IsTrue(right)); 
-        }
+       
 
         throw Error(binary, $"不支持的操作符 '{binary.Op}'，操作数类型为 {left.GetType()} 和 {right.GetType()}");
     }
@@ -542,17 +577,16 @@ public class Interpreter
     }
 
     // ==================== 控制流 ====================
-
     private async Task<EvalResult> EvaluateReturnAsync(ReturnExpr returnExpr, Scope scope)
     {
         if(returnExpr.Value is null)
         {
-            return EvalResult.ReturnNotValue();
+            return EvalResult.Null;
         }
         else
         {
             var result = await EvaluateAsync(returnExpr.Value, scope);
-            return result.Value.Return();
+            return EvalResult.FormResult(result.Value);
         }
     }
     private async Task<Value> EvaluateIfAsync(IfExpr ifExpr, Scope scope)
@@ -575,6 +609,11 @@ public class Interpreter
             }
         }
 
+        if (whenExpr.OtherClause != null)
+        {
+            return (await EvaluateAsync(whenExpr.OtherClause.Body, scope)).Value;
+        }
+
         return Value.Null;
     }
 
@@ -589,7 +628,7 @@ public class Interpreter
             {
                 for (int i = 0; i < array.Elements.Count; i++)
                 {
-                    var loopScope = scope.CreateChildScope();
+                    var loopScope = new Scope(scope);
                     Value? element = array.Elements[i];
                     loopScope.Define(forExpr.VarName, element);
                     var evalResult = await EvaluateAsync(forExpr.Body, loopScope);
@@ -602,6 +641,7 @@ public class Interpreter
                     {
                         break;
                     }
+
                 }
             }
         }
@@ -629,7 +669,6 @@ public class Interpreter
     }
 
     // ==================== 函数 ====================
-
     private Value EvaluateLambda(LambdaExpr lambda, Scope scope)
     {
         return new FunctionValue(lambda, scope);
@@ -668,7 +707,7 @@ public class Interpreter
     /// </summary>
     private async Task<Value> EvaluateBlockAsync(BlockExpr block, Scope scope)
     {
-        var blockScope = scope.CreateChildScope();
+        var blockScope = new Scope(scope);
         Value result = Value.Null;
 
         foreach (var stmt in block.Statements)
@@ -715,10 +754,8 @@ public class Interpreter
         // 第一阶段：创建空对象外壳
         var objValue = new ObjectValue(new Dictionary<string, Value>());
 
-
-
         // 创建增强的作用域，包含对象自身的引用
-        var objectScope = scope.CreateChildScope();
+        var objectScope = new Scope(scope);
         objectScope.Define("this", objValue, isMutable: false);  // 提供this引用
 
         // 先占位：为所有属性创建占位符，避免"未定义"错误
@@ -739,10 +776,10 @@ public class Interpreter
             if (scope.TryGetValue(key, out var var))
             {
                 // 更新对象属性
-                objValue.Set(key, var.Value);
+                objValue.Set(key, var.Cell.Value);
                 if (objectScope.IsDefinedLocally(key))
                 {
-                    objectScope.Set(key, var.Value);
+                    objectScope.Set(key, var.Cell.Value);
                 }
             }
             else
@@ -787,322 +824,27 @@ public class Interpreter
         {
             return Value.Null;
         }
-
-        // 处理 ObjectValue（脚本对象）
-        if (target is ObjectValue obj)
+        if (target is ObjectValue objectValue)
         {
-            if (obj.TryGetValue(member.Property, out var memberValue))
+            if (objectValue.TryGetValue(member.Property, out var memberValue))
             {
                 return memberValue;
             }
-
-            #region 原生map对象方法
-            return member.Property switch
-            {
-                "keys" => new ArrayValue(obj.Properties.Keys.Select(k => new StringValue(k)).Cast<Value>().ToList()),
-                "values" => new ArrayValue(obj.Properties.Values.ToList()),
-                "has" => new FunctionValue("has", args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "has() 期望 1 个参数");
-
-                    if (args[0] is not StringValue stringValue)
-                        throw Error(member, "has() 期望字符串");
-
-                    var isContainsKey = obj.Properties.ContainsKey(stringValue.AsString());
-                    return BoolValue.Create(isContainsKey);
-                }),
-                _ => throw Error(member, $"对象上找不到属性 '{member.Property}'"),
-            };
-            #endregion
+            var method = ObjectPrototype.GetMethod(objectValue, member.Property);
+            if (method != null) return method;
         }
-
-        // 处理 ArrayValue（数组）
+        // 解释器的 EvaluateMemberAccessAsync 中
         if (target is ArrayValue arr)
         {
-            #region 原生数组方法
-            return member.Property switch
-            {
-                "count" => NumberValue<int>.Create(arr.Elements.Count),
-                "length" => NumberValue<int>.Create(arr.Elements.Count),
-                "copy" => new ArrayValue(arr.Elements.Select(x => x).ToList()),
-                "select" => new FunctionValue(
-                    "select",
-                    async args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "select() 期望 1 个参数");
-                        if (args[0] is not FunctionValue func) throw Error(member, "select() 期望一个函数");
-
-                        var result = new List<Value>();
-                        foreach (var item in arr.Elements)
-                        {
-                            var callResult = await func.CallAsync(_engine, item);
-                            result.Add(callResult);
-                        }
-                        return new ArrayValue(result);
-                    }),
-                "where" => new FunctionValue(
-                    "where",
-                    async args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "where() 期望 1 个参数");
-                        if (args[0] is not FunctionValue func) throw Error(member, "where() 期望一个函数");
-
-                        var result = new List<Value>();
-                        foreach (var item in arr.Elements)
-                        {
-                            var callResult = await func.CallAsync(_engine, item);
-                            if (IsTrue(callResult))
-                                result.Add(item);
-                        }
-                        return new ArrayValue(result);
-                    }),
-                "forEach" => new FunctionValue(
-                    "forEach",
-                    async args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "forEach() 期望 1 个参数");
-                        if (args[0] is not FunctionValue func) throw Error(member, "forEach() 期望一个函数");
-
-                        foreach (var item in arr.Elements)
-                        {
-                            var result = await func.CallAsync(_engine, item);
-                        }
-                        return Value.Null;
-                    }),
-                "slice" => new FunctionValue(
-                    "slice",
-                    args =>
-                    {
-                        int start = args[0].As<int>();
-                        int end = args.Count > 1 ? args[1].As<int>() : arr.Elements.Count;
-                        start = Math.Clamp(start, 0, arr.Elements.Count);
-                        end = Math.Clamp(end, 0, arr.Elements.Count);
-                        var slice = arr.Elements.GetRange(start, end - start);
-                        return new ArrayValue(slice);
-                    }),
-                "first" => new FunctionValue("first", args =>
-                {
-                    if (arr.Elements.Count == 0) return Value.Null;
-                    return arr.Elements[0];
-                }),
-                "last" => new FunctionValue("last", args =>
-                {
-                    if (arr.Elements.Count == 0) return Value.Null;
-                    return arr.Elements[^1];
-                }),
-                "remove" => new FunctionValue("remove", args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "remove() 期望 1 个参数");
-                    var state = arr.Remove(args[0], _engine);
-                    return BoolValue.Create(state);
-                }),
-                "removeAt" => new FunctionValue("removeAt", args =>
-                {
-                    if (args.Count != 1 || !args[0].IsNumber_Int)
-                        throw Error(member, "removeAt() 期望一个数字");
-
-                    var index = args[0].As<int>();
-                    if (index < 0) index = arr.Length + index;
-                    arr.RemoveAt(index, _engine);
-                    return Value.Null;
-                }),
-                "pop" => new FunctionValue("pop", args =>
-                {
-                    return arr.Pop(_engine);
-                }),
-                "push" => new FunctionValue("push", args =>
-                {
-                    foreach (var item in args)
-                        arr.Add(item, _engine);
-                    return Value.Null;
-                }),
-                "reverse" => new FunctionValue("reverse", args =>
-                {
-                    arr.Reverse(_engine);
-                    return arr;
-                }),
-                "find" => new FunctionValue("find", async args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "find() 期望 1 个参数");
-
-                    if (args[0] is not FunctionValue func)
-                        throw Error(member, "find() 期望一个函数作为参数");
-
-                    foreach (var item in arr.Elements)
-                    {
-                        var result = await func.CallAsync(_engine, item);
-                        if (IsTrue(result))
-                            return item;
-                    }
-
-                    return Value.Null;
-                }),
-                "findIndex" => new FunctionValue("findIndex", async args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "findIndex() 期望 1 个参数");
-
-                    if (args[0] is not FunctionValue func)
-                        throw Error(member, "findIndex() 期望一个函数作为参数");
-
-                    for (int i = 0; i < arr.Elements.Count; i++)
-                    {
-                        var result = await func.CallAsync(_engine, arr.Elements[i]);
-                        if (IsTrue(result))
-                            return NumberValue<int>.Create(i);
-                    }
-
-                    return NumberValue<int>.Create(-1);
-                }),
-
-                "any" => new FunctionValue("any", async args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "any() 期望 1 个参数");
-
-                    if (args[0] is not FunctionValue func)
-                        throw Error(member, "any() 期望一个函数作为参数");
-
-                    foreach (var item in arr.Elements)
-                    {
-                        var result = await func.CallAsync(_engine, item);
-                        if (IsTrue(result))
-                            return BoolValue.Create(true);
-                    }
-
-                    return BoolValue.Create(false);
-                }),
-
-                "all" => new FunctionValue("all", async args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "all() 期望 1 个参数");
-
-                    if (args[0] is not FunctionValue func)
-                        throw Error(member, "all() 期望一个函数作为参数");
-
-                    foreach (var item in arr.Elements)
-                    {
-                        var result = await func.CallAsync(_engine, item);
-                        if (!IsTrue(result))
-                            return BoolValue.Create(false);
-                    }
-
-                    return BoolValue.Create(true);
-                }),
-
-                "join" => new FunctionValue("join", args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "join() 期望 1 个参数");
-
-                    if (args[0] is not StringValue stringValue)
-                        throw Error(member, "join() 期望一个字符串作为参数");
-
-                    var joinResult = string.Join(stringValue.AsString(), arr.Elements.Select(x => x.AsString()));
-                    return new StringValue(joinResult);
-                }),
-                /*"onChanged" => new FunctionValue("onChanged", args =>
-                {
-                    if (args.Count != 1)
-                        throw Error(member, "onChanged() 期望 1 个参数");
-
-                    if (args[0] is not FunctionValue functionValue)
-                        throw Error(member, "onChanged() 期望函数");
-
-                    arr.AddOnChanged(functionValue);
-
-                    return Value.Null;
-                }),*/
-                _ => throw Error(member, $"未知的数组方法 '{member.Property}'")
-            };
-            #endregion
+            var method = ArrayPrototype.GetMethod(arr, member.Property, _engine);
+            if (method != null) return method;
         }
-
-        // 处理 StringValue（字符串）
         if (target is StringValue str)
         {
-
-            #region 原生方法列表
-            return member.Property switch
-            {
-                "length" => NumberValue<int>.Create(str.Value.Length),
-                "toString" => new FunctionValue(
-                    "toString",
-                    args =>
-                    {
-                        return new StringValue(target.AsString());
-                    }),
-                "split" => new FunctionValue(
-                    "split",
-                    args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "split() 期望 1 个参数");
-                        var sep = args[0].As<StringValue>().Value;
-                        var parts = str.Value.Split(sep);
-                        return new ArrayValue(parts.Select(s => (Value)new StringValue(s)).ToList());
-                    }),
-                "substring" => new FunctionValue(
-                    "substring",
-                    args =>
-                    {
-                        if (args.Count < 1 || args.Count > 2)
-                            throw Error(member, "substring() 期望 1 或 2 个参数");
-                        int start = args[0].As<int>();
-                        int length = args.Count == 2 ? args[1].As<int>() : str.Value.Length - start;
-                        return new StringValue(str.Value.Substring(start, length));
-                    }),
-                "toUpper" => new FunctionValue(
-                    "toUpper",
-                    args =>
-                    {
-                        if (args.Count != 0) throw Error(member, "toUpper() 期望 0 个参数");
-                        return new StringValue(str.Value.ToUpperInvariant());
-                    }),
-                "toLower" => new FunctionValue(
-                    "toLower",
-                    args =>
-                    {
-                        if (args.Count != 0) throw Error(member, "toLower() 期望 0 个参数");
-                        return new StringValue(str.Value.ToLowerInvariant());
-                    }),
-                "trim" => new FunctionValue(
-                    "trim",
-                    args =>
-                    {
-                        if (args.Count != 0) throw Error(member, "trim() 期望 0 个参数");
-                        return new StringValue(str.Value.Trim());
-                    }),
-                "contains" => new FunctionValue(
-                    "contains",
-                    args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "contains() 期望 1 个参数");
-                        return BoolValue.Create(str.Value.Contains(args[0].As<StringValue>().Value));
-                    }),
-                "startsWith" => new FunctionValue(
-                    "startsWith",
-                    args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "startsWith() 期望 1 个参数");
-                        return BoolValue.Create(str.Value.StartsWith(args[0].As<StringValue>().Value));
-                    }),
-                "endsWith" => new FunctionValue(
-                    "endsWith",
-                    args =>
-                    {
-                        if (args.Count != 1) throw Error(member, "endsWith() 期望 1 个参数");
-                        return BoolValue.Create(str.Value.EndsWith(args[0].As<StringValue>().Value));
-                    }),
-                _ => throw Error(member, $"未知的字符串方法 '{member.Property}'")
-            };
-
-            #endregion
+            var method = StringPrototype.GetMethod(str, member.Property);
+            if (method != null) return method;
         }
-
+        
 
 
         // 处理 ClrObjectValue（CLR 对象）
@@ -1298,45 +1040,10 @@ public class Interpreter
     /// <summary>
     /// 将 CLR 值转换为脚本 Value
     /// </summary>
-    private Value ConvertClrValueToScriptValue(object? clrValue)
+    private static Value ConvertClrValueToScriptValue(object? clrValue)
     {
-        if (clrValue is null || clrValue == System.DBNull.Value)
-            return Value.Null;
 
-        var type = clrValue?.GetType();
-        if (type is null)
-            return Value.Null;
-
-        if (type == typeof(int))
-            return NumberValue<int>.Create(Convert.ToInt32(clrValue));
-        if (type == typeof(long))
-            return NumberValue<long>.Create(Convert.ToInt64(clrValue));
-        if (type == typeof(float))
-            return NumberValue<float>.Create(Convert.ToSingle(clrValue));
-        if (type == typeof(double))
-            return NumberValue<double>.Create(Convert.ToDouble(clrValue));
-        if (type == typeof(decimal))
-            return NumberValue<decimal>.Create(Convert.ToDecimal(clrValue));
-
-        if (type == typeof(bool))
-            return BoolValue.Create(clrValue is bool);
-
-        if (type == typeof(string) || type == typeof(char))
-            return new StringValue(clrValue?.ToString() ?? string.Empty);
-
-        // 集合类型
-        if (clrValue is IEnumerable enumerable && clrValue is not string)
-        {
-            var elements = new List<Value>();
-            foreach (var item in enumerable)
-            {
-                elements.Add(ConvertClrValueToScriptValue(item));
-            }
-            return new ArrayValue(elements);
-        }
-
-        // 字典类型
-        if (clrValue is IDictionary dict)
+        static ObjectValue ToDict(IDictionary dict)
         {
             var properties = new Dictionary<string, Value>();
             foreach (DictionaryEntry entry in dict)
@@ -1351,9 +1058,31 @@ public class Interpreter
             }
             return new ObjectValue(properties);
         }
-        
-        // 其他 CLR 对象包装
-        return new ClrObjectValue(clrValue);
+        static ArrayValue ToArray(IEnumerable enumerable)
+        {
+            var elements = new List<Value>();
+            foreach (var item in enumerable)
+            {
+                elements.Add(ConvertClrValueToScriptValue(item));
+            }
+            return new ArrayValue(elements);
+        }
+
+        return clrValue switch
+        {
+            int v => NumberValue<int>.Create(v),
+            long v => NumberValue<long>.Create(v),
+            float v => NumberValue<float>.Create(v),
+            double v => NumberValue<double>.Create(v),
+            decimal v => NumberValue<decimal>.Create(v),
+            string v => new StringValue(v),
+            bool v => BoolValue.Create(v),
+            null => Value.Null,
+            IDictionary dict => ToDict(dict),
+            IEnumerable enumerable => ToArray(enumerable),
+            _ => new ClrObjectValue(clrValue)
+        };
+
     }
 
     /// <summary>
@@ -1469,10 +1198,9 @@ public class Interpreter
     private async Task<Value> EvaluateIdentifierAsync(IdentifierExpr identifier, Scope scope)
     {
         var name = identifier.Name;
-        if (scope.TryGetValue(name, out var info)
-            || _engine.GlobalScope.TryGetValue(name, out info))
+        if (scope.TryGetValue(name, out var info))
         {
-            return info.Value;
+            return info.Cell.Value;
         }
         throw new RuntimeException($"未定义的变量 '{name}'");
     }

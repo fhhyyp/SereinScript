@@ -1,37 +1,11 @@
 using ScriptLang.Parser;
 using ScriptLang.Utils;
-using System;
-using System.Collections;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace ScriptLang.Runtime;
 
 
-#region 可观擦能力
-public interface IObservableValue
-{
-    event Action<ValueChange> Changed;
-}
-public record ValueChange(
-    Value Source,
-    string? Key,      // 对象属性名 / 数组索引
-    Value? OldValue,
-    Value? NewValue,
-    ChangeType Type
-);
-
-public enum ChangeType
-{
-    Set,
-    Add,
-    Remove
-} 
-#endregion
 
 /// <summary>
 /// 运行时值类型（统一类型系统）
@@ -80,8 +54,8 @@ public abstract record Value
 
     public string AsString() => (this as StringValue)?.Value  ?? this.ToString();
     public bool AsBool() => (this as BoolValue)?.Value  ?? false;
-    public Dictionary<string, Value> AsObject() => (this as ObjectValue)?.Properties  ?? new();
-    public List<Value> AsArray() => (this as ArrayValue)?.Elements  ?? new();
+    public Dictionary<string, Value> AsObject() => (this as ObjectValue)?.Properties  ?? [];
+    public List<Value> AsArray() => (this as ArrayValue)?.Elements  ?? [];
     
     public sealed override string ToString()
     {
@@ -90,8 +64,8 @@ public abstract record Value
             ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
             BoolValue b => b.Value ? "true" : "false",
             ClrMethodValue cm => $"<clr:func>{cm.Delegate.MethodInfo.DeclaringType?.Name}.{cm.Delegate.MethodInfo.Name}()",
-            ClrObjectValue co => $"<clr:obj>{co.ClrObject?.GetType().FullName}>",
-            FunctionValue f => $"<func>{string.Join(',', f.Parameters)}>",
+            ClrObjectValue co => $"<clr:obj>{co.ClrObject?.GetType().FullName}",
+            FunctionValue f => $"<func>({string.Join(',', f.Parameters)}) = {{}}",
             NullValue => "null",
             NumberValue<int> n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
             NumberValue<double> n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -117,24 +91,22 @@ public record NullValue : Value
     }
 }
 
-
-
-/// <summary>
-/// 数字值
-/// </summary>
-public record NumberValue<TNumber> : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
+public static class NumberValueCache
 {
-
     // 缓存常用整数（-128 到 127）
-    private static readonly NumberValue<int>[] SmallIntegerCache;
+    public static readonly NumberValue<int>[] SmallIntegerCache;
 
     // 特殊值单例
-    public static readonly NumberValue<double> NaN;
-    public static readonly NumberValue<double> PositiveInfinity;
-    public static readonly NumberValue<double> NegativeInfinity;
+    public static readonly NumberValue<double> NaN = new NumberValue<double>(double.NaN);
+    public static readonly NumberValue<double> PositiveInfinity = new NumberValue<double>(double.PositiveInfinity);
+    public static readonly NumberValue<double> NegativeInfinity = new NumberValue<double>(double.NegativeInfinity);
+
+    public static readonly NumberValue<int> Int32_M1;
+    public static readonly NumberValue<int> Int32_0;
+    public static readonly NumberValue<int> Int32_1;
 
 
-    static NumberValue()
+    static NumberValueCache()
     {
         // 初始化小整数缓存
         SmallIntegerCache = new NumberValue<int>[256];
@@ -142,13 +114,21 @@ public record NumberValue<TNumber> : Value where TNumber : struct, IEquatable<TN
         {
             SmallIntegerCache[i + 128] = new NumberValue<int>(i);
         }
+        Int32_M1 = NumberValue<int>.Create(-1);
+        Int32_0 = NumberValue<int>.Create(0);
+        Int32_1 = NumberValue<int>.Create(1);
 
-        // 特殊值
-        NaN = new NumberValue<double>(double.NaN);
-        PositiveInfinity = new NumberValue<double>(double.PositiveInfinity);
-        NegativeInfinity = new NumberValue<double>(double.NegativeInfinity);
     }
-    private NumberValue(TNumber value)
+
+}
+
+/// <summary>
+/// 数字值
+/// </summary>
+public record NumberValue<TNumber> : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
+{
+
+    public NumberValue(TNumber value)
     {
         Value = value;
     }
@@ -166,15 +146,15 @@ public record NumberValue<TNumber> : Value where TNumber : struct, IEquatable<TN
             // 检查小整数缓存
             if (@int >= -128 && @int <= 127)
             {
-                var result = SmallIntegerCache[@int + 128];
+                var result = NumberValueCache.SmallIntegerCache[@int + 128];
                 return (NumberValue<TNumber>)(object)result;
             }
         }
         else if (value is double @double)
         {
-            if (double.IsNaN(@double)) return (NumberValue<TNumber>)(object)NaN;
-            if (double.IsPositiveInfinity(@double)) return (NumberValue<TNumber>)(object)PositiveInfinity;
-            if (double.IsNegativeInfinity(@double)) return (NumberValue<TNumber>)(object)NegativeInfinity;
+            if (double.IsNaN(@double)) return (NumberValue<TNumber>)(object)NumberValueCache.NaN;
+            if (double.IsPositiveInfinity(@double)) return (NumberValue<TNumber>)(object)NumberValueCache.PositiveInfinity;
+            if (double.IsNegativeInfinity(@double)) return (NumberValue<TNumber>)(object)NumberValueCache.NegativeInfinity;
         }
 
         // 创建新实例
@@ -230,7 +210,7 @@ public record StringValue(string Value) : Value
 /// </summary>
 public record BoolValue : Value
 {
-    public bool Value;
+    public bool Value { get; private set; }
 
     public override T As<T>()
     {
@@ -239,8 +219,8 @@ public record BoolValue : Value
         throw new InvalidCastException($"Cannot cast BoolValue to {typeof(T)}");
     }
 
-    private static readonly BoolValue True;
-    private static readonly BoolValue False;
+    public static readonly BoolValue True;
+    public static readonly BoolValue False;
 
     static BoolValue()
     {
@@ -287,37 +267,11 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value
 /// </summary>
 public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 {
-    //public event Action<ValueChange>? Changed;
-
     public int Length => Elements.Count;
-
-    //private readonly List<FunctionValue> OnChangeds = new List<FunctionValue>();
-
-    /*internal void AddOnChanged(FunctionValue functionValue)
-    {
-        OnChangeds.Add(functionValue);
-    }
-
-    private void PublicEvent(ValueChange e, ScriptEngine engine)
-    {
-        Changed?.Invoke(e);
-        if(e.Type is ChangeType.Set or ChangeType.Add or ChangeType.Remove)
-        {
-            var ee = new ValueChange(this, nameof(Length), null, GetLength(), ChangeType.Set);
-            Changed?.Invoke(ee);
-        }
-        foreach (var item in OnChangeds)
-        {
-            //_ = item.CallAsync(engine, this, e.Source, e.OldValue ?? Value.Null, e.NewValue ?? Value.Null);
-            _ = item.CallAsync(engine, this);
-        }
-    }*/
 
     public void Add(Value v, ScriptEngine engine)
     {
         Elements.Add(v);
-        //Track();
-        //PublicEvent(new ValueChange(this, (Elements.Count - 1).ToString(), null, v, ChangeType.Add), engine);
     }
 
     public Value Pop(ScriptEngine engine)
@@ -325,42 +279,27 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
         if (Elements.Count == 0) return Value.Null;
         var last = Elements[^1];
         Elements.RemoveAt(Elements.Count - 1);
-        //Track();
-        //PublicEvent(new ValueChange(this, null, last, null, ChangeType.Remove), engine);
         return last;
     }
 
     public void RemoveAt(int index, ScriptEngine engine)
     {
-        //var old = Elements[index];
         Elements.RemoveAt(index);
-        //Track();
-        //PublicEvent(new ValueChange(this, index.ToString(), old, null, ChangeType.Remove), engine);
     }
 
     public bool Remove(Value v, ScriptEngine engine)
     {
         return Elements.Remove(v);
-        /*var idx = Elements.IndexOf(v);
-        if (idx < 0 && idx >= Elements.Count) return false;
-        RemoveAt(idx, engine);
-        return true;*/
     }
 
     public void Set(int index, Value v, ScriptEngine engine)
     {
-
-        //var old = Elements[index];
         Elements[index] = v;
-        //Track();
-        //PublicEvent(new ValueChange(this, index.ToString(), old, v, ChangeType.Set), engine);
     }
 
     public void Reverse(ScriptEngine engine)
     {
         Elements.Reverse();
-        //Track();
-        //PublicEvent(new ValueChange(this, null, null, null, ChangeType.Set), engine);
     }
 
     public Value Get(int index)
@@ -369,7 +308,6 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
         return value;
     }
     
-
     public override T As<T>()
     {
         if (this is T result) return result;
@@ -385,6 +323,11 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 public record FunctionValue : Value
 {
     /// <summary>
+    /// 函数名称
+    /// </summary>
+    public string Name { get; private set; }
+
+    /// <summary>
     /// 参数名列表
     /// </summary>
     public List<string> Parameters { get; }
@@ -397,13 +340,7 @@ public record FunctionValue : Value
     /// <summary>
     /// 闭包作用域（捕获定义时的环境）
     /// </summary>
-    public Scope Closure { get; }
-
-    /// <summary>
-    /// 轻量级闭包（优化版本）
-    /// </summary>
-    [Obsolete("", true)]
-    public LightweightClosure? OptimizedClosure { get; private set; }
+    public IClosureContext Closure { get; }
 
 
     /// <summary>
@@ -436,15 +373,16 @@ public record FunctionValue : Value
     /// </summary>
     public FunctionValue(LambdaExpr lambda, Scope closure)
     {
+        Name = $"<lambda>({string.Join(",", lambda.Params)})=>{{}}";
         var parameters = lambda.Params;
         var body = lambda.Body;
         Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
         Body = body ?? throw new ArgumentNullException(nameof(body));
-        // 使用轻量级闭包
-        //var freeVariables = ClosureAnalyzer.AnalyzeFreeVariables(lambda, closure);
-        //OptimizedClosure = LightweightClosure.CreateFromScope(closure, freeVariables);
-        //Closure = OptimizedClosure.ConvertScope();
-        Closure = closure; 
+
+        // 分析捕获闭包变量
+        var freeVariables = ClosureAnalyzer.AnalyzeFreeVariables(lambda, closure);
+        Closure = LightweightClosure.CreateFromScope(closure, freeVariables);
+        //Console.WriteLine("捕获:" + string.Join(",", freeVariables));
         IsNative = false;
     }
 
@@ -453,6 +391,7 @@ public record FunctionValue : Value
     /// </summary>
     public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
     {
+        Name = name;
         Parameters = new List<string>();
         Body = null!;
         Closure = null!;
@@ -465,6 +404,7 @@ public record FunctionValue : Value
     /// </summary>
     public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
     {
+        Name = name;
         Parameters = new List<string>();
         Body = null!;
         Closure = null!;
@@ -479,7 +419,7 @@ public record FunctionValue : Value
     }
 
     /// <summary>
-    /// 调用函数（优化版本）
+    /// 调用函数
     /// </summary>
     public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
     {
@@ -498,7 +438,7 @@ public record FunctionValue : Value
             throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
         }
         // 创建作用域
-        Scope callScope = Closure.CreateChildScope();
+        Scope callScope = new Scope(Closure); //  Closure.CreateChildScope();
 
         // 绑定参数（参数会遮蔽同名的闭包变量）
         for (int i = 0; i < Parameters.Count; i++)
@@ -512,40 +452,6 @@ public record FunctionValue : Value
         return result;
     }
 
-    /// <summary>
-    /// 调用函数
-    /// </summary>
-    /*public async Task<Value> CallAsync2(ScriptEngine engine, params List<Value> args)
-    {
-
-        if (IsNative)
-        {
-            return NativeFunc!(args);
-        }
-        else if (IsNativeTask)
-        {
-            return await NativeTask!(args);
-        }
-
-
-        // 验证参数数量
-        if (args.Count != ParameterCount)
-        {
-            throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
-        }
-        // 创建新的作用域，闭包作为父作用域
-        var callScope = new Scope(Closure);
-
-        // 绑定参数
-        for (int i = 0; i < Parameters.Count; i++)
-        {
-            callScope.Define(Parameters[i], args[i]);
-        }
-
-        // 执行函数体
-        var result = await engine.EvaluateAsync(Body, callScope);
-        return result;
-    }*/
 }
 
 /// <summary>

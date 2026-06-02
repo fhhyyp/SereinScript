@@ -1,17 +1,20 @@
 ﻿
 // ==================== When 表达式（模式匹配）====================
-let value = 2
+let value = 22
 when value {
     1 => print("one"),
     2 => print("two"),
     3 => print("three"),
-    _ => print("other")
+    _ => {
+        let t = 1111123
+        print(t)
+    }
 }
 
 
-let state = false
-when state {
-    true => print("1"),
-    false => print("0"),
-    _ => print("unknown")
-}
+// let state = false
+// when state {
+//     true => print("1"),
+//     false => print("0"),
+//     _ => print("unknown")
+// }

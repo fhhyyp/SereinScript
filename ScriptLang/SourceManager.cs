@@ -1,4 +1,5 @@
 using ScriptLang.Runtime;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ScriptLang;
 
@@ -11,16 +12,17 @@ public sealed class SourceManager
         _sources[filePath] = source;
     }
 
-    public string GetSource(string filePath)
+    public bool TryGetSource(string filePath, [NotNullWhen(true)]out string? scr)
     {
-        if (!_sources.TryGetValue(filePath, out var src))
-            throw new RuntimeException($"源文件未加载: {filePath}");
-        return src;
+        return _sources.TryGetValue(filePath, out scr);
     }
 
     public string GetSlice(string filePath, int start, int length)
     {
-        var src = GetSource(filePath);
+        if (!TryGetSource(filePath, out var src))
+        {
+            throw new RuntimeException($"源文件未加载: {filePath}");
+        }
         return src.Substring(start, length);
     }
 

@@ -9,13 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Runtime\ByteCode\Compiler_backup_001.cs" />
     <Compile Remove="Runtime\FreeVariableAnalyzer.cs" />
+    <Compile Remove="Runtime\FunctionValueExtensions.cs" />
+    <Compile Remove="Runtime\ModuleInjector.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Samples\1\1.6-复杂对象.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Samples\3\3.5-矩阵运算.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -74,6 +74,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Samples\高级\linq\json.script">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Samples\高级\linq\linq2.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Samples\高级\linq\linq.script">

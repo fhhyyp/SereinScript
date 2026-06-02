@@ -1,11 +1,20 @@
+// test-import.script
 import { createStore } from "pinia.script"
 
 let store = createStore({
     state = () => {
-        let data = { x = 0, y = 0 }
+        return { x = 0, y = 0 }
     },
     getters = {
-        getData = (state) => "current value : " + state.x + "," + state.y
+        getData = (state) => {
+            if(state == null) then {
+                return state == null
+            }else {
+                return  "current value : " + state.x + "," + state.y
+            }
+            
+
+        }
     },
     actions = {
         increment = (state, n) => {
@@ -15,4 +24,4 @@ let store = createStore({
     }
 })
 
-{ store = store }
+return { store  }

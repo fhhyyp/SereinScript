@@ -1,0 +1,15 @@
+// test-closure-recursion.script
+print("=== 闭包递归测试 ===")
+
+let makeCounter = (start) => {
+    let count = start
+    return () => {
+        count = count + 1
+        return count
+    }
+}
+
+let counter = makeCounter(0)
+print("counter(): " + counter())
+print("counter(): " + counter())
+print("counter(): " + counter())

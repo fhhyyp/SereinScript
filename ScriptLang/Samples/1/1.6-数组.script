@@ -9,4 +9,4 @@ print("arr.length:", arr.length)  // 输出: arr.length: 5
 let arr2 = arr + [6, 7, 8]
 print("arr2:", arr2)  // 输出: arr2: [1, 2, 3, 4, 5, 6, 7, 8]
 
-arr2
+return arr2

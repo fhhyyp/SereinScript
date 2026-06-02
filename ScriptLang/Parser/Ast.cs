@@ -118,7 +118,7 @@ public record IfExpr(Expr Cond, Expr Then, Expr Else, SourceSpan SourceSpan) : E
 /// <summary>
 /// When 表达式（模式匹配）
 /// </summary>
-public record WhenExpr(Expr Value, List<WhenClause> Clauses, SourceSpan SourceSpan) : Expr(SourceSpan);
+public record WhenExpr(Expr Value, List<WhenClause> Clauses, WhenClause? OtherClause, SourceSpan SourceSpan) : Expr(SourceSpan);
 
 /// <summary>
 /// When 子句
@@ -187,11 +187,11 @@ public record IndexAccessExpr(Expr Target, Expr Index, SourceSpan SourceSpan) : 
 /// <summary>
 /// 程序（顶层表达式列表）
 /// </summary>
-public record Program(List<Expr> Statements, SourceSpan SourceSpan) : Expr(SourceSpan);
+public record ProgramExpr(List<Expr> Statements, SourceSpan SourceSpan) : Expr(SourceSpan);
 
 // ==================== 模块导入表达式 ====================
 
 /// <summary>
-/// Import 语句：import { member1, member2 } from "FILEPATH"
+/// Import 语句：import { member1 [: alias], member2 [: aslis2] } from "FILEPATH"
 /// </summary>
-public record ImportStmt(List<string> Members, string FilePath, SourceSpan SourceSpan) : Expr(SourceSpan);
+public record ImportStmt(List<(string member, string? alias)> Members, string FilePath, SourceSpan SourceSpan) : Expr(SourceSpan);

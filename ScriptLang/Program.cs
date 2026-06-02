@@ -11,13 +11,19 @@ class Program
     {
 #if DEBUG
         args = ["./Samples/3/3.5-矩阵运算.script"];
-        args = ["./Samples/高级/linq/run-linq.script"];
-#endif
-        args = [".\\Samples\\test\\test_closure_memory.script"];
         args = ["./Samples/3/3.2-高阶函数.script"];
-        args = ["./Samples/3/3.4-快速排序.script"];
-        args = ["./Samples/高级/pinia/run-import.script"];
+        args = ["./Samples/1/1.1-基础运算.script"];
         //args = [".\\Samples\\2\\2.2-条件表达式.script"];
+        args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\3\3.5-矩阵运算.script"];
+        args = ["./Samples/高级/pinia/run-import.script"];
+        args = [".\\Samples\\test\\test_closure_memory.script"];
+        args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\test\\test-stack-overflow.script"];
+        args = ["./Samples/3/3.4-快速排序.script"];
+#endif
+
+        args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\3\\3.3-递归.script"];
+
+
         if (args.Length == 0) 
         {
             Console.WriteLine("需要指定调用的 script 文件路径");
@@ -32,25 +38,31 @@ class Program
             return;
         }
 
-        var engine = new ScriptEngine();
+        try
+        {
+            var engine = new ScriptEngine();
+            if(1 == 11)
+            {
+               engine.Mode = ExecutionMode.Interpreted;
+            }
+            var sw = Stopwatch.StartNew();
+            var task = engine.CreateTask(scriptPath);
+            var result = await task; //.RunAsync();
+            sw.Stop();
+            //Console.WriteLine($"耗时: {sw.ElapsedMilliseconds} ms");
+            Console.WriteLine($"结果: {result}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"异常: {ex}");
+        }
+
 
         while (true)
         {
-            try
-            {
-                
-                var sw = Stopwatch.StartNew();
-                var result = await engine.StartAsync(scriptPath);
-                sw.Stop();
-                Console.WriteLine($"耗时: {sw.ElapsedMilliseconds} ms");
-                Console.WriteLine($"结果: {result}");
-                engine.ClearCache();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"异常: {ex}");
-            }
-            await Task.Delay(1000);
+           
+            //Console.WriteLine($"__");
+            await Task.Delay(5000);
             //break;
         }
 

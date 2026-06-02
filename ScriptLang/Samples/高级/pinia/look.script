@@ -1,3 +1,4 @@
+// look.script
 import { store } from "test-import.script"
 
 let look = () => {
@@ -11,4 +12,6 @@ let look = () => {
 	print("")       
 }
 
-{look = look}
+return { 
+	look = look
+}

@@ -1,0 +1,15 @@
+print("=== 深层递归测试 ===")
+
+let fib = (n) => {
+    if n <= 1 then {
+        n
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
+}
+
+let start = debug.getTickCount()
+let result = fib(35)
+let end = debug.getTickCount()
+print("fib(35) = " + result)
+print("耗时: " + (end - start) + "ms")

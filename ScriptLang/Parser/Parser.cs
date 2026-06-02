@@ -1,5 +1,7 @@
 using ScriptLang.Lexer;
+using System.Drawing;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace ScriptLang.Parser;
 
@@ -65,7 +67,7 @@ public class Parser
         
         var sourceSpan = GetSourceSpan(0, _tokens.Count -1);
 
-        return new Program(statements, sourceSpan);
+        return new ProgramExpr(statements, sourceSpan);
     }
     
     /// <summary>
@@ -107,7 +109,7 @@ public class Parser
         // 解析 import { member1, member2 } from "filepath"
         Consume(TokenType.LeftBrace, "在 'import' 之后需要 '{'");
         var startTokenIndex = _current;
-        var members = new List<string>();
+        var members = new List<(string member, string? alias)>();
 
         // 解析成员列表
         if (!Check(TokenType.RightBrace))
@@ -115,7 +117,14 @@ public class Parser
             do
             {
                 Token member = Consume(TokenType.Identifier, "在 import 列表中需要成员名称");
-                members.Add(member.Lexeme);
+                Token? alias = null;
+                if (Check(TokenType.Colon))
+                {
+                    Match(TokenType.Colon); // 消费别名定义 ':'
+                    alias = Consume(TokenType.Identifier, "在 ':' 之后需要别名"); // 解析别名
+                }
+                members.Add((member.Lexeme, alias?.Lexeme));
+
             }
             while (Match(TokenType.Comma));
         }
@@ -367,6 +376,22 @@ public class Parser
        
         Expr expr = ParsePrimary();
 
+        /* var previousTokenType = Previous().Type;
+
+       if (MatchFor(previousTokenType,
+                    TokenType.Number_Int, TokenType.Number_Long,
+                    TokenType.Number_Float, TokenType.Number_Double, TokenType.Number_Decimal,
+                    TokenType.String, TokenType.True, TokenType.False, TokenType.Null))
+        {
+            return expr;
+        }
+
+        if(MatchFor(previousTokenType, TokenType.Identifier))
+        {
+
+        }*/
+
+
         while (true)
         {
 
@@ -429,25 +454,6 @@ public class Parser
         var endTokenIndex = _current;
         var span = GetSourceSpan(startTokenIndex, endTokenIndex);
         return new CallExpr(target, args, span);
-
-
-        /* var args = new List<Expr>();
-
-         var startTokenIndex = _current;
-         if (!Check(TokenType.RightParen))
-         {
-             do
-             {
-                 var arg = ParseExpression();
-                 args.Add(arg);
-             } while (Match(TokenType.Comma));
-         }
-
-         Consume(TokenType.RightParen, "Expect ')' after arguments");
-
-         var endTokenIndex = _current;
-         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
-         return new CallExpr(target, args, sourceSpan);*/
     }
     
     private Expr ParseIndexAccess(Expr target)
@@ -487,11 +493,15 @@ public class Parser
                 return expr;
             }
         }
-        
+
         // 标识符 / 单参数Lambda
+
         if (Match(TokenType.Identifier))
-        {
-            if (Peek().Type == TokenType.Arrow)
+        {        
+            // var peek = Peek();
+            // var identifier = peek.Lexeme;
+            // Match(TokenType.Identifier);
+            if (/*identifier != "_" && */Peek().Type == TokenType.Arrow)
             {
                 Expr expr = ParseLambda();
                 return expr;
@@ -773,49 +783,63 @@ public class Parser
         // 先解析 when 的值表达式
         Expr value = ParseExpression();
         var clauses = new List<WhenClause>();
-
+        WhenClause? otherClause = null;
         // 如果是大括号 { ... } 包裹的多子句形式
         if (Match(TokenType.LeftBrace))
         {
             while (!Check(TokenType.RightBrace) && !IsAtEnd())
             {
-
+                var t = _currentToken;
                 var startTokenIndex_when = _current;
                 // 解析模式表达式
                 Expr pattern = ParseExpression();
-
-                Consume(TokenType.Arrow, "在 when 子句中需要 '=>'");
-
-                // 支持块语句作为 when 子句体
-                Expr body;
-                if (Check(TokenType.LeftBrace))
+                if(pattern is LambdaExpr lambda)
                 {
-                    body = ParseBlock(); // 解析 { ... } 块语句
+                    var endTokenIndex_when = _current;
+                    var sourceSpan_when = GetSourceSpan(startTokenIndex_when, endTokenIndex_when);
+                    otherClause = new WhenClause(null!, lambda, sourceSpan_when);
+                    break;
                 }
                 else
                 {
-                    body = ParseExpression();
-                }
+                    Consume(TokenType.Arrow, "在 when 子句中需要 '=>'");
 
-                var endTokenIndex_when = _current;
-                var sourceSpan_when = GetSourceSpan(startTokenIndex_when, endTokenIndex_when);
-                clauses.Add(new WhenClause(pattern, body, sourceSpan_when));
-
-                // 检查逗号分隔符
-                if (!Match(TokenType.Comma))
-                {
-                    if (!Check(TokenType.RightBrace))
+                    // 支持块语句作为 when 子句体
+                    Expr body;
+                    if (Check(TokenType.LeftBrace))
                     {
-                        throw Error(Peek(), "在 when 子句之后需要 ',' 或 '}'");
+                        body = ParseBlock(); // 解析 { ... } 块语句
+                    }
+                    else
+                    {
+                        body = ParseExpression();
+                    }
+
+
+
+                    var endTokenIndex_when = _current;
+                    var sourceSpan_when = GetSourceSpan(startTokenIndex_when, endTokenIndex_when);
+                    var clase = new WhenClause(pattern, body, sourceSpan_when);
+                    clauses.Add(clase);
+
+                    // 检查逗号分隔符
+                    if (!Match(TokenType.Comma))
+                    {
+                        if (!Check(TokenType.RightBrace))
+                        {
+                            throw Error(Peek(), "在 when 子句之后需要 ',' 或 '}'");
+                        }
                     }
                 }
+
+               
             }
 
             Consume(TokenType.RightBrace, "在 when 子句之后需要 '}'");
         }
-        else
+        /*else
         {
-            // 单行形式 while 循环解析
+            // 单行形式 when 循环解析
             while (!Check(TokenType.Else) && !Check(TokenType.EOF) && !Check(TokenType.Semicolon))
             {
                 var startTokenIndex_when = _current;
@@ -840,11 +864,11 @@ public class Parser
                 if (!Match(TokenType.Comma))
                     break;
             }
-        }
+        }*/
 
         var endTokenIndex = _current;
         var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
-        return new WhenExpr(value, clauses, sourceSpan);
+        return new WhenExpr(value, clauses, otherClause, sourceSpan);
     }
 
     /// <summary>
@@ -973,6 +997,24 @@ public class Parser
             if (Check(type))
             {
                 Advance();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 判断某个token是否为某个类型
+    /// </summary>
+    /// <param name="token"></param>
+    /// <param name="types"></param>
+    /// <returns></returns>
+    private bool MatchFor(TokenType tokenType, params TokenType[] types)
+    {
+        foreach (var type in types)
+        {
+            if (tokenType == type)
+            {
                 return true;
             }
         }
@@ -1129,27 +1171,5 @@ public class Parser
             
             Advance();
         }
-    }
-}
-
-/// <summary>
-/// 解析异常
-/// </summary>
-public class ParseException : Exception
-{
-    public Token Token { get; }
-    public int Line { get; }
-    public int Column { get; }
-    
-    public ParseException(Token token, string message) : base(message)
-    {
-        Token = token;
-        Line = token.Line;
-        Column = token.Column;
-    }
-    
-    public override string ToString()
-    {
-        return Message;
     }
 }

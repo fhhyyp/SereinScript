@@ -1,3 +1,4 @@
+// pinia.script 
 // createStore ¼òÒ×ÊµÏÖ
 let createStore = (options) => {
     let state = options.state()

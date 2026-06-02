@@ -9,8 +9,6 @@ namespace ScriptLang.Runtime;
 /// </summary>
 public static class FunctionValueExtensions
 {
-
-
     public static Func<Value[], Task<Value>> ToDelegate(this FunctionValue function, ScriptEngine engine, Scope? parentScope = null)
     {
         if (function.IsNative)
@@ -31,7 +29,7 @@ public static class FunctionValueExtensions
             var interpreter = new Interpreter(engine);
 
             // 创建调用作用域（闭包作为父作用域）
-            var callScope = closure.CreateChildScope(); // new Scope(closure);
+            var callScope = new Scope(closure); // closure.CreateChildScope(); // new Scope(closure);
 
             for (int i = 0; i < function.Parameters.Count; i++)
             {
@@ -39,7 +37,7 @@ public static class FunctionValueExtensions
             }
 
             var result = await interpreter.EvaluateAsync(body, callScope);
-
+            
             return result.Value;
         };
     }

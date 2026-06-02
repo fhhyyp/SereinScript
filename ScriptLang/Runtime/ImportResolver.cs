@@ -1,5 +1,7 @@
 using ScriptLang.Parser;
+using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace ScriptLang.Runtime;
 
@@ -12,6 +14,8 @@ public class ImportResolver
     private readonly ScriptEngine _engine;
 
     private readonly ConcurrentDictionary<string, ObjectValue> _moduleCache;
+
+    public string RootPath { get; internal set; } = string.Empty;
 
     //private readonly string _baseDirectory;
 
@@ -26,25 +30,24 @@ public class ImportResolver
     /// <summary>
     /// 解析并导入模块
     /// </summary>
-    public async Task<ObjectValue> ResolveAsync(ImportStmt importStmt)
+    public async Task<ObjectValue> ResolveAsync(string filePath, Scope? scope = null)
     {
-        var fullPath = ResolveFilePath(importStmt.FilePath);
+        var fullPath = ResolveFilePath(filePath);
 
         if (_moduleCache.TryGetValue(fullPath, out var cached))
             return cached;
-
+        
         if (!File.Exists(fullPath))
             throw new RuntimeException($"模块不存在: {fullPath}");
 
-        // 统一入口：只允许走 engine
-        var scope = new Scope();
-        var result = await _engine.RunModuleAsync(fullPath, scope);
+        Console.WriteLine($"解析模块 ： {filePath}");
+        var re_scope = scope is null ? new Scope() : new Scope(scope);
+        var result = await _engine.RunModuleAsync(fullPath, re_scope);
         var exports = ExtractExports(result);
-        _moduleCache.TryAdd(fullPath, exports);
-        scope.Clear();
+        _moduleCache[fullPath] =  exports;
+        re_scope.Clear();
         return exports;
     }
-
 
     /// <summary>
     /// 解析文件路径（支持相对路径）
@@ -54,7 +57,7 @@ public class ImportResolver
         if (Path.IsPathRooted(filePath))
             return Path.GetFullPath(filePath);
 
-        return Path.GetFullPath(Path.Combine(_engine.MainDirectory, filePath));
+        return Path.GetFullPath(Path.Combine(RootPath, filePath));
     }
 
     /// <summary>
@@ -62,12 +65,12 @@ public class ImportResolver
     /// </summary>
     /// <param name="result"></param>
     /// <returns></returns>
-    private ObjectValue ExtractExports(Value result)
+    private static ObjectValue ExtractExports(Value result)
     {
         if (result is ObjectValue obj)
             return obj;
 
-        return new ObjectValue(new Dictionary<string, Value>());
+        return new ObjectValue([]);
     }
 
     /// <summary>
@@ -77,6 +80,7 @@ public class ImportResolver
     {
         _moduleCache.Clear();
     }
+
     /// <summary>
     /// 清除指定模块的缓存
     /// </summary>
@@ -85,4 +89,6 @@ public class ImportResolver
         var fullPath = ResolveFilePath(filePath);
         _moduleCache.TryRemove(fullPath, out _);
     }
+
+    
 }

@@ -1,0 +1,26 @@
+// test-mutual-recursion.script
+print("=== 相互递归测试 ===")
+
+let isEven = (n) => {
+    if n == 0 then {
+        true
+    } else {
+        isOdd(n - 1)
+    }
+}
+
+let isOdd = (n) => {
+    if n == 0 then {
+        false
+    } else {
+        isEven(n - 1)
+    }
+}
+
+print("isEven(10): " + isEven(10))
+print("isEven(11): " + isEven(11))
+print("isOdd(10): " + isOdd(10))
+print("isOdd(11): " + isOdd(11))
+
+// 深层相互递归
+print("isEven(1000): " + isEven(1000))

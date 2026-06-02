@@ -1,0 +1,38 @@
+// test-extreme-recursion.script
+print("=== 极限递归测试 ===")
+
+// 尾递归（如果支持尾调用优化）
+let sumTail = (n, acc) => {
+    if n <= 0 then {
+        acc
+    } else {
+        sumTail(n - 1, acc + n)
+    }
+}
+
+// 非尾递归
+let sumNormal = (n) => {
+    if n <= 0 then {
+        0
+    } else {
+        n + sumNormal(n - 1)
+    }
+}
+
+let testBoth = (n) => {
+    print("n = " + n)
+    
+    let start = debug.getTickCount()
+    let result1 = sumNormal(n)
+    let mid = debug.getTickCount()
+    let result2 = sumTail(n, 0)
+    let end = debug.getTickCount()
+    
+    print("  普通递归: " + result1 + " (" + (mid - start) + "ms)")
+    print("  尾递归:   " + result2 + " (" + (end - mid) + "ms)")
+}
+
+testBoth(100)
+testBoth(500)
+testBoth(1000)
+// testBoth(5000)  // 可能栈溢出

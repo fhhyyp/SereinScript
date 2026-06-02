@@ -14,7 +14,7 @@ let ui = {
     }]
 }
 
-print(counter.value)
-ui.children[1].onClick()
-print(counter.value)
-ui
+print(counter.value) // 输出: 0
+ui.children[1].onClick() // 模拟点击按钮
+print(counter.value) // 输出: 1
+return ui 

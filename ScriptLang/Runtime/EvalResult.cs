@@ -1,37 +1,25 @@
 namespace ScriptLang.Runtime;
 
-/// <summary>
-/// 扩展执行器返回结果的方法
-/// </summary>
-public static class EvalResultExtension
-{
-    public static EvalResult FormResult(this Value value)
-    {
-        return EvalResult.FormResult(value);
-    }
-    public static EvalResult Return(this Value value)
-    {
-        return EvalResult.Return(value);
-    }
-}
 
 /// <summary>
 /// 执行结果
 /// </summary>
-public readonly struct EvalResult
+public class EvalResult(Value value, bool isReturn = false, bool hasValue = false)
 {
-    public Value Value { get; }
-    public bool IsReturn { get; }
-    public bool HasValue { get; }
+    public Value Value { get; } = value;
+    public bool IsReturn { get; } = isReturn;
+    public bool HasValue { get; } = hasValue;
 
-    public EvalResult(Value value, bool isReturn = false, bool hasValue = false)
-    {
-        Value = value;
-        IsReturn = isReturn;
-        HasValue = hasValue;
-    }
+    /// <summary>
+    /// 默认的空返回值
+    /// </summary>
+    public static readonly EvalResult Null = new EvalResult(Value.Null, isReturn: true, hasValue: false);
 
-    public static EvalResult FormResult(Value value) => new(value, false, true);
-    public static EvalResult Return(Value value) => new(value, true, true);
-    public static EvalResult ReturnNotValue() => new(Value.Null, true, false);
+    /// <summary>
+    /// 包装返回值
+    /// </summary>
+    /// <param name="value">需要包装的值</param>
+    /// <returns></returns>
+    public static EvalResult FormResult(Value value) => new(value, isReturn: false, hasValue: true);
+
 }
