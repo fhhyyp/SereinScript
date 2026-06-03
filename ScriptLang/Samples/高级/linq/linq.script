@@ -1,9 +1,11 @@
 let array = (arr) => {
 	let value = arr
-	var arrayObject = {
-		value = value,
+	let arrayObject = {
+		value = value.toList(),
 		length = value.length,
 		get = (index) => value[index],
+		
+		toList = () => value,
 		select = (fn) => {
 			var result = []
 			for item in value {
@@ -15,7 +17,7 @@ let array = (arr) => {
 			var result = []
 			for item in value {
 				when fn(item) {
-					true => { result = result + item },
+					true => { result.add(item) },
 					false => {}
 				}
 			}
@@ -98,13 +100,13 @@ let array = (arr) => {
 			return array(result)
 		},
 		orderBy = () => {
-			return this._orderby(true)
+			return _orderby(true)
 		},
 		orderByDescending = () => {
-			return this._orderby(false)
+			return _orderby(false)
 		},
-		toArray = () => this.value
 	}
+	// print("Creating array object : " + arrayObject)
 	return arrayObject
 }
 

@@ -1,8 +1,10 @@
 ﻿using ScriptLang.Parser;
+using ScriptLang.Prototype;
 using ScriptLang.Runtime.ByteCode;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http.Headers;
@@ -61,6 +63,9 @@ public class VM
             Console.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
         }
         Console.WriteLine("=== 执行 ===");
+
+        var totalSw = Stopwatch.StartNew();
+        var instructionTimes = new Dictionary<OpCode, long>();
 #endif
 
         //_chunk = chunk;
@@ -75,19 +80,25 @@ public class VM
             //ReturnAddress = -1  ,// 顶层帧没有返回地址
             IP = 0,
         };
-
+       
         while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
         {
             int currentIP = _currentFrame.IP;
             var inst = _currentFrame.Chunk.Code[currentIP];
 #if DEBUG
+            var sw = Stopwatch.StartNew();
             Console.WriteLine($"[VM] IP={currentIP:D4}: {inst.OpCode} {inst.Operand}");
 #endif
 
             try
             {
                 bool shouldContinue = await ExecuteInstruction(inst);
-
+#if DEBUG
+                sw.Stop();
+                if (!instructionTimes.ContainsKey(inst.OpCode))
+                    instructionTimes[inst.OpCode] = 0;
+                instructionTimes[inst.OpCode] += sw.ElapsedTicks;
+#endif
                 // 如果 ExecuteInstruction 返回 false，说明是 Return 指令
                 // 在顶层 Return 时直接返回
                 if (!shouldContinue)
@@ -105,6 +116,14 @@ public class VM
                 _currentFrame.IP++;
             }
         }
+#if DEBUG
+        totalSw.Stop();
+        Console.WriteLine($"总耗时: {totalSw.ElapsedMilliseconds}ms");
+        foreach (var kv in instructionTimes.OrderByDescending(kv => kv.Value))
+        {
+            Console.WriteLine($"  {kv.Key}: {kv.Value * 1000 / Stopwatch.Frequency}ms");
+        }
+#endif
 
         return _stack.Count > 0 ? Pop() : Value.Null;
     }
@@ -1235,7 +1254,7 @@ public class VM
 
         if (left is ArrayValue leftArr)
         {
-            var newArray = left.AsArray();  // Array.Copy 优化
+            var newArray = left.AsArray().ToList();  // Array.Copy 优化
             if (right.IsArray)
                 newArray.AddRange(right.AsArray());
             else

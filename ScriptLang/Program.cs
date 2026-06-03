@@ -15,13 +15,15 @@ class Program
         args = ["./Samples/1/1.1-基础运算.script"];
         //args = [".\\Samples\\2\\2.2-条件表达式.script"];
         args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\3\3.5-矩阵运算.script"];
-        args = ["./Samples/高级/pinia/run-import.script"];
-        args = [".\\Samples\\test\\test_closure_memory.script"];
         args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\test\\test-stack-overflow.script"];
         args = ["./Samples/3/3.4-快速排序.script"];
 #endif
 
-        args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\3\\3.3-递归.script"];
+        args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.7-数值数据类型.script"];
+        args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\test\test.script"];
+        args = ["./Samples/高级/pinia/run-import.script"];
+        args = ["./Samples/高级/linq/run-linq.script"];
+        args = [".\\Samples\\test\\test_closure_memory.script"];
 
 
         if (args.Length == 0) 
@@ -41,9 +43,10 @@ class Program
         try
         {
             var engine = new ScriptEngine();
-            if(1 == 11)
+            if(1 ==11)
             {
-               engine.Mode = ExecutionMode.Interpreted;
+
+             engine.Mode = ExecutionMode.Interpreted;
             }
             var sw = Stopwatch.StartNew();
             var task = engine.CreateTask(scriptPath);

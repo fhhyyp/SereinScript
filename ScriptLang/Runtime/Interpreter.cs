@@ -1,5 +1,6 @@
 using ScriptLang.Lexer;
 using ScriptLang.Parser;
+using ScriptLang.Prototype;
 using ScriptLang.Runtime.ByteCode;
 using System;
 using System.Collections;

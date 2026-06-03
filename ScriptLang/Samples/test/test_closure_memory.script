@@ -2,8 +2,7 @@ let createHugeData = () => {
     var hugeArray = []
     
     // 创建大数组
-    for i in range(0, 100) {
-        print(i)
+    for i in range(0, 10000) {
         hugeArray = hugeArray + {
             id = i,
             name = "item_" + i,
