@@ -74,31 +74,34 @@ public class VM
     /// </summary>
     public async ValueTask<Value> ExecuteAsync(ByteCodeChunk chunk)
     {
-#if DEBUG
-        Console.WriteLine("=== 变量表 ===");
-        var vt = chunk.VariableTable;
-        if (vt != null)
+#if true
+        if (_engine.IsPrintVMInfo)
         {
-            Console.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
-        }
+            Console.WriteLine("=== 变量表 ===");
+            var vt = chunk.VariableTable;
+            if (vt != null)
+            {
+                Console.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
+            }
 
-        Console.WriteLine("=== 常量表 ===");
-        var constants = chunk.GetConstants().ToList();
-        for (int i = 0; i < constants.Count; i++)
-        {
-            var constant = constants[i];
-            if (constant is System.Collections.IList list)
-                Console.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
-            else
-                Console.WriteLine($"  [{i}] = {constant}");
-        }
+            Console.WriteLine("=== 常量表 ===");
+            var constants = chunk.GetConstants().ToList();
+            for (int i = 0; i < constants.Count; i++)
+            {
+                var constant = constants[i];
+                if (constant is System.Collections.IList list)
+                    Console.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
+                else
+                    Console.WriteLine($"  [{i}] = {constant}");
+            }
 
-        Console.WriteLine("=== 指令 ===");
-        for (int i = 0; i < chunk.Code.Count; i++)
-        {
-            Console.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
+            Console.WriteLine("=== 指令 ===");
+            for (int i = 0; i < chunk.Code.Count; i++)
+            {
+                Console.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
+            }
+            Console.WriteLine("=== 执行 ===");
         }
-        Console.WriteLine("=== 执行 ===");
 #endif
 
         _stack.Clear();

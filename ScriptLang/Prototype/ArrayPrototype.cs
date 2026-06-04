@@ -12,7 +12,7 @@ namespace ScriptLang.Prototype
     {
         public partial bool IsTarget(Value value)
         {
-            return value.IsArray;
+            return value is ArrayValue;
         }
 
         [PrototypeProperty(Name = "count")]

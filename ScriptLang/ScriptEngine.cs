@@ -7,6 +7,9 @@ namespace ScriptLang
 {
     public sealed class ScriptEngine
     {
+        public bool IsPrintVMInfo { get; private set; } = true;
+        public bool IsPrintInputSciptContent { get; private set; } = true;
+
         /// <summary>
         /// 脚本依赖导入工具
         /// </summary>
@@ -61,12 +64,13 @@ namespace ScriptLang
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);
-#if DEBUG
-                Console.WriteLine("----------------------------------");
-                Console.WriteLine($"[Lexer]准备解析脚本：{filePath}");
-                Console.WriteLine(script);
-                Console.WriteLine("----------------------------------"); 
-#endif
+                if (IsPrintInputSciptContent)
+                {
+                    Console.WriteLine($"[Lexer]准备解析脚本：{filePath}");
+                    Console.WriteLine(script);
+                    Console.WriteLine();
+                }
+
                 SourceManager.AddSource(filePath, script);
             }
 
