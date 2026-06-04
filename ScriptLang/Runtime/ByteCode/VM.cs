@@ -1,15 +1,7 @@
-﻿using ScriptLang.Parser;
-using ScriptLang.Prototype;
-using ScriptLang.Runtime.ByteCode;
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
+using static ScriptLang.Runtime.ByteCode.CallFrame;
 
 namespace ScriptLang.Runtime.ByteCode;
 
@@ -37,7 +29,7 @@ public class VM
     private CallFrame _currentFrame;
 
     ///// <summary> 栈帧对象池 </summary>
-    //private readonly ConcurrentBag<CallFrame> _framePool;
+    private readonly CallFramePool _framePool = new CallFramePool();
 
     // 内置函数注册表
     private readonly Dictionary<string, FunctionValue> _builtins;
@@ -52,7 +44,6 @@ public class VM
             _globalScope.DefineFunction(func);
             _builtins[func.Name] = func;
         }
-
     }
 
     public async ValueTask<Value> ExecuteAsync(ByteCodeChunk chunk)
@@ -91,11 +82,12 @@ public class VM
         _stack.Clear();
         _frames.Clear();
 
-        _currentFrame = new CallFrame
+      
+
+       _currentFrame = new CallFrame
         {
             Chunk = chunk,
             Closure = _globalScope,
-            //ReturnAddress = -1  ,// 顶层帧没有返回地址
             IP = 0,
         };
 
@@ -401,24 +393,23 @@ public class VM
                 return true;
 
             case OpCode.MoveNext:
-                MoveNext();  // Push true/false，不关心返回值
-                _currentFrame.IP++;  // 总是执行下一条（JmpIfFalse）
-                return true;
-            /*if (!MoveNext())
-            {
-                if(inst.Operand is int moveIndex)
+                //MoveNext();  // Push true/false，不关心返回值
+                //_currentFrame.IP++;  // 总是执行下一条（JmpIfFalse）
+                //return true;
+                MoveNext();
+                // 检查栈顶的值，如果为 false 则跳转
+                if (!IsTrue(Peek()))
                 {
-                    JumpTo(moveIndex);
+                    if (inst.Operand is int moveIndex)
+                        JumpTo(moveIndex);
+                    else
+                        _currentFrame.IP++;
                 }
                 else
                 {
-                    throw new Exception("Invalid move index");
+                    _currentFrame.IP++;
                 }
-            }
-            else
-            {
-                _currentFrame.IP++;
-            }*/
+                return true;
 
             case OpCode.Current:
                 Current();
@@ -440,19 +431,18 @@ public class VM
 #if DEBUG
         Console.WriteLine($"[VM] HandleReturn: 帧数={_frames.Count}");
 #endif
+
         if (_frames.Count == 0)
         {
             Push(returnValue);
             return false;
         }
-        else
-        {
-            _currentFrame = _frames.Pop();
 
-
-            Push(returnValue);
-            return true;
-        }
+        var finishedFrame = _currentFrame;
+        _currentFrame = _frames.Pop();
+        Push(returnValue);
+        _framePool.Return(finishedFrame);
+        return true;
 
 
     }
@@ -1077,13 +1067,19 @@ public class VM
         // 创建新调用帧
         // ReturnAddress 设置为当前 IP（Call 指令的位置）
         // 返回时会恢复到这个位置，然后主循环 _ip++ 会指向下一条指令
-        var newFrame = new CallFrame
-        {
-            Chunk = func.Chunk,
-            Closure = func.Closure,
-            //ReturnAddress = _  // 保存当前 IP（Call 指令的位置）
-            IP = 0,
-        };
+        //var newFrame = new CallFrame
+        //{
+        //    Chunk = func.Chunk,
+        //    Closure = func.Closure,
+        //    IP = 0,
+        //};
+
+        var newFrame = _framePool.Rent();
+
+        newFrame.Chunk = func.Chunk;
+        newFrame.Closure = func.Closure;
+        newFrame.IP = 0;
+
 
         // 绑定参数到局部变量
         for (int i = 0; i < func.Parameters.Count; i++)

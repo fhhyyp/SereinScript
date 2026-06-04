@@ -5,7 +5,7 @@ let person = new_Person()
 person.Name = "张三"
 person.Age = 18
 
-let count = 1000000
+let count = 200000
 
 print("开始测试:", count)
 

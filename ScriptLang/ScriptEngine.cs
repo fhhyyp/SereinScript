@@ -1,6 +1,7 @@
 ﻿using ScriptLang.Parser;
 using ScriptLang.Prototype;
 using ScriptLang.Runtime;
+using System.Reflection.Metadata;
 
 namespace ScriptLang
 {
@@ -17,6 +18,9 @@ namespace ScriptLang
         /// </summary>
         public SourceManager SourceManager { get; } = new SourceManager();
 
+        /// <summary>
+        /// 全局作用域，此作用域应只注册
+        /// </summary>
         public Scope GlobalScope { get; } = new Scope();
 
         /// <summary> 原型拓展管理器 </summary>
@@ -45,8 +49,9 @@ namespace ScriptLang
         /// <param name="filePath">文件路径</param>
         /// <param name="scope">提供注册方法</param>
         /// <returns></returns>
-        public Task<Value> CreateTask(string filePath, Scope? scope = null)
+        public ScriptTask CreateTask(string filePath, Scope? scope = null)
         {
+            GlobalScope.Clear();
             BuiltinFunctions.RegisterAll(GlobalScope);
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
@@ -80,11 +85,11 @@ namespace ScriptLang
             }
             if (Mode == ExecutionMode.Compiled)
             {
-                return ExecuteCompiledAsync(expr, scope);
+                return CreateCompiledTask(expr, scope);
             }
             else
             {
-                return ExecuteInterpretedAsync(expr, scope);
+                return CreateInterpretedTask(expr, scope);
             }
 
            /* var chunk = _compiler.Compile(expr);
@@ -110,7 +115,7 @@ namespace ScriptLang
         /// <summary>
         /// 编译执行模式
         /// </summary>
-        private async Task<Value> ExecuteCompiledAsync(Expr expr, Scope scope)
+        private ScriptTask CreateCompiledTask(Expr expr, Scope scope)
         {
             // 1. 获取或创建字节码缓存
             if (!_compilationCache.TryGetValue(expr, out var chunk))
@@ -136,32 +141,49 @@ namespace ScriptLang
             //SyncScope(scope, _vm.GlobalScope);
 
             // 3. VM 执行字节码
-#if true
-            var vmSw = System.Diagnostics.Stopwatch.StartNew();
-#endif
-            var vm = new Runtime.ByteCode.VM(this);
-            var result = await vm.ExecuteAsync(chunk);
 
-#if true
-            vmSw.Stop();
-            Console.WriteLine($"[VM] 执行耗时: {vmSw.ElapsedMilliseconds}ms");
-#endif
 
-            return result;
+            Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
+            {
+#if true
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
+                var vm = new Runtime.ByteCode.VM(this);
+                var result = await vm.ExecuteAsync(chunk);
+#if true
+                sw.Stop();
+                Console.WriteLine($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
+#endif
+                return result;
+            });
+            ScriptTask scriptTask = new ScriptTask(factory, new CancellationTokenSource());
+            return scriptTask;
         }
 
 
         /// <summary>
         /// 解释执行模式（保留原有的 Interpreter）
         /// </summary>
-        private async Task<Value> ExecuteInterpretedAsync(Expr expr, Scope scope)
+        private ScriptTask CreateInterpretedTask(Expr expr, Scope scope)
         {
-            var interpreter = new Interpreter(this);
-            var vmSw = System.Diagnostics.Stopwatch.StartNew();
-            var result = await interpreter.MainEvaluateAsync(expr, scope);
-            vmSw.Stop();
-            Console.WriteLine($"[Interpreter] 执行耗时: {vmSw.ElapsedMilliseconds}ms");
-            return result;
+
+            Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
+            {
+#if true
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+#endif
+                var interpreter = new Interpreter(this);
+                var result = await interpreter.MainEvaluateAsync(expr, scope);
+#if true
+                sw.Stop();
+                Console.WriteLine($"[Interpreter] 执行耗时: {sw.ElapsedMilliseconds}ms");
+#endif
+                return result;
+            });
+            ScriptTask scriptTask = new ScriptTask(factory, new CancellationTokenSource());
+            return scriptTask;
+
+           
         }
 
 
@@ -175,7 +197,7 @@ namespace ScriptLang
 
         internal async Task<Value> RunModuleAsync(string filePath, Scope scope)
         {
-            var value = await CreateTask(filePath, scope); // .RunAsync();
+            var value = await CreateTask(filePath, scope).RunAsync(); // .RunAsync();
             return value;
         }
 

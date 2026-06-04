@@ -106,7 +106,7 @@ public sealed class Compiler
     private VariableBinding? ResolveVariable(string name)
     {
         // 1. 先查编译时作用域链
-        foreach (var scope in _scopeStack)
+        foreach (var scope in _scopeStack.Reverse())
         {
             if (scope.TryGetValue(name, out var binding))
             {
@@ -587,8 +587,12 @@ public sealed class Compiler
         var fvs = freeVariables.Distinct().ToList();
         if(fvs.Count != freeVariables.Count)
         {
-
+            var duplicates = freeVariables.GroupBy(x => x)
+                                          .Where(g => g.Count() > 1)
+                                          .Select(g => g.Key);
+            Console.WriteLine($"[Lambda] 警告：重复的自由变量: [{string.Join(", ", duplicates)}]");
         }
+
         foreach (var varName in fvs)
         {
             var binding = ResolveVariable(varName);
@@ -677,7 +681,6 @@ public sealed class Compiler
 #endif
                     capturedVars.Add(varName);
                 }
-                capturedVars.Add(varName);
             }
             else
             {
