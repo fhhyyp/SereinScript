@@ -1,5 +1,6 @@
 using ScriptLang.Utils;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Reflection;
 
 namespace ScriptLang.Runtime;
@@ -63,11 +64,14 @@ public abstract record Value
             ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
             BoolValue b => b.Value ? "true" : "false",
             ClrMethodValue cm => $"<clr:func>{cm.Delegate.MethodInfo.DeclaringType?.Name}.{cm.Delegate.MethodInfo.Name}()",
-            ClrObjectValue co => $"<clr:obj>{co.ClrObject?.GetType().FullName}",
+            ClrObjectValue co => $"<clr:obj>{co.Value?.GetType().FullName}",
             FunctionValue f => $"<func>({string.Join(',', f.Parameters)}) = {{}}",
             NullValue => "null",
-            NumberValue<int> n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            NumberValue<double> n => n.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            NumberValue<int> n => n.Value.ToString(CultureInfo.InvariantCulture),
+            NumberValue<long> n => n.Value.ToString(CultureInfo.InvariantCulture),
+            NumberValue<float> n => n.Value.ToString(CultureInfo.InvariantCulture),
+            NumberValue<double> n => n.Value.ToString(CultureInfo.InvariantCulture),
+            NumberValue<decimal> n => n.Value.ToString(CultureInfo.InvariantCulture),
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
             StringValue s => $"\"{s.Value}\"",
             _ => "unknown"
@@ -129,16 +133,8 @@ public static class NumberValueFactory
 /// <summary>
 /// 数字值
 /// </summary>
-public record NumberValue<TNumber> : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
+public record NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
 {
-
-    public NumberValue(TNumber value)
-    {
-        Value = value;
-    }
-
-    public TNumber Value { get; }
-
     /// <summary>
     /// 工厂方法 - 使用缓存
     /// </summary>
@@ -273,6 +269,8 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 {
     public int Length => Elements.Count;
 
+    public List<Value> Value => Elements;
+
     public void Add(Value v)
     {
         Elements.Add(v);
@@ -280,7 +278,7 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 
     public Value Pop()
     {
-        if (Elements.Count == 0) return Value.Null;
+        if (Elements.Count == 0) return ScriptLang.Runtime.Value.Null;
         var last = Elements[^1];
         Elements.RemoveAt(Elements.Count - 1);
         return last;
@@ -329,15 +327,15 @@ public record ClrObjectValue(object? Target) : Value
     /// <summary>
     /// 获取包装的 C# 对象
     /// </summary>
-    public object? ClrObject { get; } = Target; //?? throw new ArgumentNullException(nameof(Target));
+    public object? Value { get; } = Target; //?? throw new ArgumentNullException(nameof(Target));
 
 
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ClrObjectValue)) return (T)(object)this;
-        if (ClrObject is T typed) return typed;
-        throw new InvalidCastException($"Cannot cast ClrObjectValue({ClrObject.GetType()}) to {typeof(T)}");
+        if (Value is T typed) return typed;
+        throw new InvalidCastException($"Cannot cast ClrObjectValue({Value?.GetType()}) to {typeof(T)}");
     }
 
     /// <summary>
@@ -346,12 +344,12 @@ public record ClrObjectValue(object? Target) : Value
     public Dictionary<string, object> GetDebugProperties()
     {
         var result = new Dictionary<string, object>();
-        var properties = ClrObject.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        var properties = Value?.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance) ?? [];
         foreach (var prop in properties)
         {
             try
             {
-                var value = prop.GetValue(ClrObject);
+                var value = prop.GetValue(Value);
                 result[prop.Name] = value ?? "null";
             }
             catch

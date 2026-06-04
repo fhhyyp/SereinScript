@@ -1,3 +1,4 @@
+using ScriptLang.Prototype;
 using ScriptLang.Runtime;
 using System.Diagnostics;
 using System.Net.Quic;
@@ -21,12 +22,13 @@ class Program
         args = ["./Samples/1/1.7-数值数据类型.script"];
         args = ["./Samples/test/test.script"];
         args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.3-循环.script"];
-#endif
-        args = ["./Samples/1/1.1-基础运算.script"];
         args = ["./Samples/高级/linq/run-linq.script"];
         args = ["./Samples/高级/pinia/run-import.script"];
         args = ["./Samples/test/test-mutual-recursion.script"];
         args = ["./Samples/test/test_closure_memory.script"];
+#endif
+        args = ["./Samples/1/1.1-基础运算.script"];
+        args = ["./Samples/4/4.1-CLR对象.script"];
         if (args.Length == 0) 
         {
             Console.WriteLine("需要指定调用的 script 文件路径");
@@ -42,10 +44,15 @@ class Program
         try
         {
             var engine = new ScriptEngine();
-            if(1 == 1)
+
+            engine.PrototypeManager.Register<TestPersonPrototype>();
+            BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person",  _ => new ClrObjectValue(new TestPerson())));
+
+            if (1 == 1)
             {
                 engine.Mode = ExecutionMode.Interpreted;
             }
+
             var sw = Stopwatch.StartNew();
             var task = engine.CreateTask(scriptPath);
             var result = await task; //.RunAsync();

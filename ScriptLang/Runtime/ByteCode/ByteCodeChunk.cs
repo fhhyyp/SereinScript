@@ -114,7 +114,7 @@ public sealed class ByteCodeChunk
         return _closures[index];
     }
 
-    internal IEnumerable<object> GetConstants() => [.. this._constants];
+    internal IEnumerable<object?> GetConstants() => [.. this._constants];
 
 }
 
@@ -201,7 +201,7 @@ public sealed class ByteCodeChunk2
         return Closures[index];
     }
 
-    internal IEnumerable<object> GetConstants() => this.Constants;
+    //internal IEnumerable<object?> GetConstants() => this.Constants;
 
 }
 

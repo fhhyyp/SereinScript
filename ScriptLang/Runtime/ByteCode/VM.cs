@@ -3,6 +3,7 @@ using ScriptLang.Prototype;
 using ScriptLang.Runtime.ByteCode;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -35,6 +36,8 @@ public class VM
     // 当前调用帧
     private CallFrame _currentFrame;
 
+    ///// <summary> 栈帧对象池 </summary>
+    //private readonly ConcurrentBag<CallFrame> _framePool;
 
     // 内置函数注册表
     private readonly Dictionary<string, FunctionValue> _builtins;
@@ -49,7 +52,7 @@ public class VM
             _globalScope.DefineFunction(func);
             _builtins[func.Name] = func;
         }
-        
+
     }
 
     public async ValueTask<Value> ExecuteAsync(ByteCodeChunk chunk)
@@ -57,11 +60,11 @@ public class VM
 #if DEBUG
         Console.WriteLine("=== 常量表 ===");
         var constants = chunk.GetConstants();
-        foreach(var item in constants.Select((Value, Index) =>(Value, Index)))
+        foreach (var item in constants.Select((Value, Index) => (Value, Index)))
         {
             int i = item.Index;
             object? constant = item.Value;
-            if(constant is IList list)
+            if (constant is IList list)
             {
 
                 Console.WriteLine($"  [{i}] = [{string.Join(",", list)}]");
@@ -95,7 +98,7 @@ public class VM
             //ReturnAddress = -1  ,// 顶层帧没有返回地址
             IP = 0,
         };
-       
+
         while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
         {
             int currentIP = _currentFrame.IP;
@@ -195,7 +198,7 @@ public class VM
                 return true;
 
             case OpCode.LoadConst:
-                if(inst.Operand is int @index)
+                if (inst.Operand is int @index)
                 {
                     LoadConstant(@index);
                 }
@@ -533,7 +536,7 @@ public class VM
         }
 
         // 3. 闭包捕获的变量
-        if (_currentFrame.Closure.TryGetValue(name, out var closureInfo))
+        if (_currentFrame?.Closure?.TryGetValue(name, out var closureInfo) == true)
         {
             Push(closureInfo.Cell.Value);
             return;
@@ -820,11 +823,16 @@ public class VM
     private async Task ImportModule(object operand)
     {
         int dataIndex = (int)operand;
-        var importData = (List<object?>)_currentFrame.Chunk.GetConstant(dataIndex);
+        if (_currentFrame.Chunk.GetConstant(dataIndex) is not List<object?> importData)
+        {
+            throw new RuntimeException($"[VM]导入模块时无法获取 '{dataIndex}' 常量，当前栈帧 {_currentFrame.GetHashCode()}");
+        }
 
         // 解析扁平数组：[path, member1, alias1, member2, alias2, ...]
-        var filePath = (string)importData[0]!;
-
+        if (importData[0] is not string filePath)
+        {
+            throw new RuntimeException($"[VM]没有导入模块");
+        }
         // 提取成员名列表（用于 ImportResolver）
         var memberNames = new List<string>();
         var memberMappings = new List<(string member, string alias)>();
@@ -943,10 +951,10 @@ public class VM
             var c = _currentFrame.Chunk.GetConstant(i);
             Console.WriteLine($"  常量[{i}] = {c?.GetType().Name}: {c}");
         }
-       
+
         Console.WriteLine($"[VM] CreateClosure: chunk 指令数={closureChunk.Code.Count}");
 #endif
-       
+
         // var closureChunk = (ByteCodeChunk)_currentFrame.Chunk.Constants[chunkIndex];
         var captured = new Dictionary<string, VariableInfo>();
         Console.WriteLine($"        -------");
@@ -1031,7 +1039,7 @@ public class VM
         Push(func);
     }
 
-    
+
     // ==================== 函数调用 ====================
 
     private async Task CallAsync(int argCount)
@@ -1050,7 +1058,7 @@ public class VM
 #endif
         if (target is CompiledFunctionValue compiledFunc)
         {
-             CallCompiledFunction(compiledFunc, args);
+            CallCompiledFunction(compiledFunc, args);
         }
         else if (target is FunctionValue scriptFunc)
         {
@@ -1074,7 +1082,7 @@ public class VM
             Chunk = func.Chunk,
             Closure = func.Closure,
             //ReturnAddress = _  // 保存当前 IP（Call 指令的位置）
-            IP = 0, 
+            IP = 0,
         };
 
         // 绑定参数到局部变量
@@ -1145,7 +1153,7 @@ public class VM
     // ==================== 对象和数组操作 ====================
 
     private void CreateObject(int propertyCount)
-    { 
+    {
 #if DEBUG
         Console.WriteLine($"[VM] CreateObject: propertyCount={propertyCount}, 栈深度={_stack.Count}");
 #endif
@@ -1174,7 +1182,7 @@ public class VM
         var memberName = Pop().AsString();
         var target = Pop();
 
-        if(memberName == "increment")
+        if (memberName == "increment")
         {
 
         }
@@ -1186,7 +1194,7 @@ public class VM
                 return;
             }
         }
-        if(_engine.PrototypeManager.TryGetValue(target, memberName, out var result))
+        if (_engine.PrototypeManager.TryGetValue(target, memberName, out var result))
         {
             Push(result);
             return;
@@ -1292,13 +1300,13 @@ public class VM
         var index = Pop();
         var target = Pop();
 #if DEBUG
-    Console.WriteLine($"[VM] GetIndex: target={target}, index={index}");
-    if (target is ArrayValue arr_TEMP)
-    {
-        Console.WriteLine($"[VM]   arr.Elements.Count={arr_TEMP.Elements.Count}");
-        for (int j = 0; j < arr_TEMP.Elements.Count; j++)
-            Console.WriteLine($"[VM]   arr1[{j}]={arr_TEMP.Elements[j]}");
-    }
+        Console.WriteLine($"[VM] GetIndex: target={target}, index={index}");
+        if (target is ArrayValue arr_TEMP)
+        {
+            Console.WriteLine($"[VM]   arr.Elements.Count={arr_TEMP.Elements.Count}");
+            for (int j = 0; j < arr_TEMP.Elements.Count; j++)
+                Console.WriteLine($"[VM]   arr1[{j}]={arr_TEMP.Elements[j]}");
+        }
 #endif
         if (target is ArrayValue arr && index.IsNumber_Int)
         {
@@ -1397,7 +1405,7 @@ public class VM
             Push(BoolValue.False);
             return;
         }
-        
+
     }
 
     /* var indexValue = _iteratorStack.Peek();
@@ -1468,7 +1476,7 @@ public class VM
                 (a, b) => a + b,
                 (a, b) => a + b);
             //Console.WriteLine($"{left} + {right} = " + result);
-           
+
         }
 
         if (left.IsString || right.IsString)
@@ -1727,7 +1735,7 @@ public class VM
         if (value.IsNumber_Long) return value.As<long>();
         if (value.IsNumber_Float) return value.As<float>();
         if (value.IsNumber_Double) return value.As<double>();
-        if (value is ClrObjectValue clr) return clr.ClrObject;
+        if (value is ClrObjectValue clr) return clr.Value;
 
         throw new RuntimeException($"无法转换 {value.GetType()} 到 CLR 类型");
     }
@@ -1748,17 +1756,17 @@ public class VM
         };
     }
 
- 
+
     // ==== CLR 互操作 ===
 
     private static Value? AccessClrMember(ClrObjectValue clrObj, string memberName)
     {
-        var type = clrObj.ClrObject!.GetType();
+        var type = clrObj.Value!.GetType();
         var prop = type.GetProperty(memberName);
 
         if (prop != null)
         {
-            var value = prop.GetValue(clrObj.ClrObject);
+            var value = prop.GetValue(clrObj.Value);
             return ConvertClrToValue(value);
         }
 
@@ -1767,13 +1775,13 @@ public class VM
 
     private static void SetClrMember(ClrObjectValue clrObj, string memberName, Value value)
     {
-        var type = clrObj.ClrObject!.GetType();
+        var type = clrObj.Value!.GetType();
         var prop = type.GetProperty(memberName);
 
         if (prop != null && prop.CanWrite)
         {
             var clrValue = ConvertValueToClr(value, prop.PropertyType);
-            prop.SetValue(clrObj.ClrObject, clrValue);
+            prop.SetValue(clrObj.Value, clrValue);
         }
         else
         {
@@ -1785,7 +1793,7 @@ public class VM
         CompiledFunctionValue func,
         List<Value> args)
     {
-        
+
         //var oldFrame = _currentFrame;
 
         var frame = new CallFrame

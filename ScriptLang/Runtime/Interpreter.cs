@@ -299,7 +299,10 @@ public class Interpreter(ScriptEngine engine)
                 }
                 else if (left.IsNumber_Long || right.IsNumber_Long)
                 {
-                    return NumberValueFactory.Create(left.As<long>() - right.As<long>());
+                    long ll = left.As<long>();
+                    long rl = right.As<long>();
+                    var result = ll - rl;
+                    return NumberValueFactory.Create(result);
                 }
                 else if (left.IsNumber_Int || right.IsNumber_Int)
                 {
@@ -963,14 +966,14 @@ public class Interpreter(ScriptEngine engine)
     /// </summary>
     private void SetClrProperty(MemberAssignExpr memberAssign, ClrObjectValue clrObj, string propertyName, Value value)
     {
-        var type = clrObj.ClrObject!.GetType();
+        var type = clrObj.Value!.GetType();
         var member = GetOrAddMemberInfo(type, propertyName, memberAssign);
 
         if (member is not PropertyInfo prop || !prop.CanWrite)
             throw Error(memberAssign, $"CLR 对象上未找到属性 '{propertyName}' 或该属性不可写");
 
         var newValue = ConvertScriptValueToClrValue(memberAssign, value, prop.PropertyType);
-        prop.SetValue(clrObj.ClrObject, newValue);
+        prop.SetValue(clrObj.Value, newValue);
     }
 
     /// <summary>
@@ -978,7 +981,7 @@ public class Interpreter(ScriptEngine engine)
     /// </summary>
     private Value AccessClrProperty(MemberAccessExpr member, ClrObjectValue clrObj, string propertyName)
     {
-        var type = clrObj.ClrObject!.GetType();
+        var type = clrObj.Value!.GetType();
         var memberInfo = GetOrAddMemberInfo(type, propertyName, member);
 
         try
@@ -986,13 +989,13 @@ public class Interpreter(ScriptEngine engine)
             switch (memberInfo)
             {
                 case PropertyInfo prop:
-                    var val = prop.GetValue(clrObj.ClrObject);
+                    var val = prop.GetValue(clrObj.Value);
                     return ConvertClrValueToScriptValue(val);
 
                 case MethodInfo method:
                     var methodValue = new ClrMethodValue(method);
                     if (!method.IsStatic)
-                        methodValue = methodValue with { TargetInstance = clrObj.ClrObject };
+                        methodValue = methodValue with { TargetInstance = clrObj.Value };
                     return methodValue;
 
                 default:
@@ -1102,9 +1105,9 @@ public class Interpreter(ScriptEngine engine)
         // 处理 ClrObjectValue（直接返回包装的对象）
         if (value is ClrObjectValue clrObj)
         {
-            if (targetType.IsAssignableFrom(clrObj.ClrObject!.GetType()))
-                return clrObj.ClrObject;
-            throw Error(expr, $"无法将类型为 {clrObj.ClrObject.GetType().Name} 的 CLR 对象转换为 {targetType.Name}");
+            if (targetType.IsAssignableFrom(clrObj.Value!.GetType()))
+                return clrObj.Value;
+            throw Error(expr, $"无法将类型为 {clrObj.Value.GetType().Name} 的 CLR 对象转换为 {targetType.Name}");
         }
 
         // 数值类型

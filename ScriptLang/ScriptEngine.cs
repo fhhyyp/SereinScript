@@ -1,86 +1,9 @@
-﻿using GeneratorToolkits.ScriptPrototypeToolkits;
-using ScriptLang.Parser;
+﻿using ScriptLang.Parser;
 using ScriptLang.Prototype;
 using ScriptLang.Runtime;
-using ScriptLang.Runtime.ByteCode;
-using System.Diagnostics.CodeAnalysis;
 
 namespace ScriptLang
 {
-    /// <summary>
-    /// 原型接口
-    /// </summary>
-    public interface IPrototype
-    {
-        /// <summary>
-        /// 是否已加载
-        /// </summary>
-        bool IsLoad { get; }
-
-        /// <summary>
-        /// 初始化原型
-        /// </summary>
-        void Init();
-
-        /// <summary>
-        /// 判断值是否为目标类型
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        bool IsTarget(Value value);
-
-        /// <summary>
-        /// 获取方法
-        /// </summary>
-        /// <param name="value">传入的值</param>
-        /// <param name="methodName">方法名</param>
-        /// <param name="engine">脚本引擎</param>
-        /// <returns>方法值，如果不存在则返回 null</returns>
-        Value? GetMethod(Value value, string methodName, ScriptEngine engine);
-    }
-
-    public class PrototypeManager
-    {
-        public List<IPrototype> Prototypes { get; } = new List<IPrototype>();
-        private readonly Lock _lock = new();
-        private readonly ScriptEngine _engine;
-
-        public PrototypeManager(ScriptEngine engine) 
-        {
-            _engine = engine;
-        }
-
-        public void Register(IPrototype prototype)
-        {
-            if (!prototype.IsLoad)
-            {
-                lock (_lock)
-                {
-                    if (prototype.IsLoad) return;
-                    prototype.Init();
-                    Prototypes.Add(prototype);
-                }
-            }
-        }
-
-        public bool TryGetValue(Value target, string menber, [NotNullWhen(true)]out Value? value)
-        {
-            foreach(IPrototype prototypes in Prototypes)
-            {
-                if (prototypes.IsTarget(target))
-                {
-                    var result = prototypes.GetMethod(target, menber, _engine);
-                    if(result is not null)
-                    {
-                        value = result;
-                        return true;
-                    }
-                }
-            }
-            value = null;
-            return false;
-        }
-    }
 
     public sealed class ScriptEngine
     {
@@ -110,11 +33,10 @@ namespace ScriptLang
             ImportResolver = new ImportResolver(this);
             PrototypeManager = new PrototypeManager(this);
 
-            PrototypeManager.Register(new ArrayPrototype());
-            PrototypeManager.Register(new ObjectPrototype());
-            PrototypeManager.Register(new StringPrototype());
+            PrototypeManager.Register<ArrayPrototype>();
+            PrototypeManager.Register<ObjectPrototype>();
+            PrototypeManager.Register<StringPrototype>();
 
-            BuiltinFunctions.RegisterAll(GlobalScope);
         }
 
         /// <summary>
@@ -125,6 +47,7 @@ namespace ScriptLang
         /// <returns></returns>
         public Task<Value> CreateTask(string filePath, Scope? scope = null)
         {
+            BuiltinFunctions.RegisterAll(GlobalScope);
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);

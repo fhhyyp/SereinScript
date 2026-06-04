@@ -7,13 +7,18 @@ namespace ScriptLang.Runtime
 {
     public static class BuiltinFunctions
     {
-        private static readonly FunctionValue debug = new(nameof(debug), async (args) =>
+        private static readonly FunctionValue debug = new(nameof(debug), static async (args) =>
         {
             Console.WriteLine($"debug:: {string.Join(", ", args)}");
             return Value.Null;
         });
 
-        private static readonly FunctionValue sleep = new(nameof(sleep), async (args) =>
+        private static readonly FunctionValue now = new(nameof(now), static (args) =>
+        {
+            return NumberValueFactory.Create(DateTime.Now.Ticks);
+        });
+
+        private static readonly FunctionValue sleep = new(nameof(sleep), static async (args) =>
         {
             if (args.Count != 1 || !args[0].IsNumber_Int)
                 throw new RuntimeException("sleep() 期望 1 个参数");
@@ -23,7 +28,7 @@ namespace ScriptLang.Runtime
             return Value.Null;
         });
 
-        private static readonly FunctionValue @typeof = new(nameof(@typeof), (args) =>
+        private static readonly FunctionValue @typeof = new(nameof(@typeof), static (args) =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("typeof() 期望 1 个参数");
@@ -52,7 +57,7 @@ namespace ScriptLang.Runtime
             return new StringValue(typeStr);
         });
 
-        private static readonly FunctionValue print = new(nameof(print), args =>
+        private static readonly FunctionValue print = new(nameof(print), static args =>
         {
             foreach (var arg in args)
             {
@@ -64,7 +69,7 @@ namespace ScriptLang.Runtime
             return Value.Null;
         });
 
-        private static readonly FunctionValue range = new(nameof(range), args =>
+        private static readonly FunctionValue range = new(nameof(range), static args =>
         {
             if (args.Count == 1)
             {
@@ -86,7 +91,7 @@ namespace ScriptLang.Runtime
             throw new RuntimeException("range() 期望 1 或 2 个参数");
         });
 
-        private static readonly FunctionValue len = new(nameof(len), args =>
+        private static readonly FunctionValue len = new(nameof(len), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("len() 期望 1 个参数");
@@ -99,7 +104,7 @@ namespace ScriptLang.Runtime
             return lenValue;
         });
 
-        private static readonly FunctionValue keys = new(nameof(keys), args =>
+        private static readonly FunctionValue keys = new(nameof(keys), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("keys() 期望 1 个参数");
@@ -111,7 +116,7 @@ namespace ScriptLang.Runtime
             return new ArrayValue(keys);
         });
 
-        private static readonly FunctionValue @bool = new(nameof(@bool), args =>
+        private static readonly FunctionValue @bool = new(nameof(@bool), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("bool() 期望 1 个参数");
@@ -125,7 +130,7 @@ namespace ScriptLang.Runtime
             };
         });
 
-        private static readonly FunctionValue @int = new(nameof(@int), args =>
+        private static readonly FunctionValue @int = new(nameof(@int), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("int() 期望 1 个参数");
@@ -140,7 +145,7 @@ namespace ScriptLang.Runtime
             };
         });
 
-        private static readonly FunctionValue @double = new(nameof(@double), args =>
+        private static readonly FunctionValue @double = new(nameof(@double), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("double() 期望 1 个参数");
@@ -155,7 +160,7 @@ namespace ScriptLang.Runtime
             };
         });
 
-        private static readonly FunctionValue str = new(nameof(str), args =>
+        private static readonly FunctionValue str = new(nameof(str), static args =>
         {
             if (args.Count != 1)
                 throw new RuntimeException("str() 期望 1 个参数");
@@ -172,6 +177,7 @@ namespace ScriptLang.Runtime
 
         public static List<FunctionValue> FunctionCaches { get; private set; } = [
                 debug,
+                now,
                 sleep,
                 @typeof,
                 print,

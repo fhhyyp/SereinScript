@@ -1,35 +1,61 @@
 // CLR 对象互操作测试
 
-print("=== CLR 对象属性访问 ===")
-print(person.Name)
-print(person.Age)
+let person = new_Person()
 
-print("=== CLR 对象方法调用 ===")
-print(person.Greet())
-print(person.AddYears(5))
+person.Name = "张三"
+person.Age = 18
 
-print("=== CLR 集合 ===")
-print(person.Hobbies)
-print(person.Hobbies[0])
+let count = 1000000
 
-print("=== CLR 静态方法（通过对象包装）===")
-print(math.Max(10, 20))
-print(math.Min(10, 20))
-print(math.Clamp(5, 10, 30))
-print(math.Clamp(15, 10, 30))
-print(math.Clamp(35, 10, 30))
+print("开始测试:", count)
 
-print("=== CLR 集合迭代 ===")
-for hobby in person.Hobbies {
-  print(hobby)
+let start = now()
+
+for i in range(0, count)
+{
+    // 属性读取
+    let name = person.Name
+    let age = person.Age
+
+    // 属性写入
+    person.Name = name
+    person.Age = age
+
+    // 方法调用
+    let greet = person.Greet()
+    let nextAge = person.AddYears(1)
 }
 
-print("=== CLR 对象作为参数 ===")
-let greetResult = person.Greet()
-print("Greet result: " + greetResult)
+let elapsed = now() - start
 
-print("=== CLR 方法参数类型转换 ===")
-print(person.AddYears(10.5))  // 脚本传 double，CLR 方法接收 int
+print("循环次数:", count)
+print("耗时(ms):", elapsed)
+print("每秒调用:", count / (elapsed / 1000))
 
-print("=== CLR 对象完整测试完成 ===")
-person
+// print(person.Hobbies[0])
+
+
+
+
+// print("=== CLR 静态方法（通过对象包装）===")
+// print(math.Max(10, 20))
+// print(math.Min(10, 20))
+// print(math.Clamp(5, 10, 30))
+// print(math.Clamp(15, 10, 30))
+// print(math.Clamp(35, 10, 30))
+// 
+// print("=== CLR 集合迭代 ===")
+// for hobby in person.Hobbies {
+//   print(hobby)
+// }
+// 
+// print("=== CLR 对象作为参数 ===")
+// let greetResult = person.Greet()
+// print("Greet result: " + greetResult)
+// 
+// print("=== CLR 方法参数类型转换 ===")
+// print(person.AddYears(10.5))  // 脚本传 double，CLR 方法接收 int
+// 
+// print("=== CLR 对象完整测试完成 ===")
+// person
+// 
