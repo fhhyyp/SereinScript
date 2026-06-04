@@ -48,7 +48,7 @@ class Program
             engine.PrototypeManager.Register<TestPersonPrototype>();
             BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person",  _ => new ClrObjectValue(new TestPerson())));
 
-            if (1 == 1)
+            if (1 == 11)
             {
                 engine.Mode = ExecutionMode.Interpreted;
             }

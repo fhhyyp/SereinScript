@@ -10,7 +10,7 @@ namespace ScriptLang.Runtime;
 /// <summary>
 /// 运行时值类型（统一类型系统）
 /// </summary>
-public abstract record Value
+public abstract class Value
 {
     public static readonly Value Null = new NullValue();
 
@@ -84,7 +84,7 @@ public abstract record Value
 /// <summary>
 /// Null 值
 /// </summary>
-public record NullValue : Value
+public class NullValue : Value
 {
     public override T As<T>()
     {
@@ -133,8 +133,10 @@ public static class NumberValueFactory
 /// <summary>
 /// 数字值
 /// </summary>
-public record NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
+public class NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
 {
+    public TNumber Value { get; } = Value;
+
     /// <summary>
     /// 工厂方法 - 使用缓存
     /// </summary>
@@ -194,8 +196,10 @@ public record NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct
 /// <summary>
 /// 字符串值
 /// </summary>
-public record StringValue(string Value) : Value
+public class StringValue(string Value) : Value
 {
+    public string Value { get; } = Value;
+
     public override T As<T>()
     {
         if (this is T result) return result;
@@ -208,7 +212,7 @@ public record StringValue(string Value) : Value
 /// <summary>
 /// 布尔值
 /// </summary>
-public record BoolValue : Value
+public class BoolValue : Value
 {
     public bool Value { get; private set; }
 
@@ -240,8 +244,10 @@ public record BoolValue : Value
 /// <summary>
 /// 对象值（map/record）
 /// </summary>
-public record ObjectValue(Dictionary<string, Value> Properties) : Value
+public class ObjectValue(Dictionary<string, Value> Properties) : Value
 {
+    public Dictionary<string, Value> Properties { get; } = Properties;
+
     public void Set(string key, Value value) => Properties[key] = value;
 
     public Value Get(string key) => Properties[key];
@@ -265,11 +271,13 @@ public record ObjectValue(Dictionary<string, Value> Properties) : Value
 /// <summary>
 /// 数组值
 /// </summary>
-public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
+public class ArrayValue(List<Value> Elements) : Value //, IObservableValue
 {
     public int Length => Elements.Count;
 
     public List<Value> Value => Elements;
+
+    public List<Value> Elements { get; } = Elements;
 
     public void Add(Value v)
     {
@@ -322,7 +330,7 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 /// <summary>
 /// CLR 对象值（包装任意 C# 对象）
 /// </summary>
-public record ClrObjectValue(object? Target) : Value
+public class ClrObjectValue(object? Target) : Value
 {
     /// <summary>
     /// 获取包装的 C# 对象
@@ -364,7 +372,7 @@ public record ClrObjectValue(object? Target) : Value
 /// <summary>
 /// CLR 方法值（表示可被脚本调用的 C# 方法）
 /// </summary>
-public record ClrMethodValue : Value
+public class ClrMethodValue : Value
 {
 
     public ClrMethodValue(MethodInfo methodInfo)
@@ -385,7 +393,7 @@ public record ClrMethodValue : Value
     /// <summary>
     /// 目标对象（实例方法需要，静态方法为 null）
     /// </summary>
-    public object? TargetInstance { get; init; }
+    public object? TargetInstance { get; set; }
 
     /// <summary>
     /// 参数数量

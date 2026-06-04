@@ -6,8 +6,12 @@
 /// <param name="Parameters">参数值</param>
 /// <param name="Chunk">代码块</param>
 /// <param name="Closure">闭包</param>
-public record CompiledFunctionValue(List<string> Parameters, ByteCodeChunk Chunk, IClosureContext Closure) : Value, ICallable
+public class CompiledFunctionValue(List<string> Parameters, ByteCodeChunk Chunk, IClosureContext Closure) : Value, ICallable
 {
+    public List<string> Parameters { get; } = Parameters;
+    public ByteCodeChunk Chunk { get; } = Chunk;
+    public IClosureContext Closure { get; } = Closure;
+
     public override T As<T>()
     {
         if (this is T result) return result;

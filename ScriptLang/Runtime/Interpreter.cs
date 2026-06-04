@@ -995,7 +995,9 @@ public class Interpreter(ScriptEngine engine)
                 case MethodInfo method:
                     var methodValue = new ClrMethodValue(method);
                     if (!method.IsStatic)
-                        methodValue = methodValue with { TargetInstance = clrObj.Value };
+                        methodValue.TargetInstance = clrObj.Value;
+                        //methodValue = methodValue with { TargetInstance = clrObj.Value };
+                        //methodValue = new ClrMethodValue(method)
                     return methodValue;
 
                 default:

@@ -8,7 +8,7 @@ namespace ScriptLang.Runtime
     /// <summary>
     /// 函数值（Lambda + 闭包）
     /// </summary>
-    public record FunctionValue : Value, ICallable
+    public class FunctionValue : Value, ICallable
     {
         /// <summary>
         /// 函数名称
