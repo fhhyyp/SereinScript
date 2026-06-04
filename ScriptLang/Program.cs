@@ -34,10 +34,10 @@ class Program
         var s15 = @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.5-对象.script";
 
         args = [s15];
-        args = ["./Samples/高级/pinia/run-import.script"];
         args = ["./Samples/3/3.5-矩阵运算.script"];
-        args = ["./Samples/test/test_closure_memory.script"];
         args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\test\\test.script"];
+        args = ["./Samples/高级/pinia/run-import.script"];
+        args = ["./Samples/test/test_closure_memory.script"];
         if (args.Length == 0) 
         {
             Console.WriteLine("需要指定调用的 script 文件路径");

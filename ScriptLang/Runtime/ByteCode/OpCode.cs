@@ -45,6 +45,24 @@ public enum OpCode : byte
     Dup = 0x10,
 
     // ===== 算术/逻辑/比较运算 =====
+    /// <summary>将栈顶 NumberValue 转换为 MutableNumber</summary>
+    ToMutable = 0x9F,
+
+    /// <summary>原地加法：Slots[operand] += Pop()</summary>
+    AddInPlace = 0xA1,
+
+    /// <summary>原地减法：Slots[operand] -= Pop()</summary>
+    SubInPlace = 0xA2,
+
+    /// <summary>原地乘法：Slots[operand] *= Pop()</summary>
+    MulInPlace = 0xA3,
+
+    /// <summary>原地除法：Slots[operand] /= Pop()</summary>
+    DivInPlace = 0xA4,
+
+    /// <summary>原地取模：Slots[operand] %= Pop()</summary>
+    ModInPlace = 0xA5,
+
 
     /// <summary>'+'操作符</summary>
     Add = 0x20,
@@ -150,4 +168,7 @@ public enum OpCode : byte
 
     /// <summary>读取迭代器当前</summary>
     Current = 0x92,
+
+    /// <summary>将迭代器当前值直接写入槽位（操作数：槽位索引），不经过栈</summary>
+    CurrentToSlot = 0x96,
 }

@@ -20,13 +20,18 @@ public abstract class Value
     
     public bool IsNull => this is NullValue;
     //[Obsolete("temp", true)]
-    public bool IsNumber => IsNumber_Decimal  || IsNumber_Double  || IsNumber_Float || IsNumber_Long || IsNumber_Int;
-    public bool IsNumber_Decimal => this is NumberValue<decimal>;
-    public bool IsNumber_Double => this is NumberValue<double>;
-    public bool IsNumber_Float => this is NumberValue<float>;
-    public bool IsNumber_Long => this is NumberValue<long>;
-    public bool IsNumber_Int => this is NumberValue<int>;
+    public virtual bool IsNumber => IsNumber_Decimal  || IsNumber_Double  || IsNumber_Float || IsNumber_Long || IsNumber_Int;
+    public virtual bool IsNumber_Decimal => this is NumberValue<decimal>;
+    public virtual bool IsNumber_Double => this is NumberValue<double>;
+    public virtual bool IsNumber_Float => this is NumberValue<float>;
+    public virtual bool IsNumber_Long => this is NumberValue<long>;
+    public virtual bool IsNumber_Int => this is NumberValue<int>;
 
+    /// <summary>是否为可变数值</summary>
+    public virtual bool IsMutableNumber => false;
+
+    /// <summary>转换为不可变值（MutableNumber 重写）</summary>
+    public virtual Value ToImmutableValue() => this;
 
     public bool IsString => this is StringValue;
     public bool IsBool => this is BoolValue;
@@ -59,7 +64,7 @@ public abstract class Value
     public Dictionary<string, Value> AsObject() => (this as ObjectValue)?.Properties  ?? [];
     public List<Value> AsArray() => (this as ArrayValue)?.Elements  ?? [];
     
-    public sealed override string ToString()
+    public override string ToString()
     {
         return this switch
         {
@@ -79,7 +84,6 @@ public abstract class Value
             _ => "unknown"
         };
     }
-
 
 }
 
@@ -109,7 +113,6 @@ public static class NumberValueCache
     public static readonly NumberValue<int> Int32_M1;
     public static readonly NumberValue<int> Int32_0;
     public static readonly NumberValue<int> Int32_1;
-
 
     static NumberValueCache()
     {
@@ -194,6 +197,270 @@ public class NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct,
     }
 
 }
+/// <summary>
+/// 可变数值容器（用于 var 声明的局部变量，避免算术运算时反复创建 NumberValue 对象）
+/// 原地修改，零堆分配
+/// </summary>
+public sealed class MutableNumber : Value
+{
+    internal enum NumberKind : byte
+    {
+        Int,
+        Long,
+        Float,
+        Double,
+        Decimal
+    }
+
+    internal NumberKind _kind;
+    internal int _intValue;
+    internal long _longValue;
+    internal float _floatValue;
+    internal double _doubleValue;
+    internal decimal _decimalValue;
+
+    private MutableNumber() { }
+
+    /// <summary>转换为不可变值（MutableNumber 重写）</summary>
+    public override bool IsMutableNumber => true;
+    public override Value ToImmutableValue() => ToImmutable();
+
+    public static MutableNumber Create(int value) =>
+        new() { _kind = NumberKind.Int, _intValue = value };
+
+    public static MutableNumber Create(long value) =>
+        new() { _kind = NumberKind.Long, _longValue = value };
+
+    public static MutableNumber Create(float value) =>
+        new() { _kind = NumberKind.Float, _floatValue = value };
+
+    public static MutableNumber Create(double value) =>
+        new() { _kind = NumberKind.Double, _doubleValue = value };
+
+    public static MutableNumber Create(decimal value) =>
+        new() { _kind = NumberKind.Decimal, _decimalValue = value };
+
+    public static MutableNumber FromNumberValue(Value value)
+    {
+        if (value.IsNumber_Decimal) return Create(value.As<decimal>());
+        if (value.IsNumber_Double) return Create(value.As<double>());
+        if (value.IsNumber_Float) return Create(value.As<float>());
+        if (value.IsNumber_Long) return Create(value.As<long>());
+        if (value.IsNumber_Int) return Create(value.As<int>());
+        throw new InvalidCastException($"无法从 {value.GetType()} 创建 MutableNumber");
+    }
+
+    private void EnsureKind(NumberKind required)
+    {
+        if (_kind >= required) return;
+
+        while (_kind < required)
+        {
+            switch (_kind)
+            {
+                case NumberKind.Int:
+                    _longValue = _intValue;
+                    _kind = NumberKind.Long;
+                    break;
+                case NumberKind.Long:
+                    _floatValue = _longValue;
+                    _kind = NumberKind.Float;
+                    break;
+                case NumberKind.Float:
+                    _doubleValue = _floatValue;
+                    _kind = NumberKind.Double;
+                    break;
+                case NumberKind.Double:
+                    _decimalValue = (decimal)_doubleValue;
+                    _kind = NumberKind.Decimal;
+                    break;
+            }
+        }
+    }
+
+    private static NumberKind MaxKind(NumberKind a, NumberKind b) => a > b ? a : b;
+
+    private NumberKind ResolveTargetKind(Value other)
+    {
+        if (other is MutableNumber mn)
+            return MaxKind(_kind, mn._kind);
+        if (other.IsNumber_Decimal) return MaxKind(_kind, NumberKind.Decimal);
+        if (other.IsNumber_Double) return MaxKind(_kind, NumberKind.Double);
+        if (other.IsNumber_Float) return MaxKind(_kind, NumberKind.Float);
+        if (other.IsNumber_Long) return MaxKind(_kind, NumberKind.Long);
+        return _kind;
+    }
+
+    public void AddInPlace(Value other)
+    {
+        var targetKind = ResolveTargetKind(other);
+        EnsureKind(targetKind);
+
+        switch (_kind)
+        {
+            case NumberKind.Int: _intValue += other.As<int>(); break;
+            case NumberKind.Long: _longValue += other.As<long>(); break;
+            case NumberKind.Float: _floatValue += other.As<float>(); break;
+            case NumberKind.Double: _doubleValue += other.As<double>(); break;
+            case NumberKind.Decimal: _decimalValue += other.As<decimal>(); break;
+        }
+    }
+
+    public void SubInPlace(Value other)
+    {
+        var targetKind = ResolveTargetKind(other);
+        EnsureKind(targetKind);
+
+        switch (_kind)
+        {
+            case NumberKind.Int: _intValue -= other.As<int>(); break;
+            case NumberKind.Long: _longValue -= other.As<long>(); break;
+            case NumberKind.Float: _floatValue -= other.As<float>(); break;
+            case NumberKind.Double: _doubleValue -= other.As<double>(); break;
+            case NumberKind.Decimal: _decimalValue -= other.As<decimal>(); break;
+        }
+    }
+
+    public void MulInPlace(Value other)
+    {
+        var targetKind = ResolveTargetKind(other);
+        EnsureKind(targetKind);
+
+        switch (_kind)
+        {
+            case NumberKind.Int: _intValue *= other.As<int>(); break;
+            case NumberKind.Long: _longValue *= other.As<long>(); break;
+            case NumberKind.Float: _floatValue *= other.As<float>(); break;
+            case NumberKind.Double: _doubleValue *= other.As<double>(); break;
+            case NumberKind.Decimal: _decimalValue *= other.As<decimal>(); break;
+        }
+    }
+
+    public void DivInPlace(Value other)
+    {
+        var targetKind = ResolveTargetKind(other);
+        if (targetKind < NumberKind.Double) targetKind = NumberKind.Double;
+        EnsureKind(targetKind);
+
+        switch (_kind)
+        {
+            case NumberKind.Double: _doubleValue /= other.As<double>(); break;
+            case NumberKind.Decimal: _decimalValue /= other.As<decimal>(); break;
+        }
+    }
+
+    public void ModInPlace(Value other)
+    {
+        var targetKind = ResolveTargetKind(other);
+        EnsureKind(targetKind);
+
+        switch (_kind)
+        {
+            case NumberKind.Int: _intValue %= other.As<int>(); break;
+            case NumberKind.Long: _longValue %= other.As<long>(); break;
+            case NumberKind.Float: _floatValue %= other.As<float>(); break;
+            case NumberKind.Double: _doubleValue %= other.As<double>(); break;
+            case NumberKind.Decimal: _decimalValue %= other.As<decimal>(); break;
+        }
+    }
+
+    /// <summary>返回当前值的不可变副本（传参、返回时使用）</summary>
+    public Value ToImmutable()
+    {
+        return _kind switch
+        {
+            NumberKind.Int => NumberValueFactory.Create(_intValue),
+            NumberKind.Long => NumberValueFactory.Create(_longValue),
+            NumberKind.Float => NumberValueFactory.Create(_floatValue),
+            NumberKind.Double => NumberValueFactory.Create(_doubleValue),
+            NumberKind.Decimal => NumberValueFactory.Create(_decimalValue),
+            _ => Value.Null
+        };
+    }
+
+    /// <summary>
+    /// 直接用 int 值替换内部值（零分配，用于 RangeIterator）
+    /// </summary>
+    public void SetFromInt(int value)
+    {
+        _kind = NumberKind.Int;
+        _intValue = value;
+    }
+
+    // <summary>
+    /// 用另一个数值替换当前 MutableNumber 的内部值（不改变引用）
+    /// </summary>
+    public void SetFrom(Value value)
+    {
+        if (value.IsNumber_Decimal)
+        {
+            _kind = NumberKind.Decimal;
+            _decimalValue = value.As<decimal>();
+        }
+        else if (value.IsNumber_Double)
+        {
+            _kind = NumberKind.Double;
+            _doubleValue = value.As<double>();
+        }
+        else if (value.IsNumber_Float)
+        {
+            _kind = NumberKind.Float;
+            _floatValue = value.As<float>();
+        }
+        else if (value.IsNumber_Long)
+        {
+            _kind = NumberKind.Long;
+            _longValue = value.As<long>();
+        }
+        else if (value.IsNumber_Int)
+        {
+            _kind = NumberKind.Int;
+            _intValue = value.As<int>();
+        }
+        else
+        {
+            throw new InvalidCastException($"无法从 {value.GetType()} 设置 MutableNumber 值");
+        }
+    }
+
+    // ===== 类型检测 =====
+
+    public override bool IsNumber => true;
+    public override bool IsNumber_Int => _kind == NumberKind.Int;
+    public override bool IsNumber_Long => _kind == NumberKind.Long;
+    public override bool IsNumber_Float => _kind == NumberKind.Float;
+    public override bool IsNumber_Double => _kind == NumberKind.Double;
+    public override bool IsNumber_Decimal => _kind == NumberKind.Decimal;
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+
+        return _kind switch
+        {
+            NumberKind.Int => (T)(object)_intValue,
+            NumberKind.Long => (T)(object)_longValue,
+            NumberKind.Float => (T)(object)_floatValue,
+            NumberKind.Double => (T)(object)_doubleValue,
+            NumberKind.Decimal => (T)(object)_decimalValue,
+            _ => throw new InvalidCastException($"Cannot cast MutableNumber to {typeof(T)}")
+        };
+    }
+
+    public override string ToString()
+    {
+        return _kind switch
+        {
+            NumberKind.Int => _intValue.ToString(),
+            NumberKind.Long => _longValue.ToString(),
+            NumberKind.Float => _floatValue.ToString(),
+            NumberKind.Double => _doubleValue.ToString(),
+            NumberKind.Decimal => _decimalValue.ToString(),
+            _ => "0"
+        };
+    }
+}
+
 
 /// <summary>
 /// 字符串值
@@ -534,4 +801,50 @@ public class CompiledFunctionValue : Value, ICallable
         var value = await vm.InvokeCompiledFunctionAsync(this, args);
         return value;
     }
+}
+
+
+
+/// <summary>
+/// 惰性范围迭代器（不预创建数组，按需生成数值）
+/// 用于 for i in range(start, end) 循环，避免创建海量临时对象
+/// </summary>
+public sealed class RangeIterator : Value
+{
+    /// <summary>
+    /// 获取当前 int 值（不创建 NumberValue 对象，零分配）
+    /// </summary>
+    public int CurrentInt() => _current;
+
+    private readonly int _start;
+    private readonly int _end;
+    private int _current;
+
+    public RangeIterator(int start, int end)
+    {
+        _start = start;
+        _end = end;
+        _current = start - 1;
+    }
+
+    /// <summary>移动到下一个，返回是否还有元素</summary>
+    public bool MoveNext()
+    {
+        _current++;
+        return _current < _end;
+    }
+
+    /// <summary>获取当前值（返回缓存的 NumberValue，小整数走缓存）</summary>
+    public Value Current()
+    {
+        return NumberValueFactory.Create(_current);
+    }
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+        throw new InvalidCastException($"Cannot cast RangeIterator to {typeof(T)}");
+    }
+
+    public override string ToString() => $"range({_start}, {_end})";
 }

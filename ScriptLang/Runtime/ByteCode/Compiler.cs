@@ -388,34 +388,86 @@ public sealed class Compiler
         VariableBinding? existingBinding = null;
         foreach (var scope in _scopeStack.Reverse())
         {
-            if (scope.TryGetValue(expr.Name, out var binding))
+            if (scope.TryGetValue(expr.Name, out var binding_1))
             {
-                existingBinding = binding;
+                existingBinding = binding_1;
                 break;
             }
         }
 
+        VariableBinding binding;
         if (existingBinding != null)
         {
-            EmitStoreSlot(existingBinding);
+            binding = existingBinding;
         }
         else
         {
-            var binding = DefineVariable(expr.Name, isMutable: true);
-            EmitStoreSlot(binding);
+            binding = DefineVariable(expr.Name, isMutable: true);
         }
+
+        // 如果初始值是数值，将栈顶值转换为 MutableNumber
+        if (IsNumericInit(expr.Value))
+        {
+            Emit(OpCode.ToMutable);
+        }
+
+        EmitStoreSlot(binding);
+    }
+
+    /// <summary>判断表达式是否产生数值结果</summary>
+    private static bool IsNumericInit(Expr expr)
+    {
+        return expr switch
+        {
+            LiteralExpr lit => lit.Value is int or long or float or double or decimal,
+            BinaryExpr => true,
+            UnaryExpr => true,
+            IdentifierExpr => true, // 可能引用数值变量
+            CallExpr => true,
+            _ => false
+        };
     }
 
     private void CompileAssign(AssignExpr expr)
     {
-        Visit(expr.Value);
-        var binding = ResolveVariable(expr.Name); 
-        if (binding == null)
+        // 优化：检测 var x = x op y 的自赋值模式
+        if (expr.Value is BinaryExpr bin
+            && bin.Left is IdentifierExpr id
+            && id.Name == expr.Name
+            && IsArithmeticOp(bin.Op))
         {
-            throw new InvalidOperationException($"未定义的变量 '{expr.Name}'");
+            Visit(bin.Right);
+
+            var binding = ResolveVariable(expr.Name);
+            if (binding == null)
+                throw new InvalidOperationException($"未定义的变量 '{expr.Name}'");
+
+            OpCode inPlaceOp = bin.Op switch
+            {
+                "+" => OpCode.AddInPlace,
+                "-" => OpCode.SubInPlace,
+                "*" => OpCode.MulInPlace,
+                "/" => OpCode.DivInPlace,
+                "%" => OpCode.ModInPlace,
+                _ => throw new InvalidOperationException()
+            };
+
+            int index = _code.Count;
+            Emit(inPlaceOp, -1);
+            _pendingSlotFixups.Add((index, binding.Region, binding.Slot));
+            return;
         }
-        EmitStoreSlot(binding);
+
+        // 原有逻辑
+        Visit(expr.Value);
+        var binding2 = ResolveVariable(expr.Name);
+        if (binding2 == null)
+            throw new InvalidOperationException($"未定义的变量 '{expr.Name}'");
+        EmitStoreSlot(binding2);
     }
+
+    private static bool IsArithmeticOp(string op)
+        => op is "+" or "-" or "*" or "/" or "%";
 
     private void CompileIndexAssign(IndexAssignExpr expr)
     {
@@ -451,7 +503,7 @@ public sealed class Compiler
         {
             Visit(expr.Left);
             int jumpIndex = EmitJump(OpCode.JmpIfFalse);
-            Emit(OpCode.Pop);
+            // 移除 Emit(OpCode.Pop);  ← JmpIfFalse 已经 Pop 了
             Visit(expr.Right);
             PatchJump(jumpIndex);
             return;
@@ -461,7 +513,7 @@ public sealed class Compiler
         {
             Visit(expr.Left);
             int jumpIndex = EmitJump(OpCode.JumpIfTrue);
-            Emit(OpCode.Pop);
+            // 移除 Emit(OpCode.Pop);  ← JumpIfTrue 已经 Pop 了
             Visit(expr.Right);
             PatchJump(jumpIndex);
             return;
@@ -494,15 +546,12 @@ public sealed class Compiler
     {
         Visit(expr.Cond);
         int elseJumpIndex = EmitJump(OpCode.JmpIfFalse);
-
-        Emit(OpCode.Pop);
+        // 移除 Emit(OpCode.Pop);
         Visit(expr.Then);
         int endJumpIndex = EmitJump(OpCode.Jmp);
-
         PatchJump(elseJumpIndex);
-        Emit(OpCode.Pop);
+        // 移除 Emit(OpCode.Pop);
         Visit(expr.Else);
-
         PatchJump(endJumpIndex);
     }
 
@@ -525,15 +574,12 @@ public sealed class Compiler
     {
         Visit(expr.Cond);
         int elseJumpIndex = EmitJump(OpCode.JmpIfFalse);
-
-        Emit(OpCode.Pop);
+        // 移除 Emit(OpCode.Pop);
         Visit(expr.Then);
         int endJumpIndex = EmitJump(OpCode.Jmp);
-
         PatchJump(elseJumpIndex);
-        Emit(OpCode.Pop);
+        // 移除 Emit(OpCode.Pop);
         Visit(expr.Else);
-
         PatchJump(endJumpIndex);
     }
 
@@ -599,17 +645,26 @@ public sealed class Compiler
         Emit(OpCode.MoveNext);
         int exitJump = EmitJump(OpCode.JmpIfFalse);
 
-        Emit(OpCode.Current);
-        EmitStoreSlot(loopBinding);
+        // 将迭代器当前值直接写入槽位（不经过栈，零分配）
+        EmitCurrentToSlot(loopBinding);
 
         Visit(expr.Body);
-        Emit(OpCode.Pop);
 
         Emit(OpCode.Jmp, loopStart);
         PatchJump(exitJump);
 
         Emit(OpCode.LoadNull);
         PopScope();
+    }
+
+    /// <summary>
+    /// 发射 CurrentToSlot 指令（占位，Fixup 时修正）
+    /// </summary>
+    private void EmitCurrentToSlot(VariableBinding binding)
+    {
+        int index = _code.Count;
+        Emit(OpCode.CurrentToSlot, -1);
+        _pendingSlotFixups.Add((index, binding.Region, binding.Slot));
     }
 
     // ==================== Lambda 与闭包 ====================

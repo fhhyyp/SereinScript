@@ -73,20 +73,14 @@ namespace ScriptLang.Runtime
         {
             if (args.Count == 1)
             {
-                int count = args[0].As<int>();
-                var elements = new List<Value>();
-                for (int i = 0; i < count; i++)
-                    elements.Add(NumberValueFactory.Create(i));
-                return new ArrayValue(elements);
+                int end = args[0].As<int>();
+                return new RangeIterator(0, end);
             }
             else if (args.Count == 2)
             {
                 int start = args[0].As<int>();
                 int end = args[1].As<int>();
-                var elements = new List<Value>();
-                for (int i = start; i < end; i++)
-                    elements.Add(NumberValueFactory.Create(i));
-                return new ArrayValue(elements);
+                return new RangeIterator(start, end);
             }
             throw new RuntimeException("range() 期望 1 或 2 个参数");
         });

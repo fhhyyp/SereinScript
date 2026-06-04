@@ -65,7 +65,6 @@ namespace ScriptLang
                 Console.WriteLine("----------------------------------");
                 Console.WriteLine($"[Lexer]准备解析脚本：{filePath}");
                 Console.WriteLine(script);
-                Console.WriteLine();
                 Console.WriteLine("----------------------------------"); 
 #endif
                 SourceManager.AddSource(filePath, script);

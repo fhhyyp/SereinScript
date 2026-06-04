@@ -152,6 +152,7 @@ public class VM
         };
     }
 
+
     // ==================== 帧初始化 ====================
 
     /// <summary>
@@ -286,23 +287,38 @@ public class VM
                     int slot = (int)inst.Operand!;
                     var value = Pop();
 
-                    // 检查是否是捕获变量（需要同步更新 VariableCell）
-                    var vt = _currentFrame.Chunk.VariableTable;
-                    if (vt != null && vt.GetRegion(slot) == SlotRegion.Capture)
+                    // 优化：如果槽位中已有 MutableNumber 且新值是数值，原地更新
+                    var existing = _currentFrame.Slots[slot];
+                    if (existing is MutableNumber mn && value.IsNumber)
                     {
-                        int captureIndex = slot - vt.CaptureOffset;
-                        if (captureIndex < _currentFrame.Captures.Length)
-                        {
-                            _currentFrame.Captures[captureIndex].Cell.Value = value;
-                        }
+                        mn.SetFrom(value);
+                        value = mn;
                     }
-                    // 检查是否是全局变量
-                    else if (vt != null && vt.GetRegion(slot) == SlotRegion.Global)
+
+                    // 同步捕获区/全局区
+                    var vt = _currentFrame.Chunk.VariableTable;
+                    if (vt != null)
                     {
-                        int globalIndex = slot - vt.GlobalOffset;
-                        string globalName = vt.GlobalNames[globalIndex];
-                        int registrySlot = GlobalSlotRegistry.GetSlot(globalName);
-                        GlobalSlotRegistry.SetValue(registrySlot, value);
+                        var region = vt.GetRegion(slot);
+                        if (region == SlotRegion.Capture)
+                        {
+                            int captureIndex = slot - vt.CaptureOffset;
+                            if (captureIndex >= 0 && captureIndex < _currentFrame.Captures.Length
+                                && _currentFrame.Captures[captureIndex] != null)
+                            {
+                                _currentFrame.Captures[captureIndex].Cell.Value = value;
+                            }
+                        }
+                        else if (region == SlotRegion.Global)
+                        {
+                            int globalIndex = slot - vt.GlobalOffset;
+                            if (globalIndex >= 0 && globalIndex < vt.GlobalNames.Length)
+                            {
+                                string globalName = vt.GlobalNames[globalIndex];
+                                GlobalSlotRegistry.SetValue(GlobalSlotRegistry.GetSlot(globalName),
+                                    value is MutableNumber m ? m.ToImmutable() : value);
+                            }
+                        }
                     }
 
                     _currentFrame.Slots[slot] = value;
@@ -320,6 +336,69 @@ public class VM
                 return true;
 
             // ===== 算术运算 =====
+            case OpCode.ToMutable:
+                {
+                    var value = Pop();
+                    if (value is MutableNumber)
+                    {
+                        Push(value);
+                    }
+                    else if (value.IsNumber)
+                    {
+                        Push(MutableNumber.FromNumberValue(value));
+                    }
+                    else
+                    {
+                        Push(value);
+                    }
+                }
+                return true;
+
+            case OpCode.AddInPlace:
+                {
+                    int slot = (int)inst.Operand!;
+                    InPlaceOp(slot,
+                        right => ((MutableNumber)_currentFrame.Slots[slot]).AddInPlace(right),
+                        (l, r) => AddOp(l, r));
+                }
+                return true;
+
+            case OpCode.SubInPlace:
+                {
+                    int slot = (int)inst.Operand!;
+                    InPlaceOp(slot,
+                        right => ((MutableNumber)_currentFrame.Slots[slot]).SubInPlace(right),
+                        (l, r) => SubOp(l, r));
+                }
+                return true;
+
+            case OpCode.MulInPlace:
+                {
+                    int slot = (int)inst.Operand!;
+                    InPlaceOp(slot,
+                        right => ((MutableNumber)_currentFrame.Slots[slot]).MulInPlace(right),
+                        (l, r) => MulOp(l, r));
+                }
+                return true;
+
+            case OpCode.DivInPlace:
+                {
+                    int slot = (int)inst.Operand!;
+                    InPlaceOp(slot,
+                        right => ((MutableNumber)_currentFrame.Slots[slot]).DivInPlace(right),
+                        (l, r) => DivOp(l, r));
+                }
+                return true;
+
+            case OpCode.ModInPlace:
+                {
+                    int slot = (int)inst.Operand!;
+                    InPlaceOp(slot,
+                        right => ((MutableNumber)_currentFrame.Slots[slot]).ModInPlace(right),
+                        (l, r) => ModOp(l, r));
+                }
+                return true;
+
             case OpCode.Add:
                 BinaryOp(AddOp);
                 return true;
@@ -387,14 +466,14 @@ public class VM
                 return true;
 
             case OpCode.JumpIfTrue:
-                if (IsTrue(Peek()))
+                if (IsTrue(Pop()))
                     JumpTo((int)inst.Operand!);
                 else
                     _currentFrame.IP++;
                 return true;
 
             case OpCode.JmpIfFalse:
-                if (!IsTrue(Peek()))
+                if (!IsTrue(Pop()))
                     JumpTo((int)inst.Operand!);
                 else
                     _currentFrame.IP++;
@@ -467,6 +546,49 @@ public class VM
                 Current();
                 return true;
 
+            case OpCode.CurrentToSlot:
+                {
+                    int slot = (int)inst.Operand!;
+                    var existing = _currentFrame.Slots[slot];
+
+                    if (_iteratorStack.Peek() is RangeIterator range)
+                    {
+                        if (existing is MutableNumber mn)
+                        {
+                            // 零分配：直接设置 int 值
+                            mn.SetFromInt(range.CurrentInt());
+                        }
+                        else
+                        {
+                            _currentFrame.Slots[slot] = range.Current();
+                        }
+                    }
+                    else
+                    {
+                        // ArrayValue 路径
+                        var indexValue = _iteratorStack.Peek();
+                        var index = indexValue.As<int>();
+                        var array = (ArrayValue)_iteratorStack.Skip(1).First();
+
+                        if (index < array.Elements.Count)
+                        {
+                            var value = array.Get(index);
+
+                            if (existing is MutableNumber mn && value.IsNumber)
+                            {
+                                mn.SetFrom(value);
+                            }
+                            else
+                            {
+                                _currentFrame.Slots[slot] = value;
+                            }
+
+                            _iteratorStack.Pop();
+                            _iteratorStack.Push(NumberValueFactory.Create(index + 1));
+                        }
+                    }
+                }
+                return true;
             default:
                 throw new InvalidOperationException($"未知的字节码指令: {inst.OpCode}");
         }
@@ -481,6 +603,12 @@ public class VM
     private bool HandleReturn()
     {
         var returnValue = Pop();
+
+        // 返回时冻结 MutableNumber
+        if (returnValue is MutableNumber mn)
+        {
+            returnValue = mn.ToImmutable();
+        }
 
         if (_frames.Count == 0)
         {
@@ -519,6 +647,55 @@ public class VM
         var left = Pop();
         Push(op(left, right));
     }
+
+    /// <summary>
+    /// 原地操作辅助方法
+    /// 如果左值是 MutableNumber 则原地修改，否则创建新值回写
+    /// </summary>
+    /// <param name="slot">槽位索引</param>
+    /// <param name="mutableOp">原地操作（接收已弹出的右值）</param>
+    /// <param name="fallbackOp">不可变时的回退操作</param>
+    private void InPlaceOp(int slot, Action<Value> mutableOp, Func<Value, Value, Value> fallbackOp)
+    {
+        var right = Pop();
+        var left = _currentFrame.Slots[slot];
+
+        if (left is MutableNumber)
+        {
+            mutableOp(right);
+        }
+        else
+        {
+            _currentFrame.Slots[slot] = fallbackOp(left, right);
+        }
+
+        // 同步捕获区/全局区
+        var vt = _currentFrame.Chunk.VariableTable;
+        if (vt != null)
+        {
+            var region = vt.GetRegion(slot);
+            if (region == SlotRegion.Capture)
+            {
+                int captureIndex = slot - vt.CaptureOffset;
+                if (captureIndex >= 0 && captureIndex < _currentFrame.Captures.Length
+                    && _currentFrame.Captures[captureIndex] != null)
+                {
+                    _currentFrame.Captures[captureIndex].Cell.Value = _currentFrame.Slots[slot];
+                }
+            }
+            else if (region == SlotRegion.Global)
+            {
+                int globalIndex = slot - vt.GlobalOffset;
+                if (globalIndex >= 0 && globalIndex < vt.GlobalNames.Length)
+                {
+                    string globalName = vt.GlobalNames[globalIndex];
+                    GlobalSlotRegistry.SetValue(GlobalSlotRegistry.GetSlot(globalName),
+                        _currentFrame.Slots[slot] is MutableNumber mn ? mn.ToImmutable() : _currentFrame.Slots[slot]);
+                }
+            }
+        }
+    }
+
 
     // ==================== 常量加载 ====================
 
@@ -656,7 +833,9 @@ public class VM
         var args = new List<Value>();
         for (int i = 0; i < argCount; i++)
         {
-            args.Insert(0, Pop());
+            var arg = Pop();
+            // 传参时冻结 MutableNumber，避免函数内部修改影响外部
+            args.Insert(0, arg is MutableNumber mn ? mn.ToImmutable() : arg);
         }
 
         // 弹出函数
@@ -920,14 +1099,35 @@ public class VM
             _iteratorStack.Push(NumberValueCache.Int32_0);
             Push(BoolValue.True);
         }
+        else if (iterable is RangeIterator range)
+        {
+            _iteratorStack.Push(range);
+            Push(BoolValue.True);
+        }
         else
         {
-            throw new RuntimeException("For 循环期望数组");
+            throw new RuntimeException("For 循环期望数组或 range 迭代器");
         }
     }
 
     private void MoveNext()
     {
+        // RangeIterator 路径
+        if (_iteratorStack.Peek() is RangeIterator range)
+        {
+            if (range.MoveNext())
+            {
+                Push(BoolValue.True);
+            }
+            else
+            {
+                _iteratorStack.Pop();
+                Push(BoolValue.False);
+            }
+            return;
+        }
+
+        // ArrayValue 路径
         var indexValue = _iteratorStack.Peek();
         var index = indexValue.As<int>();
         var array = (ArrayValue)_iteratorStack.Skip(1).First();
@@ -946,6 +1146,14 @@ public class VM
 
     private void Current()
     {
+        // RangeIterator 路径
+        if (_iteratorStack.Peek() is RangeIterator range)
+        {
+            Push(range.Current());
+            return;
+        }
+
+        // ArrayValue 路径
         var indexValue = _iteratorStack.Peek();
         var index = indexValue.As<int>();
         var array = (ArrayValue)_iteratorStack.Skip(1).First();

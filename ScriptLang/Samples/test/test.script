@@ -1,5 +1,5 @@
 var sum = 0
-for i in range(0, 1000000000) {
-	sum = sum + i
+for i in range(0, 100000000) {
+        sum = sum + i
 }
 print(sum)
