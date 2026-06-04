@@ -6,8 +6,9 @@ public sealed class ByteCodeChunk
     /// <summary>获取字节码指令列表</summary>
     public List<Instruction> Code { get; } = [];
 
-    /// <summary>当前帧的指令指针</summary>
-    public int IP { get; set; } = 0;
+    /// <summary>编译时确定的变量表</summary>
+    public VariableTable? VariableTable { get; set; }
+
     /// <summary>常量表（LoadConst 使用）</summary>
     private readonly List<object?> _constants = [];
 
@@ -22,19 +23,13 @@ public sealed class ByteCodeChunk
     private const int NULL_INDEX = 0;
     private const int BOOL_TRUE_INDEX = 1;
     private const int BOOL_FALSE_INDEX = 2;
-
     private const int INT_MIN = -127;
     private const int INT_MAX = 128;
-
     private const int INT_OFFSET = 3;
-
-    private const int CONSTANT_OFFSET =
-        INT_OFFSET + (INT_MAX - INT_MIN + 1);
-
-  
+    private const int CONSTANT_OFFSET = INT_OFFSET + (INT_MAX - INT_MIN + 1);
 
     /// <summary>
-    /// 添加常量
+    /// 添加常量，返回紧凑编码的索引
     /// </summary>
     public int AddConstant(object? value)
     {
@@ -44,9 +39,7 @@ public sealed class ByteCodeChunk
                 return NULL_INDEX;
 
             case bool b:
-                return b
-                    ? BOOL_TRUE_INDEX
-                    : BOOL_FALSE_INDEX;
+                return b ? BOOL_TRUE_INDEX : BOOL_FALSE_INDEX;
 
             case int i when i >= INT_MIN && i <= INT_MAX:
                 return i - INT_MIN + INT_OFFSET;
@@ -57,10 +50,8 @@ public sealed class ByteCodeChunk
                         return existing + CONSTANT_OFFSET;
 
                     int index = _constants.Count;
-
                     _constants.Add(value);
                     _constantMap.Add(value, index);
-
                     return index + CONSTANT_OFFSET;
                 }
         }
@@ -80,22 +71,17 @@ public sealed class ByteCodeChunk
         if (index == BOOL_FALSE_INDEX)
             return false;
 
-        if (index >= INT_OFFSET &&
-            index < CONSTANT_OFFSET)
-        {
+        if (index >= INT_OFFSET && index < CONSTANT_OFFSET)
             return index - INT_OFFSET + INT_MIN;
-        }
 
         if (index >= CONSTANT_OFFSET)
-        {
             return _constants[index - CONSTANT_OFFSET];
-        }
 
         throw new ArgumentOutOfRangeException(nameof(index));
     }
 
     /// <summary>
-    /// 添加闭包
+    /// 注册嵌套闭包字节码块，返回闭包索引
     /// </summary>
     public int RegisterClosure(ByteCodeChunk closureChunk)
     {
@@ -104,7 +90,7 @@ public sealed class ByteCodeChunk
     }
 
     /// <summary>
-    /// 获取闭包
+    /// 获取嵌套闭包字节码块
     /// </summary>
     public ByteCodeChunk GetClosure(int index)
     {
@@ -114,6 +100,11 @@ public sealed class ByteCodeChunk
         return _closures[index];
     }
 
-    internal IEnumerable<object?> GetConstants() => [.. this._constants];
+    /// <summary>
+    /// 获取所有动态常量（调试用）
+    /// </summary>
+    internal IEnumerable<object?> GetConstants() => _constants.ToList();
 
+    /// <summary>获取所有嵌套闭包（用于编译器分析）</summary>
+    internal IEnumerable<ByteCodeChunk> GetClosures() => _closures.ToList();
 }

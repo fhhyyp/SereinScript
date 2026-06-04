@@ -8,43 +8,51 @@ namespace ScriptLang.Runtime.ByteCode;
 internal class CallFrame
 {
     /// <summary>当前执行的字节码块</summary>
-    public ByteCodeChunk Chunk  = null!;
-
-    /// <summary>闭包上下文（变量作用域）</summary>
-    public IClosureContext Closure   = null!;
+    public ByteCodeChunk Chunk = null!;
 
     /// <summary>当前帧的指令指针</summary>
-    public int IP = 0;
+    public int IP;
 
-    /// <summary>返回地址（-1 表示顶层）</summary>
-    // public int ReturnAddress { get; set; } = -1;
+    /// <summary>统一的槽位数组（大小 = VariableTable.TotalCount）</summary>
+    public Value[] Slots = [];
 
-    /// <summary>局部变量</summary>
-    public Dictionary<string, Value> Locals { get; } = new();
+    /// <summary>
+    /// 闭包捕获的 VariableInfo 数组（按捕获槽位顺序）
+    /// 存储 VariableCell 引用，使得对捕获变量的写入能被所有闭包帧共享
+    /// </summary>
+    public VariableInfo[] Captures = [];
 
-    /// <summary>当前作用域捕获的变量</summary>
-    public Dictionary<string, VariableInfo> CapturedVariables { get; } = new();
-
-    public void Init(ByteCodeChunk chunk, IClosureContext closure)
+    /// <summary>初始化帧（从对象池取出时调用）</summary>
+    public void Init(ByteCodeChunk chunk)
     {
-        this.Chunk = chunk;
-        this.Closure = closure;
-        this.IP = 0;
-        Locals.Clear();
-        CapturedVariables.Clear();
+        Chunk = chunk;
+        IP = 0;
+
+        int totalSlots = chunk.VariableTable?.TotalCount ?? 0;
+        if (Slots.Length != totalSlots)
+            Slots = new Value[totalSlots];
+        else
+            Array.Clear(Slots, 0, Slots.Length);
+
+        int captureCount = chunk.VariableTable?.CaptureCount ?? 0;
+        if (Captures.Length != captureCount)
+            Captures = new VariableInfo[captureCount];
+        else
+            Array.Clear(Captures, 0, Captures.Length);
     }
+
+    /// <summary>重置帧（归还对象池时调用）</summary>
     public void Reset()
     {
-        this.Chunk = null;
-        this.Closure = null;
-        this.IP = 0;
-        Locals.Clear();
-        CapturedVariables.Clear();
+        Chunk = null!;
+        IP = 0;
+        // Slots 和 Captures 保留引用，下次 Init 时复用数组
     }
-
 }
 
-
+/// <summary>
+/// 调用帧对象池
+/// </summary>
 internal sealed class CallFramePool
 {
     private readonly ConcurrentStack<CallFrame> _pool = new();
@@ -69,6 +77,5 @@ internal sealed class CallFramePool
             frame.Reset();
             _pool.Push(frame);
         }
-        // 超出池大小限制时让 GC 回收
     }
 }

@@ -1,3 +1,5 @@
+using ScriptLang.Parser;
+using ScriptLang.Runtime.ByteCode;
 using ScriptLang.Utils;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -420,5 +422,116 @@ public class ClrMethodValue : Value
     internal async Task<object?> InvokeAsync(object?[]? args = null)
     {
         return await Delegate.InvokeAsync(TargetInstance, args);
+    }
+}
+
+
+/// <summary>
+/// 函数值（仅用于原生函数）
+/// DSL Lambda 应通过 Compiler 编译为 CompiledFunctionValue
+/// </summary>
+public class FunctionValue : Value, ICallable
+{
+    /// <summary>函数名称</summary>
+    public string Name { get; }
+
+    /// <summary>参数名列表</summary>
+    public List<string> Parameters { get; }
+
+    /// <summary>是否是原生函数</summary>
+    public bool IsNative { get; }
+
+    /// <summary>是否为原生异步函数</summary>
+    public bool IsNativeTask { get; }
+
+    /// <summary>原生函数委托</summary>
+    public Func<List<Value>, Value>? NativeFunc { get; }
+
+    /// <summary>原生异步函数委托</summary>
+    public Func<List<Value>, Task<Value>>? NativeTask { get; }
+
+    /// <summary>参数数量</summary>
+    public int ParameterCount => Parameters.Count;
+
+    /// <summary>创建同步原生函数</summary>
+    public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
+    {
+        Name = name;
+        Parameters = new List<string>();
+        NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+        IsNative = true;
+    }
+
+    /// <summary>创建异步原生函数</summary>
+    public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
+    {
+        Name = name;
+        Parameters = new List<string>();
+        NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+        IsNativeTask = true;
+    }
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+        throw new InvalidCastException($"Cannot cast FunctionValue to {typeof(T)}");
+    }
+
+    /// <summary>调用函数</summary>
+    public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
+    {
+        if (IsNative)
+        {
+            return NativeFunc!(args);
+        }
+        else if (IsNativeTask)
+        {
+            return await NativeTask!(args);
+        }
+
+        throw new RuntimeException($"FunctionValue 不支持 DSL Lambda 调用，请使用 CompiledFunctionValue");
+    }
+}
+
+/// <summary>
+/// 编译后的函数值
+/// </summary>
+public class CompiledFunctionValue : Value, ICallable
+{
+    /// <summary>参数名列表</summary>
+    public List<string> Parameters { get; }
+
+    /// <summary>字节码块</summary>
+    public ByteCodeChunk Chunk { get; }
+
+    /// <summary>变量表（描述槽位布局）</summary>
+    public VariableTable VariableTable { get; }
+
+    /// <summary>轻量闭包（捕获的变量）</summary>
+    public LightweightClosure? Closure { get; }
+
+    public CompiledFunctionValue(
+        List<string> parameters,
+        ByteCodeChunk chunk,
+        VariableTable variableTable,
+        LightweightClosure? closure)
+    {
+        Parameters = parameters;
+        Chunk = chunk;
+        VariableTable = variableTable;
+        Closure = closure;
+    }
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+        throw new InvalidCastException($"Cannot cast CompiledFunctionValue to {typeof(T)}");
+    }
+
+    public async Task<Value> CallAsync(ScriptEngine engine, List<Value> args)
+    {
+        var vm = new VM(engine);
+        var value = await vm.InvokeCompiledFunctionAsync(this, args);
+        return value;
     }
 }

@@ -1,5 +1,5 @@
-let fib = (n) => {
-    if n <= 1 then n
-    else fib(n - 1) + fib(n - 2)
+var sum = 0
+for i in range(0, 1000000000) {
+	sum = sum + i
 }
-return fib(30) 
+print(sum)

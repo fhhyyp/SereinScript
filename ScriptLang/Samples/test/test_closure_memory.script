@@ -14,7 +14,11 @@ let createHugeData = () => {
             }
         }
     }
+    //print("hugeArray:",hugeArray)
+    //print("hugeArray.count:",hugeArray.count)
     let len = hugeArray.count
+
+    //print("数组长度:",len)
     return () => len  // 闭包应该只捕获 len
 }
 

@@ -1,4 +1,162 @@
-﻿using ScriptLang.Parser;
+﻿
+using ScriptLang.Runtime;
+using System.Diagnostics.CodeAnalysis;
+
+/// <summary>
+/// 轻量闭包：仅存储被捕获变量的 VariableInfo 数组
+/// 运行时按槽位索引 O(1) 访问
+/// </summary>
+public sealed class LightweightClosure
+{
+    /// <summary>捕获的变量信息（按捕获槽位顺序）</summary>
+    internal readonly VariableInfo[] CapturedCells;
+
+    /// <summary>捕获变量数量</summary>
+    public int CaptureCount => CapturedCells.Length;
+
+    public LightweightClosure(VariableInfo[] capturedCells)
+    {
+        CapturedCells = capturedCells;
+    }
+
+    /// <summary>
+    /// 获取捕获槽位的 VariableInfo
+    /// </summary>
+    public VariableInfo GetCapture(int captureSlot)
+    {
+        return CapturedCells[captureSlot];
+    }
+}
+
+/// <summary>
+/// 作用域（仅用于 Interpreter，VM 不使用）
+/// 保留以维持现有代码兼容，后续可清理
+/// </summary>
+public class Scope
+{
+    public System.Guid Guid { get; private set; } = System.Guid.NewGuid();
+
+    private readonly Dictionary<string, VariableInfo> _variables = new();
+    public Scope? Parent { get; }
+
+    public Scope(Scope? parent = null)
+    {
+        Parent = parent;
+    }
+
+    public Scope CreateChildScope() => new Scope(this);
+
+    public void Clear()
+    {
+        foreach (var pair in _variables)
+        {
+            if (!pair.Value.IsCaptured)
+                pair.Value.Cell.Value = Value.Null;
+        }
+        _variables.Clear();
+    }
+
+    public void DefineFunction(FunctionValue func)
+        => Define(func.Name, func, isMutable: false);
+
+    public VariableInfo Define(string name, Value value, bool isMutable = true)
+    {
+        if (_variables.ContainsKey(name))
+            throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
+
+        var variable = new VariableInfo(new VariableCell(value), isMutable);
+        _variables[name] = variable;
+        return variable;
+    }
+
+    public void DefineClrObject(string name, object data, bool isMutable = true)
+    {
+        if (_variables.ContainsKey(name))
+            throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
+
+        var value = new ClrObjectValue(data);
+        _variables[name] = new VariableInfo(new VariableCell(value), isMutable);
+    }
+
+    public bool TryGetValue(string name, [NotNullWhen(true)] out VariableInfo? info)
+    {
+        if (_variables.TryGetValue(name, out info))
+            return true;
+
+        if (Parent != null)
+            return Parent.TryGetValue(name, out info);
+
+        return false;
+    }
+
+    public void Set(string name, Value value)
+    {
+        if (_variables.TryGetValue(name, out var info))
+        {
+            if (!info.IsMutable)
+                throw new RuntimeException($"无法为不可变变量 '{name}' 赋值");
+            info.Cell.Value = value;
+            return;
+        }
+
+        if (Parent != null)
+        {
+            Parent.Set(name, value);
+            return;
+        }
+
+        throw new RuntimeException($"当前作用域未定义的变量 '{name}'");
+    }
+
+    public bool Exists(string name)
+    {
+        if (_variables.ContainsKey(name)) return true;
+        if (Parent != null) return Parent.Exists(name);
+        return false;
+    }
+
+    public bool IsDefinedLocally(string name)
+        => _variables.ContainsKey(name);
+}
+
+/// <summary>
+/// 变量容器（引用语义，支持闭包共享）
+/// </summary>
+public sealed class VariableCell(Value value)
+{
+    public Value Value = value;
+}
+
+/// <summary>
+/// 变量信息
+/// </summary>
+public sealed class VariableInfo
+{
+    /// <summary>存储变量值的容器</summary>
+    public VariableCell Cell { get; }
+
+    /// <summary>是否可变</summary>
+    public bool IsMutable { get; set; }
+
+    /// <summary>是否被闭包捕获</summary>
+    public bool IsCaptured { get; set; }
+
+    public VariableInfo(VariableCell cell, bool isMutable, bool isCaptured = false)
+    {
+        Cell = cell;
+        IsMutable = isMutable;
+        IsCaptured = isCaptured;
+    }
+}
+
+
+
+
+
+
+
+
+/*using ScriptLang.Parser;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -6,6 +164,42 @@ using System.Text;
 
 namespace ScriptLang.Runtime
 {
+
+
+    /// <summary>
+    /// 闭包上下文
+    /// </summary>
+    public interface IClosureContext
+    {
+        /// <summary>
+        /// 清理作用域（用于Lambda调用结束后清理捕获的变量）
+        /// </summary>
+        void Clear();
+
+        /// <summary>
+        /// 判断变量是否存在（在当前或父作用域中）
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        bool Exists(string name);
+
+        /// <summary>
+        /// 设置变量（仅对可变变量）
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        void Set(string name, Value value);
+
+        /// <summary>
+        /// 获取变量
+        /// </summary>
+        /// <param name="name">变量名称</param>
+        /// <param name="info">返回的变量</param>
+        /// <returns>是否成功返回了变量</returns>
+        bool TryGetValue(string name, [NotNullWhen(true)] out VariableInfo? info);
+    }
+
+
     /// <summary>
     /// 闭包变量分析器：分析Lambda中实际使用的外部变量
     /// </summary>
@@ -202,7 +396,6 @@ namespace ScriptLang.Runtime
         }
     }
 
-
     public class LightweightClosure : IClosureContext
     {
         private readonly Dictionary<string, VariableInfo> _captured;
@@ -270,8 +463,6 @@ namespace ScriptLang.Runtime
 
         public IEnumerable<string> GetCapturedNames() => _captured.Keys;
     }
-
-
 
     /// <summary>
     /// 作用域（支持嵌套和闭包）
@@ -413,7 +604,6 @@ namespace ScriptLang.Runtime
             return false;
         }
 
-
         /// <summary>
         /// 检查变量是否在当前作用域中定义
         /// </summary>
@@ -423,42 +613,6 @@ namespace ScriptLang.Runtime
         }
 
     }
-
-
-
-    /// <summary>
-    /// 闭包上下文
-    /// </summary>
-    public interface IClosureContext
-    {
-        /// <summary>
-        /// 清理作用域（用于Lambda调用结束后清理捕获的变量）
-        /// </summary>
-        void Clear();
-
-        /// <summary>
-        /// 判断变量是否存在（在当前或父作用域中）
-        /// </summary>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        bool Exists(string name);
-
-        /// <summary>
-        /// 设置变量（仅对可变变量）
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="value"></param>
-        void Set(string name, Value value);
-
-        /// <summary>
-        /// 获取变量
-        /// </summary>
-        /// <param name="name">变量名称</param>
-        /// <param name="info">返回的变量</param>
-        /// <returns>是否成功返回了变量</returns>
-        bool TryGetValue(string name, [NotNullWhen(true)] out VariableInfo? info);
-    }
-
 
     /// <summary>
     /// 变量容器
@@ -502,3 +656,4 @@ namespace ScriptLang.Runtime
     }
 
 }
+*/
