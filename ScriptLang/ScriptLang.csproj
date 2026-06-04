@@ -13,6 +13,7 @@
     <Compile Remove="Runtime\ByteCode\Compiler_backup_001.cs" />
     <Compile Remove="Runtime\ByteCode\ValueStack.cs" />
     <Compile Remove="Runtime\ByteCode\VariableBinding.cs" />
+    <Compile Remove="Runtime\EvalResult.cs" />
     <Compile Remove="Runtime\FreeVariableAnalyzer.cs" />
     <Compile Remove="Runtime\FunctionValueExtensions.cs" />
     <Compile Remove="Runtime\Interpreter.cs" />

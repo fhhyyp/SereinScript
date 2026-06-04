@@ -1,9 +1,8 @@
-﻿using ScriptLang.Runtime;
-using GeneratorToolkits.ScriptPrototypeToolkits;
+﻿using GeneratorToolkits.ScriptPrototypeToolkits;
+using ScriptLang.Runtime;
 
 namespace ScriptLang.Prototype
 {
-
 
     /// <summary>
     /// 字符串原型拓展方法

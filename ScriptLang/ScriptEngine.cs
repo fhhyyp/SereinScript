@@ -7,7 +7,7 @@ namespace ScriptLang
 {
     public sealed class ScriptEngine
     {
-        public bool IsPrintVMInfo { get; private set; } = true;
+        public bool IsPrintVMInfo { get; private set; } = false;
         public bool IsPrintInputSciptContent { get; private set; } = true;
 
         /// <summary>

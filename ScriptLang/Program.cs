@@ -36,8 +36,8 @@ class Program
         args = ["./Samples/3/3.5-矩阵运算.script"];
         args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\test\\test.script"];
         args = ["./Samples/高级/pinia/run-import.script"];
-        args = ["./Samples/高级/linq/run-linq.script"];
         args = ["./Samples/test/test_closure_memory.script"];
+        args = ["./Samples/高级/linq/run-linq.script"];
         if (args.Length == 0) 
         {
             Console.WriteLine("需要指定调用的 script 文件路径");

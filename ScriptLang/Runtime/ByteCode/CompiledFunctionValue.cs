@@ -1,2 +1,0 @@
-﻿namespace ScriptLang.Runtime.ByteCode;
-

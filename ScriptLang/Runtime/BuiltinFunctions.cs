@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using ScriptLang.Runtime;
 using System.Diagnostics;
-using System.Text;
 
-namespace ScriptLang.Runtime
+namespace ScriptLang
 {
     public static class BuiltinFunctions
     {

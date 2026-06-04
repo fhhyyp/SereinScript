@@ -1,4 +1,3 @@
-using ScriptLang.Parser;
 using ScriptLang.Runtime.ByteCode;
 using ScriptLang.Utils;
 using System.Diagnostics.CodeAnalysis;
