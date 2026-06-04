@@ -9,16 +9,17 @@ let createStore = (options) => {
         for key in keys(options.getters) {
             // 每个 getter 都是一个函数，闭包捕获 state
             let fn = options.getters[key]
-            getters[key] = () => fn(state)
+            let getter = () => fn(state)
+            getters[key] = getter
         }
     }
     if options.has("actions") then {
         for key in keys(options.actions) {
             let fn = options.actions[key]
-            actions[key] = (args) => fn(state, args)
+            let action = (args) => fn(state, args)
+            actions[key] = action
         }
     }
-
     // 返回 store 对象
     return {
         state,

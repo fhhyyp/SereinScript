@@ -1,40 +1,63 @@
-﻿using ScriptLang.Runtime;
+﻿using GeneratorToolkits.ScriptPrototypeToolkits;
+using ScriptLang.Runtime;
 
-namespace ScriptLang.Prototype;
-
-/// <summary>
-/// 字符串原型方法
-/// </summary>
-public static class StringPrototype
+namespace ScriptLang.Prototype
 {
-    public static Value? GetMethod(StringValue str, string methodName)
+
+
+    /// <summary>
+    /// 字符串原型拓展方法
+    /// </summary>
+    [PrototypeExtension]
+    public partial class StringPrototype
     {
-        return methodName switch
+        public partial bool IsTarget(Value value)
         {
-            "length" => NumberValue<int>.Create(str.Value.Length),
-            "toUpper" => new FunctionValue("toUpper", _ => new StringValue(str.Value.ToUpper())),
-            "toLower" => new FunctionValue("toLower", _ => new StringValue(str.Value.ToLower())),
-            "trim" => new FunctionValue("trim", _ => new StringValue(str.Value.Trim())),
-            "split" => new FunctionValue("split", args =>
-            {
-                if (args.Count != 1 || args[0] is not StringValue sep)
-                    throw new RuntimeException("split() 期望一个字符串分隔符");
-                var parts = str.Value.Split(sep.Value);
-                return new ArrayValue(parts.Select(p => (Value)new StringValue(p)).ToList());
-            }),
-            "substring" => new FunctionValue("substring", args =>
-            {
-                int start = args[0].As<int>();
-                int length = args.Count > 1 ? args[1].As<int>() : str.Value.Length - start;
-                return new StringValue(str.Value.Substring(start, length));
-            }),
-            "contains" => new FunctionValue("contains", args =>
-            {
-                if (args.Count != 1 || args[0] is not StringValue s)
-                    throw new RuntimeException("contains() 期望一个字符串");
-                return BoolValue.Create(str.Value.Contains(s.Value));
-            }),
-            _ => null
-        };
+            return value.IsString;
+        }
+        [PrototypeProperty(Name = "length")]
+        private NumberValue<int> Length(StringValue str)
+        {
+            return NumberValueFactory.Create(str.Value.Length);
+        }
+
+        [PrototypeFunction(Name = "toUpper")]
+        private StringValue ToUpper(StringValue str)
+        {
+            return new StringValue(str.Value.ToUpper());
+        }
+
+        [PrototypeFunction(Name = "toLower")]
+        private StringValue ToLower(StringValue str)
+        {
+            return new StringValue(str.Value.ToLower());
+        }
+
+        [PrototypeFunction(Name = "trim")]
+        private StringValue Trim(StringValue str)
+        {
+            return new StringValue(str.Value.Trim());
+        }
+
+        [PrototypeFunction(Name = "split")]
+        private ArrayValue Split(StringValue str, StringValue separator)
+        {
+            var parts = str.Value.Split(separator.Value);
+            return new ArrayValue(parts.Select(p => (Value)new StringValue(p)).ToList());
+        }
+
+        [PrototypeFunction(Name = "substring")]
+        private StringValue Substring(StringValue str, NumberValue<int> start, NumberValue<int>? length = null)
+        {
+            int len = length != null ? length.Value : str.Value.Length - start.Value;
+            return new StringValue(str.Value.Substring(start.Value, len));
+        }
+
+        [PrototypeFunction(Name = "contains")]
+        private BoolValue Contains(StringValue str, StringValue value)
+        {
+            return BoolValue.Create(str.Value.Contains(value.Value));
+        }
     }
+
 }

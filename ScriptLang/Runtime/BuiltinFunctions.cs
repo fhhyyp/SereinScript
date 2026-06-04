@@ -71,7 +71,7 @@ namespace ScriptLang.Runtime
                 int count = args[0].As<int>();
                 var elements = new List<Value>();
                 for (int i = 0; i < count; i++)
-                    elements.Add(NumberValue<int>.Create(i));
+                    elements.Add(NumberValueFactory.Create(i));
                 return new ArrayValue(elements);
             }
             else if (args.Count == 2)
@@ -80,7 +80,7 @@ namespace ScriptLang.Runtime
                 int end = args[1].As<int>();
                 var elements = new List<Value>();
                 for (int i = start; i < end; i++)
-                    elements.Add(NumberValue<int>.Create(i));
+                    elements.Add(NumberValueFactory.Create(i));
                 return new ArrayValue(elements);
             }
             throw new RuntimeException("range() 期望 1 或 2 个参数");
@@ -92,8 +92,8 @@ namespace ScriptLang.Runtime
                 throw new RuntimeException("len() 期望 1 个参数");
             var lenValue = args[0] switch
             {
-                StringValue s => NumberValue<int>.Create(s.Value.Length),
-                ArrayValue a => NumberValue<int>.Create(a.Length),
+                StringValue s => NumberValueFactory.Create(s.Value.Length),
+                ArrayValue a => NumberValueFactory.Create(a.Length),
                 _ => throw new RuntimeException("len() 期望字符串或数组")
             };
             return lenValue;
@@ -133,9 +133,9 @@ namespace ScriptLang.Runtime
             return args[0] switch
             {
                 NumberValue<int> number_int32 => number_int32,
-                NumberValue<double> number_double => NumberValue<int>.Create((int)number_double.Value),
-                StringValue s => NumberValue<int>.Create(int.TryParse(s.Value, out var value) ? value : 0),
-                BoolValue b => NumberValue<int>.Create(b.Value ? 1 : 0),
+                NumberValue<double> number_double => NumberValueFactory.Create((int)number_double.Value),
+                StringValue s => NumberValueFactory.Create(int.TryParse(s.Value, out var value) ? value : 0),
+                BoolValue b => NumberValueFactory.Create(b.Value ? 1 : 0),
                 _ => throw new RuntimeException("int() 无法转换该值")
             };
         });
@@ -147,10 +147,10 @@ namespace ScriptLang.Runtime
 
             return args[0] switch
             {
-                NumberValue<int> number_int32 => NumberValue<double>.Create(number_int32.Value),
+                NumberValue<int> number_int32 => NumberValueFactory.Create(number_int32.Value),
                 NumberValue<double> number_double => number_double,
-                StringValue s => NumberValue<double>.Create(double.Parse(s.Value)),
-                BoolValue b => NumberValue<double>.Create(b.Value ? 1 : 0),
+                StringValue s => NumberValueFactory.Create(double.Parse(s.Value)),
+                BoolValue b => NumberValueFactory.Create(b.Value ? 1 : 0),
                 _ => throw new RuntimeException("double() 无法转换该值")
             };
         });

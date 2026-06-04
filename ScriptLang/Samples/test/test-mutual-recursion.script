@@ -1,6 +1,6 @@
 // test-mutual-recursion.script
 print("=== 相互递归测试 ===")
-
+var isOdd = null
 let isEven = (n) => {
     if n == 0 then {
         true
@@ -9,7 +9,7 @@ let isEven = (n) => {
     }
 }
 
-let isOdd = (n) => {
+isOdd = (n) => {
     if n == 0 then {
         false
     } else {

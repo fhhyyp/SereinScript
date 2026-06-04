@@ -1,97 +1,79 @@
-﻿using ScriptLang.Runtime;
+﻿using GeneratorToolkits.ScriptPrototypeToolkits;
+using ScriptLang.Runtime;
 
-namespace ScriptLang.Prototype;
-
-public static class ObjectPrototype
+namespace ScriptLang.Prototype
 {
-    public static Value? GetMethod(ObjectValue obj, string methodName)
+    /// <summary>
+    /// 对象原型拓展方法
+    /// </summary>
+    [PrototypeExtension]
+    public partial class ObjectPrototype
     {
-        return methodName switch
+        public partial bool IsTarget(Value value)
         {
-            "keys" => new FunctionValue("keys", args =>
-            {
-                if (args.Count != 0)
-                    throw new RuntimeException("keys() 期望 0 个参数");
-                return new ArrayValue(
-                    obj.Properties.Keys
-                        .Select(k => (Value)new StringValue(k))
-                        .ToList()
-                );
-            }),
+            return value.IsObject;
+        }
 
-            "values" => new FunctionValue("values", args =>
-            {
-                if (args.Count != 0)
-                    throw new RuntimeException("values() 期望 0 个参数");
-                return new ArrayValue(
-                    obj.Properties.Values.ToList()
-                );
-            }),
+        [PrototypeProperty(Name = "count")]
+        private NumberValue<int> Count(ObjectValue obj)
+        {
+            return NumberValueFactory.Create(obj.Properties.Count);
+        }
 
-            "has" => new FunctionValue("has", args =>
-            {
-                if (args.Count != 1)
-                    throw new RuntimeException("has() 期望 1 个参数");
-                if (args[0] is not StringValue key)
-                    throw new RuntimeException("has() 期望字符串参数");
-                return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
-            }),
+        [PrototypeFunction(Name = "keys")]
+        private ArrayValue Keys(ObjectValue obj)
+        {
+            return new ArrayValue(
+                obj.Properties.Keys
+                    .Select(k => (Value)new StringValue(k))
+                    .ToList()
+            );
+        }
 
-            "get" => new FunctionValue("get", args =>
-            {
-                if (args.Count != 1)
-                    throw new RuntimeException("get() 期望 1 个参数");
-                if (args[0] is not StringValue key)
-                    throw new RuntimeException("get() 期望字符串参数");
-                return obj.Properties.TryGetValue(key.Value, out var value)
-                    ? value
-                    : Value.Null;
-            }),
+        [PrototypeFunction(Name = "values")]
+        private ArrayValue Values(ObjectValue obj)
+        {
+            return new ArrayValue(obj.Properties.Values.ToList());
+        }
 
-            "set" => new FunctionValue("set", args =>
-            {
-                if (args.Count != 2)
-                    throw new RuntimeException("set() 期望 2 个参数");
-                if (args[0] is not StringValue key)
-                    throw new RuntimeException("set() 第一个参数期望字符串");
-                obj.Set(key.Value, args[1]);
-                return Value.Null;
-            }),
+        [PrototypeFunction(Name = "has")]
+        private BoolValue Has(ObjectValue obj, StringValue key)
+        {
+            return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
+        }
 
-            "count" or "length" => new FunctionValue("count", args =>
-            {
-                if (args.Count != 0)
-                    throw new RuntimeException("count() 期望 0 个参数");
-                return NumberValue<int>.Create(obj.Properties.Count);
-            }),
+        [PrototypeFunction(Name = "get")]
+        private Value Get(ObjectValue obj, StringValue key)
+        {
+            return obj.Properties.TryGetValue(key.Value, out var value)
+                ? value
+                : Value.Null;
+        }
 
-            "containsKey" => new FunctionValue("containsKey", args =>
-            {
-                if (args.Count != 1)
-                    throw new RuntimeException("containsKey() 期望 1 个参数");
-                if (args[0] is not StringValue key)
-                    throw new RuntimeException("containsKey() 期望字符串参数");
-                return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
-            }),
+        [PrototypeFunction(Name = "set")]
+        private void Set(ObjectValue obj, StringValue key, Value value)
+        {
+            obj.Set(key.Value, value);
+        }
 
-            "remove" => new FunctionValue("remove", args =>
-            {
-                if (args.Count != 1)
-                    throw new RuntimeException("remove() 期望 1 个参数");
-                if (args[0] is not StringValue key)
-                    throw new RuntimeException("remove() 期望字符串参数");
-                return BoolValue.Create(obj.Properties.Remove(key.Value));
-            }),
+        [PrototypeFunction(Name = "containsKey")]
+        private BoolValue ContainsKey(ObjectValue obj, StringValue key)
+        {
+            return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
+        }
 
-            "clear" => new FunctionValue("clear", args =>
-            {
-                if (args.Count != 0)
-                    throw new RuntimeException("clear() 期望 0 个参数");
-                obj.Properties.Clear();
-                return Value.Null;
-            }),
+        [PrototypeFunction(Name = "remove")]
+        private BoolValue Remove(ObjectValue obj, StringValue key)
+        {
+            return BoolValue.Create(obj.Properties.Remove(key.Value));
+        }
 
-            _ => null
-        };
+        [PrototypeFunction(Name = "clear")]
+        private void Clear(ObjectValue obj)
+        {
+            obj.Properties.Clear();
+        }
     }
+
+
 }

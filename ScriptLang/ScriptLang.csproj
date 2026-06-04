@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+	  <!--OutputItemType="Analyzer" ReferenceOutputAssembly="false"-->
   </PropertyGroup>
 
   <ItemGroup>
@@ -76,7 +77,7 @@
     <None Update="Samples\高级\linq\json.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\高级\linq\linq2.script">
+    <None Update="Samples\高级\linq\linq - 复制.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Samples\高级\linq\linq.script">
@@ -101,6 +102,10 @@
 
   <ItemGroup>
     <Folder Include="Samples\test\" />
+  </ItemGroup>
+	<!---->
+	<ItemGroup>
+    <ProjectReference Include="..\..\..\..\dotnet\GeneratorToolkits\GeneratorToolkits.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true" />
   </ItemGroup>
 
 </Project>

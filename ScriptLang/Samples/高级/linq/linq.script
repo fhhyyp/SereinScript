@@ -1,10 +1,10 @@
+// linq.script
 let array = (arr) => {
 	let value = arr
 	let arrayObject = {
-		value = value.toList(),
+		// value = value,
 		length = value.length,
 		get = (index) => value[index],
-		
 		toList = () => value,
 		select = (fn) => {
 			var result = []
@@ -24,86 +24,11 @@ let array = (arr) => {
 			return array(result)
 		},
 		
-		_orderby = (ascending) => {
-			// 复制原数组到新列表
-			var result = value.toList()
-			
-			var len = result.length
-			
-			// 冒泡排序
-			for i in range(0, len - 1) {
-				for j in range(0, len - i - 1){
-					// 获取第 j 个和第 j+1 个元素
-					var index = 0
-					var a = null
-					var b = null
-					var valA = null
-					var valB = null
-					
-					// 获取第 j 个元素
-					index = 0
-					for item in result {
-						when index == j {
-							true => { a = item },
-							false => {}
-						}
-						index = index + 1
-					}
-					
-					// 获取第 j+1 个元素
-					index = 0
-					for item in result {
-						when index == j + 1 {
-							true => { b = item },
-							false => {}
-						}
-						index = index + 1
-					}
-					
-					// 获取用于比较的值
-					valA = a
-					valB = b
-					
-					// 判断是否需要交换
-					var needSwap = false
-					when ascending {
-						true => { needSwap = valA > valB },
-						false => { needSwap = valA < valB }
-					}
-					
-					// 交换元素
-					when needSwap {
-						true => {
-							// 重新构建 result 列表实现交换
-							var newResult = []
-							index = 0
-							for item in result {
-								when index == j {
-									true => { newResult = newResult + b },
-									false => {
-										when index == j + 1 {
-											true => { newResult = newResult + a },
-											false => { newResult = newResult + item }
-										}
-									}
-								}
-								index = index + 1
-							}
-							result = newResult
-						},
-						false => {}
-					}
-				}
-			}
-			
-			// 返回新的 array 对象
-			return array(result)
-		},
 		orderBy = () => {
-			return _orderby(true)
+			return value.orderBy()
 		},
 		orderByDescending = () => {
-			return _orderby(false)
+			return value.orderByDesc()
 		},
 	}
 	// print("Creating array object : " + arrayObject)

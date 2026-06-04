@@ -1,4 +1,13 @@
 ﻿// ==================== For 循环 ====================
+
+var sum = 0
+for a in range(1, 1000000)
+{
+    sum = sum + a
+}
+
+
+
 print("Loop through array:")
 for i in [10, 20, 30] {
     print("  item:", i)

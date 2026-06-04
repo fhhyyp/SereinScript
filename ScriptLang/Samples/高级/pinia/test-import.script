@@ -1,27 +1,25 @@
 // test-import.script
 import { createStore } from "pinia.script"
-
 let store = createStore({
     state = () => {
-        return { x = 0, y = 0 }
+        let obj = { x = 0, y = 0 }
+        return obj
     },
     getters = {
         getData = (state) => {
             if(state == null) then {
-                return state == null
+                return "store is null"
             }else {
-                return  "current value : " + state.x + "," + state.y
+                return "current value : " + state.x + "," + state.y
             }
-            
-
         }
     },
     actions = {
         increment = (state, n) => {
+            print(state, n)
             state.x = state.x + n
             state.y = state.y - n
         }
     }
 })
-
 return { store  }

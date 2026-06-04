@@ -1,4 +1,3 @@
-using ScriptLang.Parser;
 using ScriptLang.Utils;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -114,12 +113,17 @@ public static class NumberValueCache
         {
             SmallIntegerCache[i + 128] = new NumberValue<int>(i);
         }
-        Int32_M1 = NumberValue<int>.Create(-1);
-        Int32_0 = NumberValue<int>.Create(0);
-        Int32_1 = NumberValue<int>.Create(1);
-
+        Int32_M1 = NumberValueFactory.Create(-1);
+        Int32_0 = NumberValueFactory.Create(0);
+        Int32_1 = NumberValueFactory.Create(1);
     }
-
+}
+public static class NumberValueFactory
+{
+    public static NumberValue<T> Create<T>(T value) where T : struct, IEquatable<T>, IFormattable, IConvertible
+    {
+        return NumberValue<T>.Create(value);
+    }
 }
 
 /// <summary>
@@ -269,12 +273,12 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
 {
     public int Length => Elements.Count;
 
-    public void Add(Value v, ScriptEngine engine)
+    public void Add(Value v)
     {
         Elements.Add(v);
     }
 
-    public Value Pop(ScriptEngine engine)
+    public Value Pop()
     {
         if (Elements.Count == 0) return Value.Null;
         var last = Elements[^1];
@@ -282,22 +286,22 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
         return last;
     }
 
-    public void RemoveAt(int index, ScriptEngine engine)
+    public void RemoveAt(int index)
     {
         Elements.RemoveAt(index);
     }
 
-    public bool Remove(Value v, ScriptEngine engine)
+    public bool Remove(Value v)
     {
         return Elements.Remove(v);
     }
 
-    public void Set(int index, Value v, ScriptEngine engine)
+    public void Set(int index, Value v)
     {
         Elements[index] = v;
     }
 
-    public void Reverse(ScriptEngine engine)
+    public void Reverse()
     {
         Elements.Reverse();
     }
@@ -313,143 +317,6 @@ public record ArrayValue(List<Value> Elements) : Value //, IObservableValue
         if (this is T result) return result;
         if (typeof(T) == typeof(ArrayValue)) return (T)(object)this;
         throw new InvalidCastException($"Cannot cast ArrayValue to {typeof(T)}");
-    }
-
-}
-
-/// <summary>
-/// 函数值（Lambda + 闭包）
-/// </summary>
-public record FunctionValue : Value
-{
-    /// <summary>
-    /// 函数名称
-    /// </summary>
-    public string Name { get; private set; }
-
-    /// <summary>
-    /// 参数名列表
-    /// </summary>
-    public List<string> Parameters { get; }
-
-    /// <summary>
-    /// 函数体（AST 表达式）
-    /// </summary>
-    public Parser.Expr Body { get; }
-
-    /// <summary>
-    /// 闭包作用域（捕获定义时的环境）
-    /// </summary>
-    public IClosureContext Closure { get; }
-
-
-    /// <summary>
-    /// 是否是原生函数
-    /// </summary>
-    public bool IsNative { get; }
-
-    /// <summary>
-    /// 是否为原生异步函数
-    /// </summary>
-    public bool IsNativeTask { get; }
-
-    /// <summary>
-    /// 原生函数委托
-    /// </summary>
-    public Func<List<Value>, Value>? NativeFunc { get; }
-
-    /// <summary>
-    /// 原生异步函数委托
-    /// </summary>
-    public Func<List<Value>, Task<Value>>? NativeTask { get; }
-
-    /// <summary>
-    /// 参数数量
-    /// </summary>
-    public int ParameterCount => Parameters.Count;
-
-    /// <summary>
-    /// 创建 DSL Lambda 函数（优化版本）
-    /// </summary>
-    public FunctionValue(LambdaExpr lambda, Scope closure)
-    {
-        Name = $"<lambda>({string.Join(",", lambda.Params)})=>{{}}";
-        var parameters = lambda.Params;
-        var body = lambda.Body;
-        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
-        Body = body ?? throw new ArgumentNullException(nameof(body));
-
-        // 分析捕获闭包变量
-        var freeVariables = ClosureAnalyzer.AnalyzeFreeVariables(lambda, closure);
-        Closure = LightweightClosure.CreateFromScope(closure, freeVariables);
-        //Console.WriteLine("捕获:" + string.Join(",", freeVariables));
-        IsNative = false;
-    }
-
-    /// <summary>
-    /// 创建原生函数（C# 代码实现）
-    /// </summary>
-    public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
-    {
-        Name = name;
-        Parameters = new List<string>();
-        Body = null!;
-        Closure = null!;
-        NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
-        IsNative = true;
-    }
-
-    /// <summary>
-    /// 创建原生函数（C# 代码实现）
-    /// </summary>
-    public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
-    {
-        Name = name;
-        Parameters = new List<string>();
-        Body = null!;
-        Closure = null!;
-        NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
-        IsNativeTask = true;
-    }
-
-    public override T As<T>()
-    {
-        if (this is T result) return result;
-        throw new InvalidCastException($"Cannot cast FunctionValue to {typeof(T)}");
-    }
-
-    /// <summary>
-    /// 调用函数
-    /// </summary>
-    public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
-    {
-        if (IsNative)
-        {
-            return NativeFunc!(args);
-        }
-        else if (IsNativeTask)
-        {
-            return await NativeTask!(args);
-        }
-
-        
-        if (args.Count != ParameterCount)
-        {
-            throw new RuntimeException($"函数需要 {ParameterCount} 个参数, 但只传入了 {args.Count} 个参数");
-        }
-        // 创建作用域
-        Scope callScope = new Scope(Closure); //  Closure.CreateChildScope();
-
-        // 绑定参数（参数会遮蔽同名的闭包变量）
-        for (int i = 0; i < Parameters.Count; i++)
-        {
-            callScope.Define(Parameters[i], args[i]);
-        }
-
-        // 执行函数体
-        var result = await engine.EvaluateAsync(Body, callScope);
-
-        return result;
     }
 
 }

@@ -267,6 +267,8 @@ namespace ScriptLang.Runtime
             }
             info?.Cell.Value = value; 
         }
+
+        public IEnumerable<string> GetCapturedNames() => _captured.Keys;
     }
 
 

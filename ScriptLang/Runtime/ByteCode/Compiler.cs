@@ -584,7 +584,12 @@ public sealed class Compiler
         Console.WriteLine($"[Lambda] 自由变量: [{string.Join(", ", freeVariables)}]");
 #endif
         // 为每个捕获的变量发射 Capture 指令
-        foreach (var varName in freeVariables)
+        var fvs = freeVariables.Distinct().ToList();
+        if(fvs.Count != freeVariables.Count)
+        {
+
+        }
+        foreach (var varName in fvs)
         {
             var binding = ResolveVariable(varName);
             if (binding != null)

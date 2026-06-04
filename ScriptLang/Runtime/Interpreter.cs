@@ -25,8 +25,6 @@ public class Interpreter(ScriptEngine engine)
     private readonly ScriptEngine _engine = engine;
 
     private readonly ImportResolver _importResolver = engine.ImportResolver;
-    //private readonly SourceManager _sourceManager;
-    //private readonly Scope _globalScope;
 
     public CancellationTokenSource CancellationTokenSource { get; } = new CancellationTokenSource();
     public CancellationToken Token => CancellationTokenSource.Token;
@@ -172,15 +170,15 @@ public class Interpreter(ScriptEngine engine)
         return literal.Value switch
         {
             null => Value.Null,
-            byte @byte => NumberValue<byte>.Create(@byte),
-            short @short => NumberValue<short>.Create(@short),
-            int @int => NumberValue<int>.Create(@int),
-            long @long => NumberValue<long>.Create(@long),
-            //uint @uint => NumberValue<uint>.Create(@uint),
-            //ulong @ulong => NumberValue<ulong>.Create(@ulong),
-            float @float => NumberValue<float>.Create(@float),
-            double @double => NumberValue<double>.Create(@double),
-            decimal @decimal => NumberValue<decimal>.Create(@decimal),
+            byte @byte => NumberValueFactory.Create(@byte),
+            short @short => NumberValueFactory.Create(@short),
+            int @int => NumberValueFactory.Create(@int),
+            long @long => NumberValueFactory.Create(@long),
+            //uint @uint => NumberValueFactory.Create(@uint),
+            //ulong @ulong => NumberValueFactory.Create(@ulong),
+            float @float => NumberValueFactory.Create(@float),
+            double @double => NumberValueFactory.Create(@double),
+            decimal @decimal => NumberValueFactory.Create(@decimal),
             string s => new StringValue(s),
             bool b => BoolValue.Create(b),
             _ => throw Error(literal, $"不支持的字面量类型: {literal.Value?.GetType()}")
@@ -243,25 +241,25 @@ public class Interpreter(ScriptEngine engine)
             {
                 if(left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(left.As<decimal>() + right.As<decimal>());
+                    return NumberValueFactory.Create(left.As<decimal>() + right.As<decimal>());
                 }
                 else if(left.IsNumber_Double || right.IsNumber_Double)
                 {
-                    return NumberValue<double>.Create(left.As<double>() + right.As<double>());
+                    return NumberValueFactory.Create(left.As<double>() + right.As<double>());
                 }
                 else if (left.IsNumber_Float || right.IsNumber_Float)
                 {
-                    return NumberValue<float>.Create(left.As<float>() + right.As<float>());
+                    return NumberValueFactory.Create(left.As<float>() + right.As<float>());
                 }
                 else if (left.IsNumber_Long || right.IsNumber_Long)
                 {
-                    return NumberValue<long>.Create(left.As<long>() + right.As<long>());
+                    return NumberValueFactory.Create(left.As<long>() + right.As<long>());
                 }
                 else if (left.IsNumber_Int || right.IsNumber_Int)
                 {
-                    return NumberValue<int>.Create(left.As<int>() + right.As<int>());
+                    return NumberValueFactory.Create(left.As<int>() + right.As<int>());
                 }
-                return NumberValue<double>.Create(left.As<double>() + right.As<double>());
+                return NumberValueFactory.Create(left.As<double>() + right.As<double>());
             }
 
 
@@ -293,21 +291,21 @@ public class Interpreter(ScriptEngine engine)
             {
                 if (left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(left.As<decimal>() - right.As<decimal>());
+                    return NumberValueFactory.Create(left.As<decimal>() - right.As<decimal>());
                 }
                 else if (left.IsNumber_Float || right.IsNumber_Float)
                 {
-                    return NumberValue<float>.Create(left.As<float>() - right.As<float>());
+                    return NumberValueFactory.Create(left.As<float>() - right.As<float>());
                 }
                 else if (left.IsNumber_Long || right.IsNumber_Long)
                 {
-                    return NumberValue<long>.Create(left.As<long>() - right.As<long>());
+                    return NumberValueFactory.Create(left.As<long>() - right.As<long>());
                 }
                 else if (left.IsNumber_Int || right.IsNumber_Int)
                 {
-                    return NumberValue<int>.Create(left.As<int>() - right.As<int>());
+                    return NumberValueFactory.Create(left.As<int>() - right.As<int>());
                 }
-                return NumberValue<double>.Create(left.As<double>() - right.As<double>());
+                return NumberValueFactory.Create(left.As<double>() - right.As<double>());
             }
 
             if (left.IsArray)
@@ -334,25 +332,25 @@ public class Interpreter(ScriptEngine engine)
             {
                 if (left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(left.As<decimal>() * right.As<decimal>());
+                    return NumberValueFactory.Create(left.As<decimal>() * right.As<decimal>());
                 }
                 else if (left.IsNumber_Double || right.IsNumber_Double)
                 {
-                    return NumberValue<double>.Create(left.As<double>() * right.As<double>());
+                    return NumberValueFactory.Create(left.As<double>() * right.As<double>());
                 }
                 else if (left.IsNumber_Float || right.IsNumber_Float)
                 {
-                    return NumberValue<float>.Create(left.As<float>() * right.As<float>());
+                    return NumberValueFactory.Create(left.As<float>() * right.As<float>());
                 }
                 else if (left.IsNumber_Long || right.IsNumber_Long)
                 {
-                    return NumberValue<long>.Create(left.As<long>() * right.As<long>());
+                    return NumberValueFactory.Create(left.As<long>() * right.As<long>());
                 }
                 else if (left.IsNumber_Int || right.IsNumber_Int)
                 {
-                    return NumberValue<int>.Create(left.As<int>() * right.As<int>());
+                    return NumberValueFactory.Create(left.As<int>() * right.As<int>());
                 }
-                return NumberValue<double>.Create(left.As<double>() * right.As<double>());
+                return NumberValueFactory.Create(left.As<double>() * right.As<double>());
             }
 
             if (left.IsString)
@@ -369,9 +367,9 @@ public class Interpreter(ScriptEngine engine)
             {
                 if (left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(left.As<decimal>() / right.As<decimal>());
+                    return NumberValueFactory.Create(left.As<decimal>() / right.As<decimal>());
                 }
-                return NumberValue<double>.Create(left.As<double>() / right.As<double>());
+                return NumberValueFactory.Create(left.As<double>() / right.As<double>());
             }
         }
 
@@ -381,21 +379,21 @@ public class Interpreter(ScriptEngine engine)
             {
                 if (left.IsNumber_Decimal || right.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(left.As<decimal>() % right.As<decimal>());
+                    return NumberValueFactory.Create(left.As<decimal>() % right.As<decimal>());
                 }
                 else if (left.IsNumber_Float || right.IsNumber_Float)
                 {
-                    return NumberValue<float>.Create(left.As<float>() % right.As<float>());
+                    return NumberValueFactory.Create(left.As<float>() % right.As<float>());
                 }
                 else if (left.IsNumber_Long || right.IsNumber_Long)
                 {
-                    return NumberValue<long>.Create(left.As<long>() % right.As<long>());
+                    return NumberValueFactory.Create(left.As<long>() % right.As<long>());
                 }
                 else if (left.IsNumber_Int || right.IsNumber_Int)
                 {
-                    return NumberValue<int>.Create(left.As<int>() % right.As<int>());
+                    return NumberValueFactory.Create(left.As<int>() % right.As<int>());
                 }
-                return NumberValue<double>.Create(left.As<double>() % right.As<double>());
+                return NumberValueFactory.Create(left.As<double>() % right.As<double>());
             }
         }
 
@@ -541,25 +539,25 @@ public class Interpreter(ScriptEngine engine)
             {
                 if (operand.IsNumber_Decimal)
                 {
-                    return NumberValue<decimal>.Create(-operand.As<decimal>());
+                    return NumberValueFactory.Create(-operand.As<decimal>());
                 }
                 else if (operand.IsNumber_Double)
                 {
-                    return NumberValue<double>.Create(-operand.As<double>());
+                    return NumberValueFactory.Create(-operand.As<double>());
                 }
                 else if (operand.IsNumber_Float)
                 {
-                    return NumberValue<float>.Create(-operand.As<float>());
+                    return NumberValueFactory.Create(-operand.As<float>());
                 }
                 else if (operand.IsNumber_Long)
                 {
-                    return NumberValue<long>.Create(-operand.As<long>());
+                    return NumberValueFactory.Create(-operand.As<long>());
                 }
                 else if (operand.IsNumber_Int)
                 {
-                    return NumberValue<int>.Create(-operand.As<int>());
+                    return NumberValueFactory.Create(-operand.As<int>());
                 }
-                return NumberValue<double>.Create(-operand.As<double>());
+                return NumberValueFactory.Create(-operand.As<double>());
             }
         }
 
@@ -831,23 +829,15 @@ public class Interpreter(ScriptEngine engine)
             {
                 return memberValue;
             }
-            var method = ObjectPrototype.GetMethod(objectValue, member.Property);
-            if (method != null) return method;
+            /*var method = ObjectPrototype.GetMethod(objectValue, member.Property);
+            if (method != null) return method;*/
         }
-        // 解释器的 EvaluateMemberAccessAsync 中
-        if (target is ArrayValue arr)
-        {
-            var method = ArrayPrototype.GetMethod(arr, member.Property, _engine);
-            if (method != null) return method;
-        }
-        if (target is StringValue str)
-        {
-            var method = StringPrototype.GetMethod(str, member.Property);
-            if (method != null) return method;
-        }
-        
 
-
+        if (_engine.PrototypeManager.TryGetValue(target, member.Property, out var result))
+        {
+            return result;
+        }
+       
         // 处理 ClrObjectValue（CLR 对象）
         if (target is ClrObjectValue clrObj)
         {
@@ -911,7 +901,7 @@ public class Interpreter(ScriptEngine engine)
             if (i < 0 || i >= arr.Elements.Count)
                 throw Error(indexAssign, $"数组索引越界: {i}");
             //arr.Elements[i] = value;
-            arr.Set(i, value, _engine);
+            arr.Set(i, value);
             return value;
         }
 
@@ -1071,11 +1061,11 @@ public class Interpreter(ScriptEngine engine)
 
         return clrValue switch
         {
-            int v => NumberValue<int>.Create(v),
-            long v => NumberValue<long>.Create(v),
-            float v => NumberValue<float>.Create(v),
-            double v => NumberValue<double>.Create(v),
-            decimal v => NumberValue<decimal>.Create(v),
+            int v => NumberValueFactory.Create(v),
+            long v => NumberValueFactory.Create(v),
+            float v => NumberValueFactory.Create(v),
+            double v => NumberValueFactory.Create(v),
+            decimal v => NumberValueFactory.Create(v),
             string v => new StringValue(v),
             bool v => BoolValue.Create(v),
             null => Value.Null,

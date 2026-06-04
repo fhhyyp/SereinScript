@@ -17,9 +17,16 @@ namespace ScriptLang.Runtime.ByteCode;
 /// </summary>
 public class VM
 {
+    /// <summary>运行环境</summary>
     private readonly ScriptEngine _engine;
+
+    /// <summary>栈上变量</summary>
     private readonly Stack<Value> _stack = new();
+
+    /// <summary> 栈帧 </summary>
     private readonly Stack<CallFrame> _frames = new();
+
+    /// <summary> 迭代器栈 </summary>
     private readonly Stack<Value> _iteratorStack = new();
 
     // 全局作用域（共享解释器的全局作用域）
@@ -54,7 +61,15 @@ public class VM
         {
             int i = item.Index;
             object? constant = item.Value;
-            Console.WriteLine($"  [{i}] = {constant}");
+            if(constant is IList list)
+            {
+
+                Console.WriteLine($"  [{i}] = [{string.Join(",", list)}]");
+            }
+            else
+            {
+                Console.WriteLine($"  [{i}] = {constant}");
+            }
         }
 
         Console.WriteLine("=== 指令 ===");
@@ -200,11 +215,29 @@ public class VM
 
             // ===== 变量操作 =====
             case OpCode.LoadVar:
-                LoadVar((string)inst.Operand!);
+                if (inst.Operand is string varName)
+                {
+                    LoadVar(varName);
+#if DEBUG
+                    var fnValue = Peek();
+                    Console.WriteLine($"[VM] fn 值详情: 类型={fnValue.GetType().Name}, HashCode={fnValue.GetHashCode()}");
+#endif
+                }
+                else
+                {
+                    var errorValue = inst.Operand?.ToString();
+                }
                 return true;
 
             case OpCode.StoreVar:
-                StoreVar((string)inst.Operand!);
+                if (inst.Operand is string varName2)
+                {
+                    StoreVar(varName2);
+                }
+                else
+                {
+                    var errorValue = inst.Operand?.ToString();
+                }
                 return true;
 
             case OpCode.Pop:
@@ -457,6 +490,34 @@ public class VM
 
     private void LoadVar(string name)
     {
+#if DEBUG
+        Console.WriteLine($"[VM] LoadVar: '{name}'");
+        Console.WriteLine($"  Locals: {string.Join(", ", _currentFrame.Locals.Keys)}");
+        Console.WriteLine($"  Captured: {string.Join(", ", _currentFrame.CapturedVariables.Keys)}");
+        if (_currentFrame.Closure != null)
+        {
+            Console.WriteLine($"  Closure type: {_currentFrame.Closure.GetType().Name}");
+            if (_currentFrame.Closure is LightweightClosure lw)
+            {
+                Console.WriteLine($"  LW captured: {string.Join(", ", lw.GetCapturedNames())}");
+            }
+        }
+
+        if (_currentFrame.Closure != null)
+        {
+            Console.WriteLine($"  Closure: {_currentFrame.Closure.GetType().Name}");
+            if (_currentFrame.Closure is LightweightClosure lw)
+            {
+                var keys = string.Join(", ", lw.GetCapturedNames());
+                Console.WriteLine($"  LW keys: [{keys}]");
+                foreach (var k in lw.GetCapturedNames())
+                {
+                    lw.TryGetValue(k, out var vi);
+                    Console.WriteLine($"    {k} = {vi?.Cell.Value}");
+                }
+            }
+        }
+#endif
         // 1. 局部变量
         if (_currentFrame.Locals.TryGetValue(name, out var local))
         {
@@ -528,10 +589,10 @@ public class VM
     {
         var value = Pop();
 
-        if (_currentFrame.CapturedVariables.TryGetValue(name, out var capturedInfo))
+        /*if (_currentFrame.CapturedVariables.TryGetValue(name, out var capturedInfo))
         {
             capturedInfo.Cell.Value = value;
-        }
+        }*/
 
         if (_currentFrame.Locals.ContainsKey(name))
         {
@@ -635,8 +696,55 @@ public class VM
     }
 
     // ==================== 闭包操作 ====================
-
     private void Capture(string varName)
+    {
+#if DEBUG
+        Console.WriteLine($"[VM] 捕获变量: '{varName}'");
+#endif
+
+        // 1. 检查 Closure
+        if (_currentFrame.Closure.TryGetValue(varName, out var closureInfo))
+        {
+            closureInfo.IsCaptured = true;
+            _currentFrame.CapturedVariables[varName] = closureInfo;
+#if DEBUG
+            Console.WriteLine($"[VM] Capture: 从 Closure 捕获 '{varName}'");
+#endif
+            return;
+        }
+
+        // 2. 检查 Locals
+        if (_currentFrame.Locals.TryGetValue(varName, out var localValue))
+        {
+            var cell = new VariableCell(localValue);
+            var info = new VariableInfo(cell, true) { IsCaptured = true };
+            _currentFrame.CapturedVariables[varName] = info;
+#if DEBUG
+            Console.WriteLine($"[VM] Capture: 从 Locals 捕获 '{varName}' = {localValue}");
+#endif
+            return;
+        }
+
+        // 3. 检查全局作用域
+        if (_globalScope.TryGetValue(varName, out var globalInfo))
+        {
+            _currentFrame.CapturedVariables[varName] = globalInfo;
+#if DEBUG
+            Console.WriteLine($"[VM] Capture: 从 Global 捕获 '{varName}'");
+#endif
+            return;
+        }
+
+        // 4. 创建占位符
+        var placeholderCell = new VariableCell(Value.Null);
+        var placeholderInfo = new VariableInfo(placeholderCell, true) { IsCaptured = true };
+        _currentFrame.CapturedVariables[varName] = placeholderInfo;
+#if DEBUG
+        Console.WriteLine($"[VM] Capture: '{varName}' 创建占位符");
+#endif
+    }
+
+    private void Capture2(string varName)
     {
 #if DEBUG
         Console.WriteLine($"[VM] 捕获变量: '{varName}'");
@@ -750,71 +858,74 @@ public class VM
         // Import 语句返回 null
         Push(Value.Null);
     }
-
     private void CreateClosure(object operand)
     {
         var (chunkIndex, parameters, freeVariables) =
             ((int, List<string>, List<string>))operand;
+        freeVariables = freeVariables.Distinct().ToList();
 
         var closureChunk = _currentFrame.Chunk.GetClosure(chunkIndex);
-        // var closureChunk = (ByteCodeChunk)_currentFrame.Chunk.Constants[chunkIndex];
+
         var captured = new Dictionary<string, VariableInfo>();
 
         foreach (var varName in freeVariables)
         {
-            // 优先从 CapturedVariables 中获取（Capture 指令已经处理过）
+            VariableInfo? info = null;
+
+            // 1. 优先从 CapturedVariables 中获取（Capture 指令已经处理过）
             if (_currentFrame.CapturedVariables.TryGetValue(varName, out var capturedVar))
             {
-                captured[varName] = capturedVar;
+                info = capturedVar;
 #if DEBUG
-                Console.WriteLine($"[VM] CreateClosure: 使用已捕获变量 '{varName}'");
+                Console.WriteLine($"[VM] CreateClosure: 从 Captured 捕获 '{varName}'");
 #endif
-                continue;
             }
-
-            // 检查闭包
-            if (_currentFrame.Closure.TryGetValue(varName, out var closureInfo))
+            // 2. 从 Closure 获取
+            else if (_currentFrame.Closure.TryGetValue(varName, out var closureInfo))
             {
-                captured[varName] = closureInfo;
+                info = closureInfo;
 #if DEBUG
                 Console.WriteLine($"[VM] CreateClosure: 从 Closure 捕获 '{varName}'");
 #endif
-                continue;
             }
-
-            // 检查局部变量
-            if (_currentFrame.Locals.TryGetValue(varName, out var localValue))
+            // 3. 从 Locals 获取
+            else if (_currentFrame.Locals.TryGetValue(varName, out var localValue))
             {
                 var cell = new VariableCell(localValue);
-                var info = new VariableInfo(cell, true) { IsCaptured = true };
-                captured[varName] = info;
-                _currentFrame.CapturedVariables[varName] = info;
+                info = new VariableInfo(cell, true) { IsCaptured = true };
 #if DEBUG
                 Console.WriteLine($"[VM] CreateClosure: 从 Locals 捕获 '{varName}' = {localValue}");
 #endif
-                continue;
             }
-
-            // ✅ 检查全局作用域
-            if (_globalScope.TryGetValue(varName, out var globalInfo))
+            // 4. 从全局作用域获取
+            else if (_globalScope.TryGetValue(varName, out var globalInfo))
             {
-                captured[varName] = globalInfo;
+                info = globalInfo;
 #if DEBUG
                 Console.WriteLine($"[VM] CreateClosure: 从 Global 捕获 '{varName}'");
 #endif
+            }
+            else
+            {
+                Console.WriteLine($"[VM] CreateClosure: 警告 - 无法找到变量 '{varName}'");
                 continue;
             }
-#if DEBUG
-            Console.WriteLine($"[VM] 警告: CreateClosure 无法找到变量 '{varName}'");
-#endif
+
+            // 关键修复：统一在这里添加到 captured
+            captured[varName] = info;
         }
 
         var closure = new LightweightClosure(captured);
-        var func = new CompiledFunctionValue(
-            parameters,
-            closureChunk,
-            closure
-        );
+        var func = new CompiledFunctionValue(parameters, closureChunk, closure);
+
+#if DEBUG
+        Console.WriteLine($"[VM] LightweightClosure 创建完毕:");
+        Console.WriteLine($"  _captured keys: {string.Join(", ", closure.GetCapturedNames())}");
+        foreach (var kv in captured)
+        {
+            Console.WriteLine($"[VM] 闭包捕获: {kv.Key} = {kv.Value.Cell.Value} (类型: {kv.Value.Cell.Value?.GetType().Name})");
+        }
+#endif
 
         Push(func);
     }
@@ -823,16 +934,83 @@ public class VM
     {
         var (chunkIndex, parameters, freeVariables) =
             ((int, List<string>, List<string>))operand;
-
-        var closureChunk = (ByteCodeChunk)_currentFrame.Chunk.GetConstant(chunkIndex);
+        freeVariables = freeVariables.Distinct().ToList(); // 变量去重
+        var closureChunk = _currentFrame.Chunk.GetClosure(chunkIndex);
+#if DEBUG
+        Console.WriteLine($"[VM] CreateClosure: chunkIndex={chunkIndex}, 常量表大小={_currentFrame.Chunk.ConstantCount}");
+        for (int i = 0; i < _currentFrame.Chunk.ConstantCount; i++)
+        {
+            var c = _currentFrame.Chunk.GetConstant(i);
+            Console.WriteLine($"  常量[{i}] = {c?.GetType().Name}: {c}");
+        }
+       
+        Console.WriteLine($"[VM] CreateClosure: chunk 指令数={closureChunk.Code.Count}");
+#endif
+       
+        // var closureChunk = (ByteCodeChunk)_currentFrame.Chunk.Constants[chunkIndex];
         var captured = new Dictionary<string, VariableInfo>();
-
+        Console.WriteLine($"        -------");
+        // 打印闭包 chunk 的前几条指令
+        for (int i = 0; i < Math.Min(3, closureChunk.Code.Count); i++)
+        {
+            Console.WriteLine($"        chunk[{i}]: {closureChunk.Code[i].OpCode} {closureChunk.Code[i].Operand}");
+        }
+        Console.WriteLine($"        .....");
+        Console.WriteLine($"        -------");
         foreach (var varName in freeVariables)
         {
-            if (_currentFrame.Closure.TryGetValue(varName, out var info))
+            // 为每个闭包创建独立的 VariableCell 副本
+            //VariableInfo? info = null;
+            // 优先从 CapturedVariables 中获取（Capture 指令已经处理过）
+            if (_currentFrame.CapturedVariables.TryGetValue(varName, out var capturedVar))
             {
-                captured[varName] = info;
+                // 创建新 Cell，拷贝当前值（断开共享引用）
+                //var cell = new VariableCell(capturedVar.Cell.Value);
+                //info = new VariableInfo(cell, true) { IsCaptured = true };
+                captured[varName] = capturedVar;
+#if DEBUG
+                Console.WriteLine($"[VM] CreateClosure: 使用已捕获变量 '{varName}'");
+#endif
+                continue;
             }
+
+            // 检查闭包
+            else if (_currentFrame.Closure.TryGetValue(varName, out var closureInfo))
+            {
+                //var cell = new VariableCell(closureInfo.Cell.Value);
+                //info = new VariableInfo(cell, true) { IsCaptured = true };
+                captured[varName] = closureInfo;
+#if DEBUG
+                Console.WriteLine($"[VM] CreateClosure: 从 Closure 捕获 '{varName}'");
+#endif
+            }
+
+            // 检查局部变量
+            else if (_currentFrame.Locals.TryGetValue(varName, out var localValue))
+            {
+                var cell = new VariableCell(localValue);
+                var info = new VariableInfo(cell, true) { IsCaptured = true };
+                _currentFrame.CapturedVariables[varName] = info;
+#if DEBUG
+                Console.WriteLine($"[VM] CreateClosure: 从 Locals 捕获 '{varName}' = {localValue}");
+#endif
+            }
+
+            // 检查全局作用域
+            else if (_globalScope.TryGetValue(varName, out var globalInfo))
+            {
+                captured[varName] = globalInfo;
+#if DEBUG
+                Console.WriteLine($"[VM] CreateClosure: 从 Global 捕获 '{varName}'");
+#endif
+            }
+            else
+            {
+                continue;  // ← 找不到就跳过
+            }
+            Console.WriteLine($"[VM] 警告: CreateClosure 无法找到变量 '{varName}'");
+
+
         }
 
         var closure = new LightweightClosure(captured);
@@ -841,10 +1019,19 @@ public class VM
             closureChunk,
             closure
         );
+#if DEBUG
+        Console.WriteLine($"[VM] LightweightClosure 创建完毕:");
+        Console.WriteLine($"  _captured keys: {string.Join(", ", closure.GetCapturedNames())}");
+        foreach (var kv in captured)
+        {
+            Console.WriteLine($"[VM] 闭包捕获: {kv.Key} = {kv.Value.Cell.Value} (类型: {kv.Value.Cell.Value?.GetType().Name})");
+        }
+#endif
 
         Push(func);
     }
 
+    
     // ==================== 函数调用 ====================
 
     private async Task CallAsync(int argCount)
@@ -863,7 +1050,7 @@ public class VM
 #endif
         if (target is CompiledFunctionValue compiledFunc)
         {
-            await CallCompiledFunctionAsync(compiledFunc, args);
+             CallCompiledFunction(compiledFunc, args);
         }
         else if (target is FunctionValue scriptFunc)
         {
@@ -877,7 +1064,7 @@ public class VM
     }
 
 
-    private async Task CallCompiledFunctionAsync(CompiledFunctionValue func, List<Value> args)
+    private void CallCompiledFunction(CompiledFunctionValue func, List<Value> args)
     {
         // 创建新调用帧
         // ReturnAddress 设置为当前 IP（Call 指令的位置）
@@ -903,6 +1090,13 @@ public class VM
         // 保存当前帧，切换到新帧
         _frames.Push(_currentFrame);
         _currentFrame = newFrame;
+#if DEBUG
+        Console.WriteLine($"[VM] 新帧 Closure 类型: {func.Closure.GetType().Name}");
+        if (func.Closure is LightweightClosure lw)
+        {
+            Console.WriteLine($"[VM] 新帧 LW captured keys: {string.Join(", ", lw.GetCapturedNames())}");
+        }
+#endif
         //_ip = -1; // 设置为 -1，主循环 _ip++ 后从 0 开始
     }
 
@@ -980,6 +1174,10 @@ public class VM
         var memberName = Pop().AsString();
         var target = Pop();
 
+        if(memberName == "increment")
+        {
+
+        }
         if (target is ObjectValue obj)
         {
             if (obj.TryGetValue(memberName, out var value))
@@ -987,35 +1185,14 @@ public class VM
                 Push(value);
                 return;
             }
+        }
+        if(_engine.PrototypeManager.TryGetValue(target, memberName, out var result))
+        {
+            Push(result);
+            return;
+        }
 
-            // 内置方法
-            var builtinMethod = ObjectPrototype.GetMethod(obj, memberName);
-            if (builtinMethod != null)
-            {
-                Push(builtinMethod);
-                return;
-            }
-           
-        }
-        else if (target is ArrayValue arr)
-        {
-            var arrayMethod = ArrayPrototype.GetMethod(arr, memberName, _engine);
-            if (arrayMethod != null)
-            {
-                Push(arrayMethod);
-                return;
-            }
-        }
-        else if (target is StringValue str)
-        {
-            var stringMethod = StringPrototype.GetMethod(str, memberName);
-            if (stringMethod != null)
-            {
-                Push(stringMethod);
-                return;
-            }
-        }
-        else if (target is ClrObjectValue clrObj)
+        if (target is ClrObjectValue clrObj)
         {
             var clrMember = AccessClrMember(clrObj, memberName);
             if (clrMember != null)
@@ -1025,6 +1202,51 @@ public class VM
             }
         }
 
+        /* if (target is ObjectValue obj)
+         {
+             if (obj.TryGetValue(memberName, out var value))
+             {
+                 Push(value);
+                 return;
+             }
+
+             // 内置方法
+             var builtinMethod = ObjectPrototype.GetMethod(obj, memberName);
+             if (builtinMethod != null)
+             {
+                 Push(builtinMethod);
+                 return;
+             }
+
+         }
+         else if (target is ArrayValue arr)
+         {
+             var arrayMethod = ArrayPrototype.GetMethod(arr, memberName, _engine);
+             if (arrayMethod != null)
+             {
+                 Push(arrayMethod);
+                 return;
+             }
+         }
+         else if (target is StringValue str)
+         {
+             var stringMethod = StringPrototype.GetMethod(str, memberName);
+             if (stringMethod != null)
+             {
+                 Push(stringMethod);
+                 return;
+             }
+         }
+         else if (target is ClrObjectValue clrObj)
+         {
+             var clrMember = AccessClrMember(clrObj, memberName);
+             if (clrMember != null)
+             {
+                 Push(clrMember);
+                 return;
+             }
+         }
+ */
         throw new RuntimeException($"未找到成员 '{memberName}'");
     }
 
@@ -1119,7 +1341,7 @@ public class VM
             int i = index.As<int>();
             if (i < 0 || i >= arr.Elements.Count)
                 throw new RuntimeException($"数组索引越界: {i}");
-            arr.Set(i, value, _engine);
+            arr.Set(i, value);
         }
         else if (target is ObjectValue obj && index is StringValue key)
         {
@@ -1142,7 +1364,7 @@ public class VM
         if (iterable is ArrayValue arr)
         {
             _iteratorStack.Push(arr); // 迭代对象
-            var index = NumberValue<int>.Create(0);
+            var index = NumberValueCache.Int32_0;
             _iteratorStack.Push(index); // 当前索引
             Push(BoolValue.True);
         }
@@ -1205,7 +1427,7 @@ public class VM
             Push(array.Get(index));
             // 递增索引
             _iteratorStack.Pop();
-            var newIndex = NumberValue<int>.Create(index + 1);
+            var newIndex = NumberValueFactory.Create(index + 1);
             _iteratorStack.Push(newIndex);
         }
         else
@@ -1346,11 +1568,11 @@ public class VM
     {
         if (value.IsNumber)
         {
-            if (value.IsNumber_Decimal) return NumberValue<decimal>.Create(-value.As<decimal>());
-            if (value.IsNumber_Double) return NumberValue<double>.Create(-value.As<double>());
-            if (value.IsNumber_Float) return NumberValue<float>.Create(-value.As<float>());
-            if (value.IsNumber_Long) return NumberValue<long>.Create(-value.As<long>());
-            if (value.IsNumber_Int) return NumberValue<int>.Create(-value.As<int>());
+            if (value.IsNumber_Decimal) return NumberValueFactory.Create(-value.As<decimal>());
+            if (value.IsNumber_Double) return NumberValueFactory.Create(-value.As<double>());
+            if (value.IsNumber_Float) return NumberValueFactory.Create(-value.As<float>());
+            if (value.IsNumber_Long) return NumberValueFactory.Create(-value.As<long>());
+            if (value.IsNumber_Int) return NumberValueFactory.Create(-value.As<int>());
         }
 
         throw new RuntimeException($"不支持的操作: -{value}");
@@ -1365,14 +1587,14 @@ public class VM
         Func<int, int, int> intOp)
     {
         if (left.IsNumber_Decimal || right.IsNumber_Decimal)
-            return NumberValue<decimal>.Create(decOp(left.As<decimal>(), right.As<decimal>()));
+            return NumberValueFactory.Create(decOp(left.As<decimal>(), right.As<decimal>()));
         if (left.IsNumber_Double || right.IsNumber_Double)
-            return NumberValue<double>.Create(dblOp(left.As<double>(), right.As<double>()));
+            return NumberValueFactory.Create(dblOp(left.As<double>(), right.As<double>()));
         if (left.IsNumber_Float || right.IsNumber_Float)
-            return NumberValue<float>.Create(fltOp(left.As<float>(), right.As<float>()));
+            return NumberValueFactory.Create(fltOp(left.As<float>(), right.As<float>()));
         if (left.IsNumber_Long || right.IsNumber_Long)
-            return NumberValue<long>.Create(lngOp(left.As<long>(), right.As<long>()));
-        return NumberValue<int>.Create(intOp(left.As<int>(), right.As<int>()));
+            return NumberValueFactory.Create(lngOp(left.As<long>(), right.As<long>()));
+        return NumberValueFactory.Create(intOp(left.As<int>(), right.As<int>()));
     }
     /// <summary>
     /// 除法专用的类型提升（整数自动提升为 double）
@@ -1381,17 +1603,17 @@ public class VM
     {
         // decimal 优先级最高
         if (left.IsNumber_Decimal || right.IsNumber_Decimal)
-            return NumberValue<decimal>.Create(left.As<decimal>() / right.As<decimal>());
+            return NumberValueFactory.Create(left.As<decimal>() / right.As<decimal>());
 
         // 有一方是浮点，用 double
         if (left.IsNumber_Double || right.IsNumber_Double)
-            return NumberValue<double>.Create(left.As<double>() / right.As<double>());
+            return NumberValueFactory.Create(left.As<double>() / right.As<double>());
 
         if (left.IsNumber_Float || right.IsNumber_Float)
-            return NumberValue<float>.Create(left.As<float>() / right.As<float>());
+            return NumberValueFactory.Create(left.As<float>() / right.As<float>());
 
         // 整数除法：提升为 double
-        return NumberValue<double>.Create(left.As<double>() / right.As<double>());
+        return NumberValueFactory.Create(left.As<double>() / right.As<double>());
     }
 
     // ==================== 比较运算 ====================
@@ -1485,11 +1707,11 @@ public class VM
         return constant switch
         {
             null => Value.Null,
-            int i => NumberValue<int>.Create(i),
-            long l => NumberValue<long>.Create(l),
-            float f => NumberValue<float>.Create(f),
-            double d => NumberValue<double>.Create(d),
-            decimal m => NumberValue<decimal>.Create(m),
+            int i => NumberValueFactory.Create(i),
+            long l => NumberValueFactory.Create(l),
+            float f => NumberValueFactory.Create(f),
+            double d => NumberValueFactory.Create(d),
+            decimal m => NumberValueFactory.Create(m),
             string s => new StringValue(s),
             bool b => BoolValue.Create(b),
             _ => throw new RuntimeException($"不支持的常量类型: {constant?.GetType()}")
@@ -1515,10 +1737,11 @@ public class VM
         return clrValue switch
         {
             null => Value.Null,
-            int i => NumberValue<int>.Create(i),
-            long l => NumberValue<long>.Create(l),
-            float f => NumberValue<float>.Create(f),
-            double d => NumberValue<double>.Create(d),
+            int i => NumberValueFactory.Create(i),
+            long l => NumberValueFactory.Create(l),
+            float f => NumberValueFactory.Create(f),
+            double d => NumberValueFactory.Create(d),
+            decimal m => NumberValueFactory.Create(m),
             string s => new StringValue(s),
             bool b => BoolValue.Create(b),
             _ => new ClrObjectValue(clrValue)
@@ -1557,44 +1780,59 @@ public class VM
             throw new RuntimeException($"无法设置 CLR 对象的属性 '{memberName}'");
         }
     }
-}
 
-/// <summary>
-/// 调用帧
-/// </summary>
-internal class CallFrame
-{
-    /// <summary>当前执行的字节码块</summary>
-    public ByteCodeChunk Chunk { get; set; } = null!;
-
-    /// <summary>闭包上下文（变量作用域）</summary>
-    public IClosureContext Closure { get; set; } = null!;
-
-    /// <summary>当前帧的指令指针</summary>
-    public int IP { get; set; } = 0;
-
-    /// <summary>返回地址（-1 表示顶层）</summary>
-    // public int ReturnAddress { get; set; } = -1;
-
-    /// <summary>局部变量</summary>
-    public Dictionary<string, Value> Locals { get; } = new();
-
-    /// <summary>捕获的变量</summary>
-    public Dictionary<string, VariableInfo> CapturedVariables { get; } = new();
-}
-
-/// <summary>
-/// 编译后的函数值
-/// </summary>
-public record CompiledFunctionValue(
-    List<string> Parameters,
-    ByteCodeChunk Chunk,
-    IClosureContext Closure
-) : Value
-{
-    public override T As<T>()
+    public async ValueTask<Value> InvokeCompiledFunctionAsync(
+        CompiledFunctionValue func,
+        List<Value> args)
     {
-        if (this is T result) return result;
-        throw new InvalidCastException($"Cannot cast CompiledFunctionValue to {typeof(T)}");
+        
+        //var oldFrame = _currentFrame;
+
+        var frame = new CallFrame
+        {
+            Chunk = func.Chunk,
+            Closure = func.Closure,
+            IP = 0
+        };
+
+        for (int i = 0; i < func.Parameters.Count; i++)
+        {
+            frame.Locals[func.Parameters[i]]
+                = i < args.Count ? args[i] : Value.Null;
+        }
+
+        //_frames.Push(oldFrame);
+        _currentFrame = frame;
+
+        while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
+        {
+            int currentIP = _currentFrame.IP;
+            var inst = _currentFrame.Chunk.Code[currentIP];
+
+            try
+            {
+                bool shouldContinue = await ExecuteInstruction(inst);
+
+                // 如果 ExecuteInstruction 返回 false，说明是 Return 指令
+                // 在顶层 Return 时直接返回
+                if (!shouldContinue)
+                {
+                    return _stack.Count > 0 ? Pop() : Value.Null;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new RuntimeException($"执行错误 at {_currentFrame.IP}: {inst.OpCode} - {ex.Message}");
+            }
+            // 只有非跳转、非返回、非调用指令才自动 IP++
+            if (!IsControlFlowInstruction(inst.OpCode))
+            {
+                _currentFrame.IP++;
+            }
+        }
+
+
+        return _stack.Count > 0 ? Pop() : Value.Null;
+
     }
 }

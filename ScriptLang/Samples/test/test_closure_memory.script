@@ -2,7 +2,7 @@ let createHugeData = () => {
     var hugeArray = []
     
     // 创建大数组
-    for i in range(0, 10000) {
+    for i in range(0, 100000) {
         hugeArray = hugeArray + {
             id = i,
             name = "item_" + i,
@@ -14,7 +14,7 @@ let createHugeData = () => {
             }
         }
     }
-    let len = hugeArray.length
+    let len = hugeArray.count
     return () => len  // 闭包应该只捕获 len
 }
 

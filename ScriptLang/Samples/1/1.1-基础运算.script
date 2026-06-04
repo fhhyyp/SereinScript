@@ -1,7 +1,15 @@
 ﻿let a = 10
 let b = 22
 let sum = a + b
- print("sum:", sum) 
+
+
+let str = "sum:"+sum
+print(str) 
+print(str.length) 
+print(str.toUpper()) 
+
+
+
 
 // print("sum:", sum) 
 

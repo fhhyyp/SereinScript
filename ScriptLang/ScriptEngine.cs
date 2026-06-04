@@ -1,36 +1,85 @@
-﻿using ScriptLang.Lexer;
+﻿using GeneratorToolkits.ScriptPrototypeToolkits;
 using ScriptLang.Parser;
+using ScriptLang.Prototype;
 using ScriptLang.Runtime;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Metadata;
-using System.Text;
+using ScriptLang.Runtime.ByteCode;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ScriptLang
 {
     /// <summary>
-    /// 执行模式
+    /// 原型接口
     /// </summary>
-    public enum ExecutionMode
+    public interface IPrototype
     {
-        /// <summary>编译为字节码后执行</summary>
-        Compiled,
-        /// <summary>直接解释执行 AST</summary>
-        Interpreted
+        /// <summary>
+        /// 是否已加载
+        /// </summary>
+        bool IsLoad { get; }
+
+        /// <summary>
+        /// 初始化原型
+        /// </summary>
+        void Init();
+
+        /// <summary>
+        /// 判断值是否为目标类型
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        bool IsTarget(Value value);
+
+        /// <summary>
+        /// 获取方法
+        /// </summary>
+        /// <param name="value">传入的值</param>
+        /// <param name="methodName">方法名</param>
+        /// <param name="engine">脚本引擎</param>
+        /// <returns>方法值，如果不存在则返回 null</returns>
+        Value? GetMethod(Value value, string methodName, ScriptEngine engine);
     }
 
-    public sealed class ScriptTask(Task<Value> task, CancellationTokenSource cts)
+    public class PrototypeManager
     {
-        private readonly Task<Value> task = task;
+        public List<IPrototype> Prototypes { get; } = new List<IPrototype>();
+        private readonly Lock _lock = new();
+        private readonly ScriptEngine _engine;
 
-        public CancellationToken Token => cts.Token;
+        public PrototypeManager(ScriptEngine engine) 
+        {
+            _engine = engine;
+        }
 
-        public bool IsCanceled => Token.IsCancellationRequested;
+        public void Register(IPrototype prototype)
+        {
+            if (!prototype.IsLoad)
+            {
+                lock (_lock)
+                {
+                    if (prototype.IsLoad) return;
+                    prototype.Init();
+                    Prototypes.Add(prototype);
+                }
+            }
+        }
 
-        public async Task<Value> RunAsync() => await task;
-
-        public void Cancel() => cts.Cancel();
+        public bool TryGetValue(Value target, string menber, [NotNullWhen(true)]out Value? value)
+        {
+            foreach(IPrototype prototypes in Prototypes)
+            {
+                if (prototypes.IsTarget(target))
+                {
+                    var result = prototypes.GetMethod(target, menber, _engine);
+                    if(result is not null)
+                    {
+                        value = result;
+                        return true;
+                    }
+                }
+            }
+            value = null;
+            return false;
+        }
     }
 
     public sealed class ScriptEngine
@@ -47,7 +96,8 @@ namespace ScriptLang
 
         public Scope GlobalScope { get; } = new Scope();
 
-       
+        /// <summary> 原型拓展管理器 </summary>
+        public PrototypeManager PrototypeManager { get; }
 
         /// <summary>执行模式</summary>
         public ExecutionMode Mode { get; set; } = ExecutionMode.Compiled;
@@ -58,8 +108,13 @@ namespace ScriptLang
         public ScriptEngine()
         {
             ImportResolver = new ImportResolver(this);
-            BuiltinFunctions.RegisterAll(GlobalScope);
+            PrototypeManager = new PrototypeManager(this);
 
+            PrototypeManager.Register(new ArrayPrototype());
+            PrototypeManager.Register(new ObjectPrototype());
+            PrototypeManager.Register(new StringPrototype());
+
+            BuiltinFunctions.RegisterAll(GlobalScope);
         }
 
         /// <summary>
@@ -140,8 +195,6 @@ namespace ScriptLang
 #if DEBUG
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 #endif
-
-
                 // 编译 AST 到字节码
                 var compiler = new Runtime.ByteCode.Compiler();
                 
@@ -189,8 +242,6 @@ namespace ScriptLang
         }
 
 
-
-
         /// <summary>
         /// 加载模块并返回结果
         /// </summary>
@@ -205,16 +256,20 @@ namespace ScriptLang
             return value;
         }
 
-        /// <summary>
-        /// 由 <see cref="FunctionValue.CallAsync(ScriptEngine, List{Value})"/>
-        /// 执行 AST 并返回 Value
-        /// </summary>
-        public async Task<Value> EvaluateAsync(Expr expr, Scope scope)
+        /*public async Task<Value> InvokeCallableAsync(ICallable callable, params List<Value> args)
         {
-            var interpreter = new Interpreter(this);
-            var value = await interpreter.MainEvaluateAsync(expr, scope);
-            return value;
-        }
+            if(callable is FunctionValue function)
+            {
+               var result = await function.CallAsync(this, args);
+                return result;
+            }
+            else if(callable is CompiledFunctionValue compiledFunction)
+            {
+                var result = await compiledFunction.CallAsync(this, args);
+                return result;
+            }
+            throw new RuntimeException("对象不可调用");
+        }*/
 
         /*/// <summary>
         /// 执行脚本代码并返回结果
