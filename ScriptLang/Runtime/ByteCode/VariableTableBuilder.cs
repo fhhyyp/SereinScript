@@ -32,12 +32,25 @@ public sealed class VariableTableBuilder
         return slot;
     }
 
-    /// <summary>分配捕获变量槽位（不去重——由 CreateClosure 直接使用 outerCaptureSlot，无需共享）</summary>
+    /// <summary>分配捕获变量槽位（按名字去重——同一变量被多个闭包捕获时共享槽位）</summary>
     public int AllocCapture(string name)
     {
-        int slot = _nextCaptureSlot++;
+        if (_captureSlots.TryGetValue(name, out int slot))
+            return slot;
+
+        slot = _nextCaptureSlot++;
         _captureSlots[name] = slot;
         return slot;
+    }
+
+    /// <summary>
+    /// 清除指定名称的捕获槽位映射（不改变计数器）。
+    /// 用于 CompileLet/CompileVar 影子变量路径：当前一个同名变量的占位符已被消费，
+    /// 后续定义的同名变量应获得独立的新捕获槽位。
+    /// </summary>
+    public void FreeCapture(string name)
+    {
+        _captureSlots.Remove(name);
     }
 
     /// <summary>注册全局变量引用</summary>

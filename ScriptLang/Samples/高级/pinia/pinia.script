@@ -6,12 +6,10 @@ let createStore = (options) => {
     let actions = {}
     if options.has("getters") then  {
         for key in keys(options.getters) {
-            // 每个 getter 都是一个函数，闭包捕获 state
             let methodName = key
             let fn = options.getters[key]
             let name = "我是getters" 
             let getter = () => {
-                // 在这里,捕获到的'state'在VM执行时会为null
                 print("[getters]function call for '", methodName ,"' : state=",state)
                 return fn(name, state)
             }
@@ -24,7 +22,6 @@ let createStore = (options) => {
             let fn = options.actions[key]
             let name = "我是actions" 
             let action = (args) => {
-                // 这里能够顺利获取'state',但由于捕获的'state'会影响前捕获的'state',导致在'getter'作用域中获取的'state'实际上是空的
                 print("[action]function call for '", methodName ,"' : state=",state)  
                 return fn(name, state, args)
             }

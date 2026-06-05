@@ -403,9 +403,12 @@ public sealed class Compiler
             //   若 binding 不在占位符集合中（已被前一个作用域消费），说明这是影子变量。
             if (!_scopeStack.Peek().ContainsKey(expr.Name) && !_placeholderCaptureNames.Remove(expr.Name))
             {
+                // 占位符已被消费：这是不同作用域的同名变量（影子变量）。
+                // 创建新的局部变量，并清除旧的捕获槽位映射，使后续 AllocCapture 分配独立槽位。
 #if DEBUG
                 Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' as shadowed local (placeholder consumed)");
 #endif
+                _varTable.FreeCapture(expr.Name);
                 var binding = DefineVariable(expr.Name, isMutable: false);
                 EmitStoreSlot(binding);
             }
@@ -444,6 +447,7 @@ public sealed class Compiler
             // 与 CompileLet 相同的占位符消费逻辑
             if (!_scopeStack.Peek().ContainsKey(expr.Name) && !_placeholderCaptureNames.Remove(expr.Name))
             {
+                _varTable.FreeCapture(expr.Name);
                 binding = DefineVariable(expr.Name, isMutable: true);
             }
             else
