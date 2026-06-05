@@ -7,12 +7,12 @@ using System.Text;
 
 namespace ScriptLang.Generator.Models
 {
-    internal class DiagnosticDescriptorModel
+    /*internal class DiagnosticDescriptorModel
     {
 
         internal static readonly DiagnosticDescriptor MissingAttributeDescriptor =
                     new DiagnosticDescriptor(
-                        id: "HN001",
+                        id: "SCLO0001",
                         title: "缺少必要的特性或基类",
                         messageFormat: "类型 '{0}' 缺少必须的特性 [HereinNotifyObject]，或需要继承 HereinNotifyObject 类型",
                         category: "HereinNotifyObject",
@@ -21,5 +21,5 @@ namespace ScriptLang.Generator.Models
                     );
 
 
-    }
+    }*/
 }

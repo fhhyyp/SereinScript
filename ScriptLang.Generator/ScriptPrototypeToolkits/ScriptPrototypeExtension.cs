@@ -78,7 +78,6 @@ internal static class ScriptPrototypeExtension
     /// 生成命名空间
     /// </summary>
     /// <param name="generator"></param>
-    /// <param name="execute"></param>
     /// <returns></returns>
     internal static GeneratorCache<ClassCache> GeneratorClass(this GeneratorCache<ClassCache> generator) =>
         generator //.AppendCode($"using Value = {ScriptValue}")
@@ -251,8 +250,7 @@ internal static class ScriptPrototypeExtension
                                                .AppendCode();
                                       paramIndex++;
                                   }
-                                  List<string> argNames = new List<string>();
-                                  argNames.Add("target");
+                                  List<string> argNames = ["target"];
                                   paramIndex = 0;
                                   for (int i = 1; i < methodCache.Parameters.Count; i++)
                                   {

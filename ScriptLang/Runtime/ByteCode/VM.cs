@@ -26,7 +26,7 @@ public class VM
     private readonly Stack<Value> _iteratorStack = new();
 
     /// <summary>全局作用域（仅用于模块级变量共享）</summary>
-    private Scope _globalScope = new();
+    private readonly Scope _globalScope = new();
 
     /// <summary>当前调用帧</summary>
     private CallFrame _currentFrame = null!;
@@ -170,10 +170,7 @@ public class VM
     /// <summary>
     /// 初始化帧的槽位数组（不含参数绑定）
     /// </summary>
-    /// <summary>
-    /// 初始化帧的槽位数组（不含参数绑定）
-    /// </summary>
-    private void InitFrameSlots(CallFrame frame, LightweightClosure? closure)
+    private static void InitFrameSlots(CallFrame frame, LightweightClosure? closure)
     {
         var vt = frame.Chunk.VariableTable;
         if (vt == null) return;
@@ -234,7 +231,7 @@ public class VM
     /// 当参数被嵌套闭包捕获时（Region 被 ReplaceBindingInScope 改为 Capture），
     /// 同时也写入捕获区域，确保 CreateClosure 通过 outerCaptureSlot 能读取到值。
     /// </summary>
-    private void BindParameters(CallFrame frame, List<string> paramNames, List<Value> args)
+    private static void BindParameters(CallFrame frame, List<string> paramNames, List<Value> args)
     {
         var vt = frame.Chunk.VariableTable;
         if (vt == null) return;
@@ -604,7 +601,7 @@ public class VM
         var returnValue = Pop();
         if (_engine.IsPrintVMInfo)
         {
-            Console.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue?.GetType().Name}");
+            Console.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
         }
 
         // 返回时冻结 MutableNumber
@@ -669,7 +666,7 @@ public class VM
             //Console.WriteLine($"[InPlaceOp] slot={slot}, right={right}, left={left}, leftType={left?.GetType().Name ?? "null"},栈深度={_stack.Count}");
         }
 
-        if (left is MutableNumber TEMP_mn)
+        if (left is MutableNumber)
         {
             mutableOp(right);
             //if (_engine.IsPrintVMInfo)
@@ -760,7 +757,9 @@ public class VM
         var vt = _currentFrame.Chunk.VariableTable;
         if (vt == null) return;
 
-        var globalValues = GlobalSlotRegistry.GetValues();
+        // 获取全局模块变量值
+        //var globalValues = GlobalSlotRegistry.GetValues();
+        
 
         foreach (var (member, name) in memberMappings)
         {
@@ -824,7 +823,7 @@ public class VM
 
             // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
             if(_engine.IsPrintVMInfo)
-                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
+                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue.GetHashCode()}");
             var cell = new VariableCell(existingValue);
             var info = new VariableInfo(cell, true) { IsCaptured = true };
 
@@ -988,11 +987,7 @@ public class VM
     private void GetMember()
     {
         var memberName = Pop().AsString();
-        var target = Pop();
-        if(target is null)
-        {
-            throw new RuntimeException($"无法调用 GetMember('{memberName}')，目标值为 null ");
-        }
+        var target = Pop() ?? throw new RuntimeException($"无法调用 GetMember('{memberName}')，目标值为 null ");
         if (target is ObjectValue obj)
         {
             if (obj.TryGetValue(memberName, out var value))
@@ -1412,7 +1407,7 @@ public class VM
 
     private enum CompareKind { Lt, Le, Gt, Ge }
 
-    private static Value Compare(Value left, Value right, CompareKind kind)
+    private static BoolValue Compare(Value left, Value right, CompareKind kind)
     {
         if (left.IsNumber && right.IsNumber)
         {
@@ -1518,8 +1513,8 @@ public class VM
         if (value.IsNumber_Float) return value.As<float>();
         if (value.IsNumber_Double) return value.As<double>();
         if (value is ClrObjectValue clr) return clr.Value;
-
-        throw new RuntimeException($"无法转换 {value.GetType()} 到 CLR 类型");
+        
+        throw new RuntimeException($"无法转换 {value.GetType()} 到 CLR 类型 {targetType}");
     }
 
     private static Value ConvertClrToValue(object? clrValue)

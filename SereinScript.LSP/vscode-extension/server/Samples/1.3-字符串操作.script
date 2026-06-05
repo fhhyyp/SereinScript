@@ -1,6 +1,0 @@
-﻿let name = "Hello"
-let greeting = name + " World"
-print("greeting:", greeting)  // 输出: greeting: Hello World
-
-let msg = "abc" * 3
-print("msg:", msg)  // 输出: msg: abcabcabc

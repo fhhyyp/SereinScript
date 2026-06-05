@@ -13,26 +13,6 @@ namespace ScriptLang.Generator
     internal static class GeneratorConfig
     {
         /// <summary>
-        /// 调试控件代码生成器
-        /// </summary>
-        public static bool IsDebugControlToolkitsGenerator { get; } = false;
-
-        /// <summary>
-        /// 调试通知属性代码生成器
-        /// </summary>
-        public static bool IsDebugHereinNotifyGenerator { get; } = false;
-
-        /// <summary>
-        /// 调试DTO生成器
-        /// </summary>
-        public static bool IsDebugLitheDtoGenerator { get; } = false;
-
-        /// <summary>
-        /// 调试视图定位器生成器
-        /// </summary>
-        public static bool IsDebugViewLocatorGenerator { get; } = false;
-
-        /// <summary>
         /// 调试脚本原型生成器
         /// </summary>
         public static bool IsDebugScriptPrototypeToolkits { get; } = false;
@@ -59,7 +39,7 @@ namespace ScriptLang.Generator
         /// <summary>
         /// 引用的命名空间
         /// </summary>
-        public static List<string> DefaultUsings{ get;  } = new List<string>();
+        public static List<string> DefaultUsings { get; } = [];
 
         /// <summary>
         /// 重置默认使用的命名空间

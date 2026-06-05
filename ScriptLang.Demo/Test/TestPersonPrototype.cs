@@ -2,9 +2,6 @@
 
 namespace ScriptLang.Demo
 {
-    
-
-
     [PrototypeExtension]
     internal partial  class TestPersonPrototype
     {

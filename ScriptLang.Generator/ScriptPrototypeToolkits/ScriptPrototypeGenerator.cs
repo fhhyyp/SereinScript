@@ -58,12 +58,7 @@ public class ScriptPrototypeGenerator : IIncrementalGenerator
             return false;
         }
 
-        if (node is not ClassDeclarationSyntax classDeclaration)
-        {
-            return false;
-        }
-
-        return true;
+        return node is ClassDeclarationSyntax;
     }
 
     /// <summary>
@@ -119,35 +114,32 @@ public class ScriptPrototypeGenerator : IIncrementalGenerator
     private const string _attributeText =
         """
         using System;
-        using System.Collections.Generic;
-        using System.Text;
-        using ScriptLang;
-        using ScriptLang.Runtime;
 
         namespace ScriptLang
         {
             /// <summary> 定义原型扩展的属性 </summary>
             [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-            public sealed class PrototypeExtensionAttribute : Attribute
+            internal sealed class PrototypeExtensionAttribute : Attribute
             {
             }
+        
             /// <summary> 定义原型方法的属性 </summary>
             [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-            public sealed class PrototypePropertyAttribute : Attribute
+            internal sealed class PrototypePropertyAttribute : Attribute
             {
                 /// <summary>重新定义属性名称</summary>
-                #nullable enable
-                public string? Name;
+            #nullable enable
+                public string? Name = default;
             }
+        
             /// <summary> 定义原型方法的属性 </summary>
             [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-            public sealed class PrototypeFunctionAttribute : Attribute
+            internal sealed class PrototypeFunctionAttribute : Attribute
             {
                 /// <summary>重新定义方法名称</summary>
-                #nullable enable
-                public string? Name;
+             #nullable enable
+                public string? Name = default;
             }
         }
-        
         """;
 }

@@ -11,10 +11,10 @@ namespace ScriptLang.Runtime.ByteCode;
 public static class GlobalSlotRegistry
 {
     // 变量名 → 槽位索引
-    private static readonly Dictionary<string, int> _nameToSlot = new();
+    private static readonly Dictionary<string, int> _nameToSlot = [];
 
     // 槽位索引 → 变量名（序列化用）
-    private static readonly List<string> _slotNames = new();
+    private static readonly List<string> _slotNames = [];
 
     // 运行时值数组（槽位索引 → 值）
     private static Value[] _values = [];

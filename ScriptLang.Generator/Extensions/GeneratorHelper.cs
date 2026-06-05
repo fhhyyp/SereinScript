@@ -174,29 +174,17 @@ namespace ScriptLang.Generator.Extensions
 
         public static string ToCodeString(this AccessibilityType accessibility)
         {
-            switch (accessibility)
+            return accessibility switch
             {
-                case AccessibilityType.Public:
-                    return "public";
-
-                case AccessibilityType.Private:
-                    return "private";
-
-                case AccessibilityType.Protected:
-                    return "protected";
-
-                case AccessibilityType.Internal:
-                    return "internal";
-
-                case AccessibilityType.ProtectedInternal:
-                    return "protected internal";
-
-                case AccessibilityType.PrivateProtected:
-                    return "private protected";
-
-                default:
-                    return string.Empty;
-            }
+                AccessibilityType.Public => "public",
+                AccessibilityType.Private => "private",
+                AccessibilityType.Protected => "protected",
+                AccessibilityType.Internal => "internal",
+                AccessibilityType.ProtectedInternal => "protected internal",
+                AccessibilityType.PrivateProtected => "private protected",
+                AccessibilityType.Undefined => string.Empty,
+                _ => string.Empty,
+            };
         }
 
 

@@ -38,7 +38,7 @@ namespace ScriptLang.Generator.Models
     }
 
     #region 方法参数信息
-    internal class MethodCache : ItemCacheBase
+    internal class MethodCache(List<ParameterCache> parameters) : ItemCacheBase
     {
         /// <summary>
         /// 方法符号
@@ -53,12 +53,8 @@ namespace ScriptLang.Generator.Models
         /// <summary>
         /// 方法参数类型
         /// </summary>
-        public List<ParameterCache> Parameters { get; private set; }
+        public List<ParameterCache> Parameters { get; private set; } = parameters;
 
-        public MethodCache(List<ParameterCache> parameters)
-        {
-            Parameters = parameters;
-        }
         /// <summary>
         /// 是静态的
         /// </summary>
@@ -144,23 +140,17 @@ namespace ScriptLang.Generator.Models
     /// <summary>
     /// 类型信息
     /// </summary>
-    internal class TypeCache 
+    internal class TypeCache(string name, string fullName)
     {
         /// <summary>
         /// 类型全名
         /// </summary>
-        public string FullName { get; }
+        public string FullName { get; } = fullName;
 
         /// <summary>
         /// 类型名称
         /// </summary>
-        public string Name { get; }
-
-        public TypeCache(string name, string fullName)
-        {
-            Name = name;
-            FullName = fullName;
-        }
+        public string Name { get; } = name;
 
         private const string ValueTaskType = "global::System.Threading.Tasks.ValueTask";
         private const string TaskType = "global::System.Threading.Tasks.Task";
@@ -186,6 +176,7 @@ namespace ScriptLang.Generator.Models
             return FullName.Contains('<') && FullName.Contains('>');
         }
 
+#nullable enable
         public string? GetTaskReturnType()
         {
             if (!IsTask) return null;
@@ -232,7 +223,7 @@ namespace ScriptLang.Generator.Models
         /// <summary>
         /// 成员类型（仅对于字段和属性）
         /// </summary>
-        public TypeCache Type { get; set; }
+        public TypeCache Type { get; set; } = default!;
 
         /// <summary>
         /// 可为空（仅对于字段和属性）
@@ -242,7 +233,7 @@ namespace ScriptLang.Generator.Models
         /// <summary>
         /// 默认值（仅对于字段和属性）
         /// </summary>
-        public string DefaultValue { get; set; }
+        public string DefaultValue { get; set; } = string.Empty;
 
     }
 
@@ -255,12 +246,12 @@ namespace ScriptLang.Generator.Models
         /// <summary>
         /// 字段声明语法（一个字段声明语法树存在一个或多个不同名称的定义）
         /// </summary>
-        public FieldDeclarationSyntax FieldSyntax { get; set; }
+        public FieldDeclarationSyntax FieldSyntax { get; set; } = default!;
 
         /// <summary>
         /// 字段定义变量声明语法
         /// </summary>
-        public VariableDeclaratorSyntax VariableSyntax { get; set; }
+        public VariableDeclaratorSyntax VariableSyntax { get; set; } = default!;
 
 
         /// <summary>
@@ -284,7 +275,7 @@ namespace ScriptLang.Generator.Models
         /// <summary>
         /// 属性声明语法
         /// </summary>
-        public PropertyDeclarationSyntax Syntax { get; set; }
+        public PropertyDeclarationSyntax Syntax { get; set; } = default!;
 
         /// <summary>
         /// 是分部的
