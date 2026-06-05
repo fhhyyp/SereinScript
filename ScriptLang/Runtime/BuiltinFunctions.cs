@@ -57,13 +57,13 @@ namespace ScriptLang
 
         private static readonly FunctionValue print = new(nameof(print), static args =>
         {
+            Console.Write("[Console]");
             foreach (var arg in args)
             {
                 Console.Write(arg.AsString() + " ");
                 Debug.Write(arg.AsString() + " ");
             }
             Console.WriteLine();
-            Debug.WriteLine("");
             return Value.Null;
         });
 

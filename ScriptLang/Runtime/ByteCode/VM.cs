@@ -161,6 +161,9 @@ public class VM
     /// <summary>
     /// 初始化帧的槽位数组（不含参数绑定）
     /// </summary>
+    /// <summary>
+    /// 初始化帧的槽位数组（不含参数绑定）
+    /// </summary>
     private void InitFrameSlots(CallFrame frame, LightweightClosure? closure)
     {
         var vt = frame.Chunk.VariableTable;
@@ -169,10 +172,13 @@ public class VM
         // 1. 填充捕获变量区（从闭包复制 VariableCell 的引用值）
         if (closure != null && vt.CaptureCount > 0)
         {
-            frame.Captures = closure.CapturedCells;
+            // 复制数组，不共享引用（避免帧归还时 Array.Clear 破坏闭包数据）
+            frame.Captures = new VariableInfo[closure.CapturedCells.Length];
+            Array.Copy(closure.CapturedCells, frame.Captures, closure.CapturedCells.Length);
+
             for (int i = 0; i < vt.CaptureCount; i++)
             {
-                var capturedCell = closure.CapturedCells[i];
+                var capturedCell = frame.Captures[i];
                 if (capturedCell != null)
                 {
                     frame.Slots[vt.CaptureOffset + i] = capturedCell.Cell.Value;
@@ -320,6 +326,7 @@ public class VM
             case OpCode.AddInPlace:
                 {
                     int slot = (int)inst.Operand!;
+
                     InPlaceOp(slot,
                         right => ((MutableNumber)_currentFrame.Slots[slot]).AddInPlace(right),
                         (l, r) => AddOp(l, r));
@@ -641,12 +648,14 @@ public class VM
 
         if (_engine.IsPrintVMInfo)
         {
-            Console.WriteLine($"[InPlaceOp] slot={slot}, 栈深度={_stack.Count}, left类型={left.GetType().Name}, left={left}");
+            //Console.WriteLine($"[InPlaceOp] slot={slot}, right={right}, left={left}, leftType={left?.GetType().Name ?? "null"},栈深度={_stack.Count}");
         }
 
-        if (left is MutableNumber)
+        if (left is MutableNumber TEMP_mn)
         {
             mutableOp(right);
+            //if (_engine.IsPrintVMInfo)
+                //Console.WriteLine($"[InPlaceOp] MutableNumber 修改后 = {TEMP_mn}");
         }
         else
         {
@@ -658,14 +667,26 @@ public class VM
         if (vt != null)
         {
             var region = vt.GetRegion(slot);
+
+            //if (_engine.IsPrintVMInfo)
+                //Console.WriteLine($"[InPlaceOp] slot={slot}, region={region}, CaptureOffset={vt.CaptureOffset}");
+
             if (region == SlotRegion.Capture)
             {
                 int captureIndex = slot - vt.CaptureOffset;
+
+                //if (_engine.IsPrintVMInfo)
+                    //Console.WriteLine($"[InPlaceOp] captureIndex={captureIndex}, Captures.Length={_currentFrame.Captures.Length}");
+                //if (_engine.IsPrintVMInfo && captureIndex < _currentFrame.Captures.Length)
+                    //Console.WriteLine($"[InPlaceOp] Captures[{captureIndex}] = {_currentFrame.Captures[captureIndex]?.Cell.Value}");
+
                 if (captureIndex >= 0 && captureIndex < _currentFrame.Captures.Length
                     && _currentFrame.Captures[captureIndex] != null)
                 {
                     _currentFrame.Captures[captureIndex].Cell.Value = _currentFrame.Slots[slot];
                 }
+                //if (_engine.IsPrintVMInfo)
+                    //Console.WriteLine($"[AddInPlace] 同步后 Captures[{captureIndex}].Cell.Value={_currentFrame.Captures[captureIndex].Cell.Value}");
             }
             else if (region == SlotRegion.Global)
             {
@@ -753,7 +774,7 @@ public class VM
     private void CreateClosure(object operand)
     {
         var (chunkIndex, parameters, captureMappings) =
-       ((int, List<string>, List<(string name, int outerCaptureSlot)>))operand;
+            ((int, List<string>, List<(string name, int outerCaptureSlot)>))operand;
 
         var closureChunk = _currentFrame.Chunk.GetClosure(chunkIndex);
         var innerVt = closureChunk.VariableTable;
@@ -776,40 +797,40 @@ public class VM
             if (innerCaptureIndex < 0 || innerCaptureIndex >= captureCount)
                 continue;
 
-            int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureSlot;
+            // 从外部帧获取该变量的当前值
+            Value existingValue;
 
-            // 尝试从当前帧的 Captures 数组中获取已有的 VariableInfo
-            if (outerCaptureSlot < _currentFrame.Captures.Length
-                && _currentFrame.Captures[outerCaptureSlot] != null)
+            if (outerVt.LocalNames.TryGetValue(name, out int localSlot))
             {
-                capturedCells[innerCaptureIndex] = _currentFrame.Captures[outerCaptureSlot];
+                // 外部变量是局部变量
+                existingValue = _currentFrame.Slots[localSlot];
+            }
+            else if (outerVt.CaptureNames.TryGetValue(name, out int outerCaptureIndex))
+            {
+                // 外部变量是捕获变量
+                int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureIndex;
+                existingValue = _currentFrame.Slots[outerRuntimeSlot];
             }
             else
             {
-                // 局部变量：从局部槽位读取值
-                Value value;
-                int localSlot;
-
-                if (outerVt.LocalNames.TryGetValue(name, out localSlot))
-                {
-                    value = _currentFrame.Slots[localSlot];
-                }
-                else
-                {
-                    value = _currentFrame.Slots[outerRuntimeSlot];
-                }
-
-                var cell = new VariableCell(value);
-                var info = new VariableInfo(cell, true) { IsCaptured = true };
-
-                // 回写到捕获区（供后续 CreateClosure 共享）
-                if (outerCaptureSlot < _currentFrame.Captures.Length)
-                {
-                    _currentFrame.Captures[outerCaptureSlot] = info;
-                }
-
-                capturedCells[innerCaptureIndex] = info;
+                // 兜底：按全局/内置处理（不应该发生）
+                int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureSlot;
+                existingValue = _currentFrame.Slots[outerRuntimeSlot];
             }
+
+            // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
+            if(_engine.IsPrintVMInfo)
+                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
+            var cell = new VariableCell(existingValue);
+            var info = new VariableInfo(cell, true) { IsCaptured = true };
+
+            // 回写到外部帧的捕获区（供后续嵌套 CreateClosure 共享同一个 Cell）
+            if (outerCaptureSlot >= 0 && outerCaptureSlot < _currentFrame.Captures.Length)
+            {
+                _currentFrame.Captures[outerCaptureSlot] = info;
+            }
+
+            capturedCells[innerCaptureIndex] = info;
         }
 
         var closure = new LightweightClosure(capturedCells);
@@ -817,6 +838,8 @@ public class VM
 
         Push(func);
     }
+
+
     // ==================== 函数调用 ====================
 
     private async Task CallAsync(int argCount)

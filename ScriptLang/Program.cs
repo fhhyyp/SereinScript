@@ -74,7 +74,7 @@ class Program
         ],
         ];
 
-        scirpt(3,1);
+        scirpt(3,4);
 
         if (args.Length == 0)
         {
