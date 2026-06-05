@@ -1,24 +1,33 @@
-// pinia.script 
+// pinia.script
 // createStore 简易实现
 let createStore = (options) => {
     let state = options.state()
     let getters = {}
     let actions = {}
-
     if options.has("getters") then  {
         for key in keys(options.getters) {
             // 每个 getter 都是一个函数，闭包捕获 state
+            let methodName = key
             let fn = options.getters[key]
-            let name = "我是getters" // 这里的变量名是“name”
-            let getter = () => fn(name, state)
+            let name = "我是getters" 
+            let getter = () => {
+                // 在这里,捕获到的'state'在VM执行时会为null
+                print("[getters]function call for '", methodName ,"' : state=",state)
+                return fn(name, state)
+            }
             getters[key] = getter
         }
     }
     if options.has("actions") then {
         for key in keys(options.actions) {
-            let fn2 = options.actions[key]
-            let name = "我是actions" // 注意这里的变量名也是“name”
-            let action = (args) => fn2(name, state, args)
+            let methodName = key
+            let fn = options.actions[key]
+            let name = "我是actions" 
+            let action = (args) => {
+                // 这里能够顺利获取'state',但由于捕获的'state'会影响前捕获的'state',导致在'getter'作用域中获取的'state'实际上是空的
+                print("[action]function call for '", methodName ,"' : state=",state)  
+                return fn(name, state, args)
+            }
             actions[key] = action
         }
     }
@@ -31,5 +40,52 @@ let createStore = (options) => {
 }
 
 return {
-	createStore
+    createStore
 }
+
+// 能够正确运行的版本
+// pinia.script
+// createStore 简易实现
+// let createStore = (options) => {
+//     let state = options.state()
+//     //需要为不同闭包创建新的变量
+//     let getterState = state 
+//     let actionState = state
+//     let getters = {}
+//     let actions = {}
+//     if options.has("getters") then  {
+//         for key in keys(options.getters) {
+//             // 每个 getter 都是一个函数，闭包捕获 state
+//             let methodName = key
+//             let fn = options.getters[key]
+//             let name = "我是getters" // 这里的变量名是"name"
+//             let getter = () => {
+//                 print("[getters]function call for '", methodName ,"' : state=",getterState) // 各自单独使用就能正常运行
+//                 return fn(name, getterState)
+//             }
+//             getters[key] = getter
+//         }
+//     }
+//     if options.has("actions") then {
+//         for key in keys(options.actions) {
+//             let methodName = key
+//             let fn = options.actions[key]
+//             let name = "我是actions" // 注意这里的变量名也是"name"
+//             let action = (args) => {
+//                 print("[action]function call for '", methodName ,"' : state=",actionState)  // 各自单独使用就能正常运行
+//                 return fn(name, actionState, args)
+//             }
+//             actions[key] = action
+//         }
+//     }
+//     // 返回 store 对象
+//     return {
+//         state,
+//         getters,
+//         actions,
+//     }
+// }
+// 
+// return {
+//     createStore
+// }
