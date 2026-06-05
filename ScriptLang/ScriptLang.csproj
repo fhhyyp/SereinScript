@@ -1,141 +1,145 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-	  <!--OutputItemType="Analyzer" ReferenceOutputAssembly="false"-->
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+		<!--OutputItemType="Analyzer" ReferenceOutputAssembly="false"-->
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Runtime\ByteCode\Compiler_backup_001.cs" />
-    <Compile Remove="Runtime\ByteCode\ValueStack.cs" />
-    <Compile Remove="Runtime\ByteCode\VariableBinding.cs" />
-    <Compile Remove="Runtime\EvalResult.cs" />
-    <Compile Remove="Runtime\FreeVariableAnalyzer.cs" />
-    <Compile Remove="Runtime\FunctionValueExtensions.cs" />
-    <Compile Remove="Runtime\Interpreter.cs" />
-    <Compile Remove="Runtime\ModuleInjector.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Remove="Runtime\ByteCode\Compiler_backup_001.cs" />
+		<Compile Remove="Runtime\ByteCode\ValueStack.cs" />
+		<Compile Remove="Runtime\ByteCode\VariableBinding.cs" />
+		<Compile Remove="Runtime\EvalResult.cs" />
+		<Compile Remove="Runtime\FreeVariableAnalyzer.cs" />
+		<Compile Remove="Runtime\FunctionValueExtensions.cs" />
+		<Compile Remove="Runtime\Interpreter.cs" />
+		<Compile Remove="Runtime\ModuleInjector.cs" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Update="Samples\1\1.6-复杂对象.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.8-数值数据类型.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\3\3.5-矩阵运算.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\3\3.4-快速排序.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\4\4.3-CLR回调.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\4\4.1-CLR对象.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\4\4.2-异步调用.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.2-变量声明.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\2\2.1-逻辑运算.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.7-数组.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.5-对象.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\2\2.3-循环.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\2\2.4-模式匹配.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.3-字符串操作.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\2\2.2-条件表达式.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.4-函数.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\1\1.1-基础运算.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\3\3.2-高阶函数.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\3\3.3-递归.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\3\3.1-闭包.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test-closure-recursion.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test-deep-recursion.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test-extreme-recursion.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test-mutual-recursion.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test-stack-overflow.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\test\test_closure_memory.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\linq\json.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\linq\linq - 复制.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\linq\linq.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\linq\run-linq.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\pinia\pinia.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\pinia\run-import.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\pinia\test-import.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Samples\高级\pinia\look.script">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<None Update="Samples\1\1.6-复杂对象.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.8-数值数据类型.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\3\3.5-矩阵运算.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\3\3.4-快速排序.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\4\4.3-CLR回调.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\4\4.1-CLR对象.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\4\4.2-异步调用.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.2-变量声明.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\2\2.1-逻辑运算.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.7-数组.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.5-对象.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\2\2.3-循环.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\2\2.4-模式匹配.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.3-字符串操作.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\2\2.2-条件表达式.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.4-函数.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\1\1.1-基础运算.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\3\3.2-高阶函数.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\3\3.3-递归.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\3\3.1-闭包.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test-closure-recursion.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test-deep-recursion.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test-extreme-recursion.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test-mutual-recursion.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test-stack-overflow.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\test\test_closure_memory.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\linq\json.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\linq\linq - 复制.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\linq\linq.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\linq\run-linq.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\pinia\pinia.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\pinia\run-import.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\pinia\test-import.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Samples\高级\pinia\look.script">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Samples\test\" />
-  </ItemGroup>
+	<ItemGroup>
+		<Folder Include="Samples\test\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\ScriptLang.Generator\ScriptLang.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+	</ItemGroup>
 
 	<!---->
-	<ItemGroup>
-    <ProjectReference Include="..\..\..\..\dotnet\GeneratorToolkits\GeneratorToolkits.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-    <!--<ProjectReference Include="..\..\..\..\dotnet\GeneratorToolkits\GeneratorToolkits.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />-->
+	<!--<ItemGroup>
+		<ProjectReference Include="..\..\..\..\dotnet\GeneratorToolkits\GeneratorToolkits.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>-->
+	<!--<ProjectReference Include="..\..\..\..\dotnet\GeneratorToolkits\GeneratorToolkits.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />-->
 
 </Project>

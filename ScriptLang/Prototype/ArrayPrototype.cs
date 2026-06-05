@@ -1,5 +1,5 @@
-﻿using ScriptLang.Runtime;
-using GeneratorToolkits.ScriptPrototypeToolkits;
+﻿using ScriptLang;
+using ScriptLang.Runtime;
 
 namespace ScriptLang.Prototype
 {
