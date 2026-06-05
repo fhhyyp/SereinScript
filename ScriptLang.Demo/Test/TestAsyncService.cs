@@ -1,4 +1,4 @@
-namespace ScriptLang;
+namespace ScriptLang.Demo;
 
 /// <summary>
 /// 测试异步 CLR 方法

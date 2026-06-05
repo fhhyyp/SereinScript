@@ -2,6 +2,7 @@
 using ScriptLang.Prototype;
 using ScriptLang.Runtime;
 using ScriptLang.Runtime.ByteCode;
+using System.Reflection.Metadata;
 
 namespace ScriptLang
 {
@@ -65,7 +66,6 @@ namespace ScriptLang
         {
             GlobalScope.Clear();
             BuiltinFunctions.RegisterAll(GlobalScope);
-
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);

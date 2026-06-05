@@ -1,10 +1,7 @@
-using ScriptLang.Prototype;
-using ScriptLang.Runtime;
+﻿using ScriptLang.Runtime;
 using System.Diagnostics;
-using System.Net.Quic;
-using System.Threading.Tasks;
 
-namespace ScriptLang;
+namespace ScriptLang.Demo;
 
 class Program
 {
@@ -13,7 +10,7 @@ class Program
     {
 
         string[][] scripts =
-        [[ 
+        [[
             @".\Samples\1\1.1-基础运算.script",
             @".\Samples\1\1.2-变量声明.script",
             @".\Samples\1\1.3-字符串操作.script",
@@ -28,14 +25,14 @@ class Program
             @".\Samples\2\2.3-循环.script",
             @".\Samples\2\2.4-模式匹配.script",
         ],
-        [   
+        [
             @".\Samples\3\3.1-闭包.script",
             @".\Samples\3\3.2-高阶函数.script",
             @".\Samples\3\3.3-递归.script",
             @".\Samples\3\3.4-快速排序.script",
             @".\Samples\3\3.5-矩阵运算.script",
         ],
-        [   
+        [
             @".\Samples\4\4.1-CLR对象.script",
             @".\Samples\4\4.2-异步调用.script",
             @".\Samples\4\4.3-CLR回调.script",
@@ -54,7 +51,7 @@ class Program
             @".\Samples\高级\pinia\run-import.script",
         ],
         ];
-        
+
         scirpt(6, 1);
 
         if (args.Length == 0)
@@ -63,7 +60,7 @@ class Program
             return;
         }
         var exePath = AppDomain.CurrentDomain.BaseDirectory;
-        var scriptPath = Path.GetFullPath( Path.Combine(exePath, args[0]));
+        var scriptPath = Path.GetFullPath(Path.Combine(exePath, args[0]));
         if (!File.Exists(scriptPath))
         {
             Console.WriteLine($"文件不存在: {scriptPath}");
@@ -85,7 +82,7 @@ class Program
         {
             Console.WriteLine($"异常: {ex}");
         }
-        void scirpt(int page, int index) 
+        void scirpt(int page, int index)
         {
             var script = scripts[page - 1][index - 1];
             args = [script];

@@ -1,7 +1,7 @@
 using ScriptLang.Parser;
 using ScriptLang.Runtime;
 
-namespace ScriptLang;
+namespace ScriptLang.Demo;
 
 /// <summary>
 /// 测试用的 CLR 类

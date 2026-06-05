@@ -1,6 +1,6 @@
 ﻿using ScriptLang.Runtime;
 
-namespace ScriptLang.Prototype
+namespace ScriptLang.Demo
 {
     
 

@@ -1,4 +1,4 @@
-namespace ScriptLang;
+namespace ScriptLang.Demo;
 
 /// <summary>
 /// 测试用的 CLR 工具类

@@ -4,6 +4,7 @@
 	  <TargetFramework>netstandard2.0</TargetFramework>
 
 	  <Version>0.1.0</Version>
+	  
 	  <Description>代码生成器</Description>
 
 	  <!--确定性编译，相同源码、相同依赖、相同编译参数，会生成完全一致的 DLL/PDB（二进制级别一致）-->
@@ -32,6 +33,16 @@
 	  <Nullable>enable</Nullable>
 
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <None Remove="bin\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="bin\Release\netstandard2.0\\ScriptLang.Generator.dll" />
+  </ItemGroup>
 
 	<ItemGroup>
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
