@@ -229,7 +229,9 @@ public class VM
     }
 
     /// <summary>
-    /// 绑定函数参数到帧的局部槽位
+    /// 绑定函数参数到帧的局部槽位。
+    /// 当参数被嵌套闭包捕获时（Region 被 ReplaceBindingInScope 改为 Capture），
+    /// 同时也写入捕获区域，确保 CreateClosure 通过 outerCaptureSlot 能读取到值。
     /// </summary>
     private void BindParameters(CallFrame frame, List<string> paramNames, List<Value> args)
     {
@@ -242,6 +244,11 @@ public class VM
             if (vt.ParamSlots.TryGetValue(paramNames[i], out int slot))
             {
                 frame.Slots[slot] = paramValue;
+            }
+            // 参数被闭包捕获时，同步写入捕获区（CreateClosure 通过 outerCaptureSlot 读取）
+            if (vt.CaptureNames.TryGetValue(paramNames[i], out int captureSlot))
+            {
+                frame.Slots[vt.CaptureOffset + captureSlot] = paramValue;
             }
         }
     }
