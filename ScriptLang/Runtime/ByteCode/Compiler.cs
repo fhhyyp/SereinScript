@@ -67,6 +67,9 @@ public sealed class Compiler
     // 跳转指令的待回填位置（保留兼容）
     private readonly Stack<int> _patchStack = new();
 
+    // 上一条 Assign 是否为原地操作（不需要 Pop）
+    private bool _lastAssignWasInPlace = false;
+
     public Compiler(HashSet<string>? knownGlobals = null)
     {
         _scopeStack.Push(new Dictionary<string, VariableBinding>());
@@ -287,6 +290,12 @@ public sealed class Compiler
         foreach (var stmt in expr.Statements)
         {
             Visit(stmt);
+            if (stmt is AssignExpr && _lastAssignWasInPlace)
+            {
+                // 原地操作不 Push，不需要 Pop
+                _lastAssignWasInPlace = false;
+                continue;
+            }
             if (IsStatement(stmt))
             {
                 Emit(OpCode.Pop);
@@ -455,9 +464,12 @@ public sealed class Compiler
             int index = _code.Count;
             Emit(inPlaceOp, -1);
             _pendingSlotFixups.Add((index, binding.Region, binding.Slot));
+            // 栈上运算的值不需要 push 
+            _lastAssignWasInPlace = true;
             return;
         }
 
+        _lastAssignWasInPlace = false;
         // 原有逻辑
         Visit(expr.Value);
         var binding2 = ResolveVariable(expr.Name);
@@ -1030,6 +1042,12 @@ public sealed class Compiler
         for (int i = 0; i < expr.Statements.Count; i++)
         {
             Visit(expr.Statements[i]);
+            // 原地操作的 Assign 不需要 Pop
+            if (expr.Statements[i] is AssignExpr && _lastAssignWasInPlace)
+            {
+                _lastAssignWasInPlace = false;
+                continue;
+            }
             if (i < expr.Statements.Count - 1)
             {
                 Emit(OpCode.Pop);

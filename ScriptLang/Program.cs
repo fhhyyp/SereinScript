@@ -31,25 +31,34 @@ class Program
         args = ["./Samples/4/4.1-CLR对象.script"];
 #endif
 
-        string[] s1 = [ @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.1-基础运算.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.2-变量声明.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.3-字符串操作.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.4-函数.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.5-对象.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.6-复杂对象.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.7-数组.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\1\1.8-数值数据类型.script",
-                    ];
+        string[][] scripts =
+        [[ 
+            @".\Samples\1\1.1-基础运算.script",
+            @".\Samples\1\1.2-变量声明.script",
+            @".\Samples\1\1.3-字符串操作.script",
+            @".\Samples\1\1.4-函数.script",
+            @".\Samples\1\1.5-对象.script",
+            @".\Samples\1\1.6-复杂对象.script",
+            @".\Samples\1\1.7-数组.script",
+            @".\Samples\1\1.8-数值数据类型.script",
+        ],[
+            @".\Samples\2\2.1-逻辑运算.script",
+            @".\Samples\2\2.2-条件表达式.script",
+            @".\Samples\2\2.3-循环.script",
+            @".\Samples\2\2.4-模式匹配.script",
+        ],
+        [   
+            @".\Samples\3\3.1-闭包.script",
+            @".\Samples\3\3.2-高阶函数.script",
+            @".\Samples\3\3.3-递归.script",
+            @".\Samples\3\3.4-快速排序.script",
+            @".\Samples\3\3.5-矩阵运算.script",
+        ]];
 
-        string[] s2 = [ @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.1-逻辑运算.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.2-条件表达式.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.3-循环.script",
-                        @"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.4-模式匹配.script",
-                    ];
-
-        args = [s2[1 - 1]];
-
-        if (args.Length == 0) 
+        string getScirpt(int page, int index) => scripts[page - 1][index - 1];
+        args = [getScirpt(2, 3)];
+        //args = ["./Samples/高级/pinia/run-import.script"];
+        if (args.Length == 0)
         {
             Console.WriteLine("需要指定调用的 script 文件路径");
             return;

@@ -572,7 +572,15 @@ public class VM
     /// <returns>true 继续执行，false 表示顶层返回</returns>
     private bool HandleReturn()
     {
+        if (_engine.IsPrintVMInfo)
+        {
+            Console.WriteLine($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
+        }
         var returnValue = Pop();
+        if (_engine.IsPrintVMInfo)
+        {
+            Console.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue?.GetType().Name}");
+        }
 
         // 返回时冻结 MutableNumber
         if (returnValue is MutableNumber mn)
@@ -627,8 +635,14 @@ public class VM
     /// <param name="fallbackOp">不可变时的回退操作</param>
     private void InPlaceOp(int slot, Action<Value> mutableOp, Func<Value, Value, Value> fallbackOp)
     {
+        
         var right = Pop();
         var left = _currentFrame.Slots[slot];
+
+        if (_engine.IsPrintVMInfo)
+        {
+            Console.WriteLine($"[InPlaceOp] slot={slot}, 栈深度={_stack.Count}, left类型={left.GetType().Name}, left={left}");
+        }
 
         if (left is MutableNumber)
         {
