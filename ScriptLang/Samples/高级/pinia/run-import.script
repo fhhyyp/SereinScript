@@ -1,6 +1,6 @@
 // run-import.script
-import { look } from "look.script"
 import { store } from "test-import.script"
+import { look } from "look.script"
 
 look()
 store.actions.increment(123)

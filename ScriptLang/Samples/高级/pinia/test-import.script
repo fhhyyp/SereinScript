@@ -6,7 +6,8 @@ let store = createStore({
         return obj
     },
     getters = {
-        getData = (state) => {
+        getData = (name, state) => {
+            print("pinia getter method type name:",name) // 打印输出
             if(state == null) then {
                 return "store is null"
             }else {
@@ -15,8 +16,8 @@ let store = createStore({
         }
     },
     actions = {
-        increment = (state, n) => {
-            print(state, n)
+        increment = (name, state, n) => {
+            print("pinia action method type name:",name) // 打印输出
             state.x = state.x + n
             state.y = state.y - n
         }

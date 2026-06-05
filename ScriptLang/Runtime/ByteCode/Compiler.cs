@@ -394,6 +394,9 @@ public sealed class Compiler
 
         if (existingBinding != null)
         {
+#if DEBUG
+            Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Region={existingBinding.Region}, Slot={existingBinding.Slot})");
+#endif
             EmitStoreSlot(existingBinding);
         }
         else
@@ -738,6 +741,7 @@ public sealed class Compiler
         var nestedOnlyVars = new HashSet<string>(allCaptureNames);
         nestedOnlyVars.ExceptWith(freeVars);
 
+
 #if DEBUG
         Console.WriteLine($"[Compiler.CompileLambda] 直接自由变量: [{string.Join(", ", freeVars)}]");
         Console.WriteLine($"[Compiler.CompileLambda] 仅嵌套闭包引用的变量: [{string.Join(", ", nestedOnlyVars)}]");
@@ -799,7 +803,6 @@ public sealed class Compiler
 #if DEBUG
         Console.WriteLine($"[Compiler.CompileLambda] 最终 allCaptureNames ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
 #endif
-
         // ===== 第 5 步：在当前帧为所有需要捕获的变量分配捕获槽位 =====
         var captureSlots = new Dictionary<string, int>();
 
@@ -844,15 +847,32 @@ public sealed class Compiler
                 }
                 else
                 {
-                    // binding 为 null：未知来源，强制分配
+                    // binding 为 null：前向引用（相互递归）
+                    // 在作用域栈最底层预注册占位符，等待后续定义
                     int captureIndex = _varTable.AllocCapture(varName);
                     captureSlots[varName] = captureIndex;
 
-                    ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
+                    // 在作用域栈最外层注册占位符
+                    var topScope = _scopeStack.First();
+                    if (!topScope.ContainsKey(varName))
+                    {
+                        var placeholderBinding = new VariableBinding(captureIndex, false, isCaptured: true)
+                        {
+                            Region = SlotRegion.Capture
+                        };
+                        topScope[varName] = placeholderBinding;
+                        _localNames.Add(varName);
 
 #if DEBUG
-                    Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
+                        Console.WriteLine($"[Compiler.CompileLambda] 前向引用预注册: '{varName}' → captureSlot={captureIndex}");
 #endif
+                    }
+                    else
+                    {
+#if DEBUG
+                        Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
+#endif
+                    }
                 }
             }
         }
@@ -955,7 +975,7 @@ public sealed class Compiler
 
     /// <summary>
     /// 在作用域链中替换变量的 binding，将其指向捕获区
-    /// 用于闭包捕获：当局部变量被闭包引用时，后续的 StoreSlot/LoadSlot 应使用捕获区槽位
+    /// 同时修正已发射但尚未 fixup 的指令中的槽位信息
     /// </summary>
     private void ReplaceBindingInScope(string name, int captureSlot, SlotRegion newRegion)
     {
@@ -963,14 +983,34 @@ public sealed class Compiler
         {
             if (scope.TryGetValue(name, out var binding))
             {
+                int oldSlot = binding.Slot;
+                SlotRegion oldRegion = binding.Region;
+
+                // 更新作用域中的 binding
                 binding.Region = newRegion;
                 binding.Slot = captureSlot;
                 binding.IsCaptured = true;
+
+                // 修正已发射但尚未 fixup 的指令（如 StoreSlot/LoadSlot/AddInPlace 等）
+                for (int i = 0; i < _pendingSlotFixups.Count; i++)
+                {
+                    var (index, region, localSlot) = _pendingSlotFixups[i];
+                    if (region == oldRegion && localSlot == oldSlot)
+                    {
+                        _pendingSlotFixups[i] = (index, newRegion, captureSlot);
+#if DEBUG
+                        Console.WriteLine($"[ReplaceBindingInScope] 修正 fixup[{i}]: '{name}' {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}");
+#endif
+                    }
+                }
+
+#if DEBUG
+                Console.WriteLine($"[ReplaceBindingInScope] '{name}': {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}, 修正了 fixup 记录");
+#endif
                 return;
             }
         }
     }
-
     // ==================== 函数调用 ====================
 
     private void CompileCall(CallExpr expr)

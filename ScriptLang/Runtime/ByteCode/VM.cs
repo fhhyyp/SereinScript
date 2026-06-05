@@ -74,7 +74,7 @@ public class VM
     /// </summary>
     public async ValueTask<Value> ExecuteAsync(ByteCodeChunk chunk)
     {
-#if true
+
         if (_engine.IsPrintVMInfo)
         {
             Console.WriteLine("=== 变量表 ===");
@@ -102,7 +102,7 @@ public class VM
             }
             Console.WriteLine("=== 执行 ===");
         }
-#endif
+
 
         _stack.Clear();
         _frames.Clear();
@@ -112,6 +112,14 @@ public class VM
 
         // 顶层帧填充全局变量和内置函数
         InitFrameSlots(_currentFrame, null);
+        if (_engine.IsPrintVMInfo)
+        {
+            for (int i = 0; i < _currentFrame.Slots.Length; i++)
+            {
+                Console.WriteLine($"[VM] Slots[{i}] = {_currentFrame.Slots[i]?.ToString() ?? "null"}");
+            }
+        }
+           
 
         while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
         {
@@ -554,6 +562,8 @@ public class VM
                 {
                     _currentFrame.Captures[captureIndex].Cell.Value = value;
                 }
+                if (_engine.IsPrintVMInfo)
+                    Console.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={_currentFrame.Captures[captureIndex].GetHashCode()}");
             }
             else if (region == SlotRegion.Global)
             {
@@ -791,6 +801,7 @@ public class VM
 
         foreach (var (name, outerCaptureSlot) in captureMappings)
         {
+
             if (!innerVt.CaptureNames.TryGetValue(name, out int innerCaptureIndex))
                 continue;
 
@@ -829,8 +840,9 @@ public class VM
             {
                 _currentFrame.Captures[outerCaptureSlot] = info;
             }
-
             capturedCells[innerCaptureIndex] = info;
+            if (_engine.IsPrintVMInfo)
+                Console.WriteLine($"[CreateClosure] 回写 Captures[{outerCaptureSlot}] = new Cell({existingValue}), HashCode={info.GetHashCode()}");
         }
 
         var closure = new LightweightClosure(capturedCells);

@@ -16,6 +16,11 @@ namespace ScriptLang
             return NumberValueFactory.Create(DateTime.Now.Ticks);
         });
 
+        private static readonly FunctionValue nowtime = new(nameof(nowtime), static (args) =>
+        {
+            return new StringValue(DateTime.Now.ToString());
+        });
+
         private static readonly FunctionValue sleep = new(nameof(sleep), static async (args) =>
         {
             if (args.Count != 1 || !args[0].IsNumber_Int)
@@ -170,6 +175,7 @@ namespace ScriptLang
         public static List<FunctionValue> FunctionCaches { get; private set; } = [
                 debug,
                 now,
+                nowtime,
                 sleep,
                 @typeof,
                 print,

@@ -80,6 +80,14 @@ public sealed class VariableTableBuilder
     public bool TryGetCaptureSlot(string name, out int slot)
         => _captureSlots.TryGetValue(name, out slot);
 
+    /// <summary>
+    /// 移除指定名称的局部变量槽位（用于 for 循环迭代间变量复用）
+    /// </summary>
+    public void RemoveLocal(string name)
+    {
+        _localSlots.Remove(name);
+    }
+
     /// <summary>构建最终的 VariableTable</summary>
     public VariableTable Build()
     {
