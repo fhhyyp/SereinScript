@@ -69,7 +69,7 @@ public abstract class Value
         {
             ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
             BoolValue b => b.Value ? "true" : "false",
-            ClrMethodValue cm => $"<clr:func>{cm.Delegate.MethodInfo.DeclaringType?.Name}.{cm.Delegate.MethodInfo.Name}()",
+            ClrMethodValue cm => $"<clr:func>{cm.MethodInfo.DeclaringType?.Name}.{cm.MethodInfo.Name}()",
             ClrObjectValue co => $"<clr:obj>{co.Value?.GetType().FullName}",
             FunctionValue f => $"<func>({string.Join(',', f.Parameters)}) = {{}}",
             NullValue => "null",
@@ -643,13 +643,14 @@ public class ClrObjectValue(object? Target) : Value
 public class ClrMethodValue : Value
 {
 
-    public ClrMethodValue(MethodInfo methodInfo)
+    public ClrMethodValue(MethodInfo methodInfo, object? instance)
     {
-        DelegateDetails delegateDetails = new DelegateDetails(methodInfo);
+        Delegate =  new DelegateDetails(methodInfo);
         ParameterCount = methodInfo.GetParameters().Length;
         IsStatic = methodInfo.IsStatic;
         ReturnType = methodInfo.ReturnType;
-        Delegate = delegateDetails;
+        MethodInfo = methodInfo;
+        TargetInstance = instance;
         //_methodInfo = methodInfo;
     }
 
@@ -677,6 +678,7 @@ public class ClrMethodValue : Value
     /// 返回类型
     /// </summary>
     public System.Type ReturnType { get; }
+    public MethodInfo MethodInfo { get; }
 
     public override T As<T>()
     {

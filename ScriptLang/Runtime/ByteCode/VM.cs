@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace ScriptLang.Runtime.ByteCode;
@@ -913,7 +914,7 @@ public class VM
     private async Task CallClrMethodAsync(ClrMethodValue method, List<Value> args)
     {
         var clrArgs = new object?[method.ParameterCount];
-        var methodParams = method.Delegate.MethodInfo.GetParameters();
+        var methodParams = method.MethodInfo.GetParameters();
 
         for (int i = 0; i < Math.Min(args.Count, clrArgs.Length); i++)
         {
@@ -988,10 +989,6 @@ public class VM
     {
         var memberName = Pop().AsString();
         var target = Pop();
-        if (memberName == "count")
-        {
-
-        }
         if(target is null)
         {
             throw new RuntimeException($"无法调用 GetMember('{memberName}')，目标值为 null ");
@@ -1545,14 +1542,20 @@ public class VM
 
     private static Value? AccessClrMember(ClrObjectValue clrObj, string memberName)
     {
-        var type = clrObj.Value!.GetType();
-        var prop = type.GetProperty(memberName);
+        var target = clrObj.Value!;
+        var type = target.GetType();
 
-        if (prop != null)
+        if (type.GetProperty(memberName) is PropertyInfo property)
         {
-            var value = prop.GetValue(clrObj.Value);
+            var value = property.GetValue(clrObj.Value);
             return ConvertClrToValue(value);
         }
+        else if (type.GetMethod(memberName) is MethodInfo method)
+        {
+            var value = new ClrMethodValue(method, target);
+            return value;
+        }
+        
 
         return null;
     }

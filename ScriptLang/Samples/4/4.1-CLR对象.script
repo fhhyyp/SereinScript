@@ -5,7 +5,7 @@ let person = new_Person()
 person.Name = "张三"
 person.Age = 18
 
-let count = 200000
+let count = 1
 
 print("开始测试:", count)
 
@@ -16,46 +16,22 @@ for i in range(0, count)
     // 属性读取
     let name = person.Name
     let age = person.Age
-
+    print("person", name)
+    print("age", age)
     // 属性写入
     person.Name = name
     person.Age = age
-
+    print("name", name)
+    print("age", age)
     // 方法调用
     let greet = person.Greet()
     let nextAge = person.AddYears(1)
+    print("greet", greet)
+    print("nextAge", nextAge)
 }
 
 let elapsed = now() - start
 
 print("循环次数:", count)
-print("耗时(ms):", elapsed)
-print("每秒调用:", count / (elapsed / 1000))
+print("耗时(ms):", elapsed / 10000)
 
-// print(person.Hobbies[0])
-
-
-
-
-// print("=== CLR 静态方法（通过对象包装）===")
-// print(math.Max(10, 20))
-// print(math.Min(10, 20))
-// print(math.Clamp(5, 10, 30))
-// print(math.Clamp(15, 10, 30))
-// print(math.Clamp(35, 10, 30))
-// 
-// print("=== CLR 集合迭代 ===")
-// for hobby in person.Hobbies {
-//   print(hobby)
-// }
-// 
-// print("=== CLR 对象作为参数 ===")
-// let greetResult = person.Greet()
-// print("Greet result: " + greetResult)
-// 
-// print("=== CLR 方法参数类型转换 ===")
-// print(person.AddYears(10.5))  // 脚本传 double，CLR 方法接收 int
-// 
-// print("=== CLR 对象完整测试完成 ===")
-// person
-// 

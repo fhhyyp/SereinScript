@@ -55,7 +55,7 @@ class Program
         ],
         ];
         
-        scirpt(6, 1);
+        scirpt(4, 1);
 
         if (args.Length == 0)
         {
@@ -70,7 +70,7 @@ class Program
             return;
         }
         var engine = new ScriptEngine();
-        //engine.PrototypeManager.Register<TestPersonPrototype>();
+        engine.PrototypeManager.Register<TestPersonPrototype>();
         BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person", _ => new ClrObjectValue(new TestPerson())));
         try
         {
