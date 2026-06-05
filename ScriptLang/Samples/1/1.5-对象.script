@@ -1,33 +1,33 @@
 ﻿
 // ==================== map对象 ====================
-// let person = {
-//     name = "Alice",
-//     age = 30,
-//     active = true,
-//     emil = [
-//     "alice@google.com",
-//     "123456@qq.com"
-//     ]
-// }
-// print("person:", person)  // 输出: person: {name: "Alice", age: 30, active: True}
-// print("person.name:", person.name)  // 输出: person.name: Alice
-// print("person.age:", person.age)  // 输出: person.age: 30
-// print("person.emil_0:", person.emil[0])   // 输出:  "alice@google.com",
-// print("person.emil_1:", person.emil[1])   // 输出:   "123456@qq.com"
+let person = {
+    name = "Alice",
+    age = 30,
+    active = true,
+    emil = [
+    "alice@google.com",
+    "123456@qq.com"
+    ]
+}
+print("person:", person)  // 输出: person: {name: "Alice", age: 30, active: True}
+print("person.name:", person.name)  // 输出: person.name: Alice
+print("person.age:", person.age)  // 输出: person.age: 30
+print("person.emil_0:", person.emil[0])   // 输出:  "alice@google.com",
+print("person.emil_1:", person.emil[1])   // 输出:   "123456@qq.com"
 
 // 对象图 + 深层访问
-let config = {
-    prop = null, 
-    db = {
-        host = "localhost",
-        port = 5432
-    },
-    feature = {
-        flags = ["a", "b", "c"]
-    }
-}
-if(config?.prop?.value == null) then {
-    print("IS NULL")
-} else {
-    print("config?.prop?.value" + config?.prop?.value)      // 不会执行
-}
+//let config = {
+//    prop = null, 
+//    db = {
+//        host = "localhost",
+//        port = 5432
+//    },
+//    feature = {
+//        flags = ["a", "b", "c"]
+//    }
+//}
+//if(config?.prop?.value == null) then {
+//    print("IS NULL")
+//} else {
+//    print("config?.prop?.value" + config?.prop?.value)      // 不会执行
+//}

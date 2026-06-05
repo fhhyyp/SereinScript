@@ -1,20 +1,22 @@
 let counter = { 
     value = 0
 }
-
+let count = 0
+print("counter value is ", counter)
 let ui = {
     type= "StackPanel",
-    children = [{ 
+    children = [
+    { 
         type = "TextBlock", 
         text = () => "Count: " + counter.value
-    },{
+    },
+    {
         type = "Button", 
         text = "Increment",
         onClick = () => counter.value = counter.value + 1  
     }]
 }
-
 print(counter.value) // 输出: 0
 ui.children[1].onClick() // 模拟点击按钮
 print(counter.value) // 输出: 1
-return ui 
+return counter 

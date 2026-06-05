@@ -772,11 +772,23 @@ public class VM
             }
             else
             {
-                // 创建新的 VariableCell
-                var cell = new VariableCell(_currentFrame.Slots[outerRuntimeSlot]);
+                // 局部变量：从局部槽位读取值
+                Value value;
+                int localSlot;
+
+                if (outerVt.LocalNames.TryGetValue(name, out localSlot))
+                {
+                    value = _currentFrame.Slots[localSlot];
+                }
+                else
+                {
+                    value = _currentFrame.Slots[outerRuntimeSlot];
+                }
+
+                var cell = new VariableCell(value);
                 var info = new VariableInfo(cell, true) { IsCaptured = true };
 
-                // 回写到当前帧的 Captures 数组
+                // 回写到捕获区（供后续 CreateClosure 共享）
                 if (outerCaptureSlot < _currentFrame.Captures.Length)
                 {
                     _currentFrame.Captures[outerCaptureSlot] = info;
@@ -813,6 +825,7 @@ public class VM
 #if DEBUG
         Console.WriteLine($"[VM.Call] target={target}, target类型={target?.GetType().Name ?? "NULL"}, 参数=[{string.Join(",", args)}]");
 #endif
+
         if (target is CompiledFunctionValue compiledFunc)
         {
             CallCompiledFunction(compiledFunc, args);
@@ -828,7 +841,7 @@ public class VM
         }
         else
         {
-            throw new RuntimeException($"无法调用类型为 {target.GetType()} 的值");
+            throw new RuntimeException($"无法调用类型为 {target?.GetType()} 的值");
         }
     }
 
@@ -937,6 +950,10 @@ public class VM
         if (memberName == "count")
         {
 
+        }
+        if(target is null)
+        {
+            throw new RuntimeException($"无法调用 GetMember('{memberName}')，目标值为 null ");
         }
         if (target is ObjectValue obj)
         {

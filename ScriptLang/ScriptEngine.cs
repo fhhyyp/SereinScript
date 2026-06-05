@@ -66,9 +66,11 @@ namespace ScriptLang
                 script = File.ReadAllText(filePath);
                 if (IsPrintInputSciptContent)
                 {
-                    Console.WriteLine($"[Lexer]准备解析脚本：{filePath}");
+                    Console.WriteLine("================加载脚本==============");
+                    Console.WriteLine($"# 脚本路径：{filePath}");
                     Console.WriteLine(script);
-                    Console.WriteLine();
+                    Console.WriteLine("================解析完毕==============");
+                    Console.WriteLine("");
                 }
 
                 SourceManager.AddSource(filePath, script);

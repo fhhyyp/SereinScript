@@ -42,7 +42,7 @@
     <None Update="Samples\2\2.1-逻辑运算.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Samples\1\1.6-数组.script">
+    <None Update="Samples\1\1.7-数组.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Samples\1\1.5-对象.script">
