@@ -356,7 +356,7 @@ public sealed class Compiler
 
         if (binding == null)
         {
-            throw new InvalidOperationException($"未定义的变量 '{name}'");
+            throw new InvalidOperationException($"未定义的变量 '{name}'。当前作用域变量: [{string.Join(", ", _localNames)}]");
         }
 
         EmitLoadSlot(binding);
@@ -366,6 +366,19 @@ public sealed class Compiler
 
     private void CompileLet(LetExpr expr)
     {
+        // 如果是 Lambda 表达式，预先注册名称占位符以支持递归自引用
+        if (expr.Value is LambdaExpr)
+        {
+            var currentScope = _scopeStack.Peek();
+            if (!currentScope.ContainsKey(expr.Name))
+            {
+                DefineVariable(expr.Name, isMutable: false);
+#if DEBUG
+                Console.WriteLine($"[CompileLet] 预注册递归函数占位符: '{expr.Name}'");
+#endif
+            }
+        }
+
         Visit(expr.Value);
 
         // 在整个作用域链中查找
@@ -748,46 +761,104 @@ public sealed class Compiler
 #endif
         }
 
-        // ===== 第 4 步：在当前帧为所有需要捕获的变量分配捕获槽位 =====
+
+        // ===== 第 4 步：检测递归自引用变量 =====
+        // 递归自引用：在 freeVars 中，ResolveVariable 能找到（已被 CompileLet 预注册），
+        // 且在 _localNames 中，但不是参数也不是已定义的局部变量
+        var recursiveVars = new HashSet<string>();
+        foreach (var varName in freeVars)
+        {
+            var binding = ResolveVariable(varName);
+#if DEBUG
+            Console.WriteLine($"[CompileLambda] 递归检测: '{varName}' → binding={(binding != null ? $"Slot={binding.Slot}, Region={binding.Region}" : "NULL")}, inLocalNames={_localNames.Contains(varName)}");
+#endif
+
+            if (binding == null)
+                continue;
+
+            // 内置函数和全局变量不需要捕获
+            if (binding.Region == SlotRegion.Builtin || binding.Region == SlotRegion.Global)
+                continue;
+
+            // 如果变量在 _localNames 中且 binding 在作用域中是 Local，
+            // 说明它是通过 CompileLet 预注册的递归占位符
+            // 需要将其预注册为内部编译器的捕获变量，而不是直接引用
+            if (_localNames.Contains(varName) && binding.Region == SlotRegion.Local)
+            {
+                recursiveVars.Add(varName);
+#if DEBUG
+                Console.WriteLine($"[CompileLambda] 递归检测: '{varName}' 标记为递归自引用");
+#endif
+            }
+        }
+
+
+        // 合并递归变量到 allCaptureNames
+        allCaptureNames.UnionWith(recursiveVars);
+        nestedOnlyVars.UnionWith(recursiveVars);
+#if DEBUG
+        Console.WriteLine($"[Compiler.CompileLambda] 最终 allCaptureNames ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
+#endif
+
+        // ===== 第 5 步：在当前帧为所有需要捕获的变量分配捕获槽位 =====
         var captureSlots = new Dictionary<string, int>();
 
         foreach (var varName in allCaptureNames)
         {
             if (nestedOnlyVars.Contains(varName))
             {
-                // 仅被嵌套闭包引用的变量：直接强制分配捕获槽位
+                // 仅被嵌套闭包引用的变量（或递归自引用）：直接强制分配捕获槽位
                 int captureIndex = _varTable.AllocCapture(varName);
                 captureSlots[varName] = captureIndex;
+
+                // 替换作用域中的 binding，让后续 StoreSlot/LoadSlot 使用捕获区
+                ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
+
 #if DEBUG
-                Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（嵌套闭包变量）: '{varName}' → captureSlot={captureIndex}");
+                Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（嵌套/递归变量）: '{varName}' → captureSlot={captureIndex}");
 #endif
             }
             else
             {
                 // 当前 Lambda 直接引用的自由变量：通过 ResolveVariable 确认类型
                 var binding = ResolveVariable(varName);
+
                 if (binding != null && (binding.Region == SlotRegion.Local || binding.Region == SlotRegion.Capture))
                 {
                     int captureIndex = _varTable.AllocCapture(varName);
                     captureSlots[varName] = captureIndex;
                     binding.IsCaptured = true;
+
+                    // 替换作用域中的 binding，让后续 StoreSlot/LoadSlot 使用捕获区
+                    ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
+
 #if DEBUG
                     Console.WriteLine($"[Compiler.CompileLambda] 分配捕获槽位: '{varName}' → captureSlot={captureIndex} (原 Region={binding.Region})");
 #endif
                 }
-#if DEBUG
-                else if (binding != null)
+                else if (binding != null && (binding.Region == SlotRegion.Global || binding.Region == SlotRegion.Builtin))
                 {
-                    Console.WriteLine($"[Compiler.CompileLambda] 跳过: '{varName}' (Region={binding.Region})");
-                }
+#if DEBUG
+                    Console.WriteLine($"[Compiler.CompileLambda] 跳过全局/内置: '{varName}'");
 #endif
+                }
+                else
+                {
+                    // binding 为 null：未知来源，强制分配
+                    int captureIndex = _varTable.AllocCapture(varName);
+                    captureSlots[varName] = captureIndex;
+
+                    ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
+
+#if DEBUG
+                    Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
+#endif
+                }
             }
         }
 
-        // ===== 第 5 步：构建 captureMappings 并发射 CreateClosure =====
-        var captureMappings = captureSlots
-            .Select(kv => (kv.Key, kv.Value))
-            .ToList();
+        // ===== 第 6 步：构建 captureMappings 并发射 CreateClosure =====
+        var captureMappings = captureSlots.Select(kv => (kv.Key, kv.Value)).ToList();
 
 #if DEBUG
         Console.WriteLine($"[Compiler.CompileLambda] captureMappings: [{string.Join(", ", captureMappings.Select(m => $"('{m.Key}', {m.Value})"))}]");
@@ -822,6 +893,11 @@ public sealed class Compiler
         // 注册直接捕获的变量
         foreach (var varName in directFreeVars)
         {
+            // 跳过内置函数和全局变量，让它们在内部编译器中自然解析
+            var binding = ResolveVariable(varName);
+            if (binding != null && (binding.Region == SlotRegion.Builtin || binding.Region == SlotRegion.Global))
+                continue;
+
             int captureIndex = innerCompiler._varTable.AllocCapture(varName);
             innerCompiler._localNames.Add(varName);
             innerScope[varName] = new VariableBinding(captureIndex, true, isCaptured: true)
@@ -876,159 +952,25 @@ public sealed class Compiler
             CollectNestedCaptures(nestedChunk, captureNames);
         }
     }
-    /*    /// <summary>
-        /// 编译 Lambda 表达式
-        /// </summary>
-        private void CompileLambda(LambdaExpr expr)
+
+    /// <summary>
+    /// 在作用域链中替换变量的 binding，将其指向捕获区
+    /// 用于闭包捕获：当局部变量被闭包引用时，后续的 StoreSlot/LoadSlot 应使用捕获区槽位
+    /// </summary>
+    private void ReplaceBindingInScope(string name, int captureSlot, SlotRegion newRegion)
+    {
+        foreach (var scope in _scopeStack)
         {
-    #if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] === 开始编译 Lambda ===");
-            Console.WriteLine($"[Compiler.CompileLambda] 参数: [{string.Join(", ", expr.Params)}]");
-            Console.WriteLine($"[Compiler.CompileLambda] _localNames 内容 ({_localNames.Count} 个): [{string.Join(", ", _localNames)}]");
-    #endif
-
-            // ===== 第 1 步：分析当前 Lambda 直接引用的自由变量 =====
-            _currentLambdaCaptures = new HashSet<string>();
-            var freeVars = CaptureAnalysis.Analyze(expr, _localNames);
-            _currentLambdaCaptures = null;
-
-    #if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] 直接自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
-    #endif
-
-            // ===== 第 2 步：创建内部编译器 =====
-            var innerCompiler = new Compiler(_externalGlobals);
-            var innerScope = innerCompiler._scopeStack.Peek();
-
-            // 注册 Lambda 参数为内部局部变量
-            foreach (var param in expr.Params)
+            if (scope.TryGetValue(name, out var binding))
             {
-                int paramSlot = innerCompiler._varTable.AllocLocal(param, isParameter: true);
-                innerCompiler._localNames.Add(param);
-                innerScope[param] = new VariableBinding(paramSlot, false)
-                {
-                    Region = SlotRegion.Local
-                };
+                binding.Region = newRegion;
+                binding.Slot = captureSlot;
+                binding.IsCaptured = true;
+                return;
             }
-
-            // 注册当前 Lambda 直接捕获的变量到内部编译器
-            foreach (var varName in freeVars)
-            {
-                int captureIndex = innerCompiler._varTable.AllocCapture(varName);
-                innerCompiler._localNames.Add(varName);
-                innerScope[varName] = new VariableBinding(captureIndex, true, isCaptured: true)
-                {
-                    Region = SlotRegion.Capture
-                };
-            }
-
-            // ===== 第 3 步：编译内部函数体 =====
-            var closureChunk = innerCompiler.Compile(expr.Body);
-
-            // ===== 第 4 步：收集所有嵌套闭包需要的捕获变量名 =====
-            var allCaptureNames = new HashSet<string>(freeVars);
-            CollectNestedCaptures(closureChunk, allCaptureNames);
-
-            // 区分两种来源：直接引用 vs 仅嵌套闭包引用
-            var nestedOnlyVars = new HashSet<string>(allCaptureNames);
-            nestedOnlyVars.ExceptWith(freeVars);
-
-    #if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] 直接自由变量: [{string.Join(", ", freeVars)}]");
-            Console.WriteLine($"[Compiler.CompileLambda] 仅嵌套闭包引用的变量: [{string.Join(", ", nestedOnlyVars)}]");
-            Console.WriteLine($"[Compiler.CompileLambda] 所有需要捕获的变量名 ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
-    #endif
-
-            // ===== 第 5 步：在当前帧为所有需要捕获的变量分配捕获槽位 =====
-            var captureSlots = new Dictionary<string, int>();
-
-            foreach (var varName in allCaptureNames)
-            {
-                if (nestedOnlyVars.Contains(varName))
-                {
-                    // 仅被嵌套闭包引用的变量：直接强制分配捕获槽位
-                    // 不经过 ResolveVariable，避免被同名全局/内置函数干扰
-                    int captureIndex = _varTable.AllocCapture(varName);
-                    captureSlots[varName] = captureIndex;
-
-    #if DEBUG
-                    Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（嵌套闭包变量）: '{varName}' → captureSlot={captureIndex}");
-    #endif
-                }
-                else
-                {
-                    // 当前 Lambda 直接引用的自由变量：通过 ResolveVariable 确认类型
-                    var binding = ResolveVariable(varName);
-
-                    if (binding != null && (binding.Region == SlotRegion.Local || binding.Region == SlotRegion.Capture))
-                    {
-                        int captureIndex = _varTable.AllocCapture(varName);
-                        captureSlots[varName] = captureIndex;
-                        binding.IsCaptured = true;
-
-    #if DEBUG
-                        Console.WriteLine($"[Compiler.CompileLambda] 分配捕获槽位: '{varName}' → captureSlot={captureIndex} (原 Region={binding.Region})");
-    #endif
-                    }
-                    else if (binding != null && (binding.Region == SlotRegion.Global || binding.Region == SlotRegion.Builtin))
-                    {
-    #if DEBUG
-                        Console.WriteLine($"[Compiler.CompileLambda] 跳过全局/内置: '{varName}'");
-    #endif
-                    }
-                    else
-                    {
-                        // binding 为 null：变量不在当前作用域链中
-                        // 可能是外层 Lambda Body 中的局部变量，强制分配
-                        int captureIndex = _varTable.AllocCapture(varName);
-                        captureSlots[varName] = captureIndex;
-
-    #if DEBUG
-                        Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
-    #endif
-                    }
-                }
-            }
-
-            // ===== 第 6 步：构建 captureMappings =====
-            var captureMappings = captureSlots
-                .Select(kv => (kv.Key, kv.Value))
-                .ToList();
-
-    #if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] captureMappings: [{string.Join(", ", captureMappings.Select(m => $"('{m.Key}', {m.Value})"))}]");
-    #endif
-
-            // ===== 第 7 步：发射 CreateClosure =====
-            int chunkIndex = _chunk.RegisterClosure(closureChunk);
-            Emit(OpCode.CreateClosure, (chunkIndex, expr.Params, captureMappings));
         }
+    }
 
-        /// <summary>
-        /// 递归收集嵌套闭包中所有 CaptureNames 中的变量名
-        /// 不依赖 ResolveVariable，直接按名收集
-        /// </summary>
-        private static void CollectNestedCaptures(ByteCodeChunk chunk, HashSet<string> captureNames)
-        {
-            var vt = chunk.VariableTable;
-            if (vt != null && vt.CaptureCount > 0)
-            {
-                foreach (var captureName in vt.CaptureNames.Keys)
-                {
-    #if DEBUG
-                    if (!captureNames.Contains(captureName))
-                        Console.WriteLine($"[CollectNestedCaptures] 从嵌套闭包中发现: '{captureName}'");
-    #endif
-                    captureNames.Add(captureName);
-                }
-            }
-
-            // 始终递归进入更深层的嵌套闭包
-            foreach (var nestedChunk in chunk.GetClosures())
-            {
-                CollectNestedCaptures(nestedChunk, captureNames);
-            }
-        }*/
     // ==================== 函数调用 ====================
 
     private void CompileCall(CallExpr expr)

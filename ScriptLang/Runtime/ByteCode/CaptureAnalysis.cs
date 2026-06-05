@@ -15,7 +15,7 @@ public static class CaptureAnalysis
     /// </summary>
     /// <param name="lambda">Lambda 表达式</param>
     /// <param name="localNames">当前作用域中已知的局部变量名集合</param>
-    /// <returns>需要捕获的自由变量名集合</returns>
+    /// <returns>需要捕获的自由变量名集合（不在参数列表中的所有外部引用）</returns>
     public static HashSet<string> Analyze(LambdaExpr lambda, HashSet<string> localNames)
     {
         var boundVars = new HashSet<string>(lambda.Params);
@@ -34,28 +34,28 @@ public static class CaptureAnalysis
         Console.WriteLine($"[CaptureAnalysis] 所有自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
 #endif
 
-        // 只保留在当前作用域中实际存在的局部变量（过滤全局变量、内置函数等）
+        // 返回所有不在参数列表中的自由变量（不过滤，由调用方通过 ResolveVariable 决定如何处理）
         var captured = new HashSet<string>();
         foreach (var name in freeVars)
         {
-            bool isLocal = localNames.Contains(name);
             bool isBound = boundVars.Contains(name);
 
 #if DEBUG
+            bool isLocal = localNames.Contains(name);
             Console.WriteLine($"[CaptureAnalysis]   变量 '{name}': isLocal={isLocal}, isBound={isBound}");
 #endif
 
-            if (isLocal && !isBound)
+            if (!isBound)
             {
                 captured.Add(name);
 #if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]     → 捕获!");
+                Console.WriteLine($"[CaptureAnalysis]     → 加入候选!");
 #endif
             }
         }
 
 #if DEBUG
-        Console.WriteLine($"[CaptureAnalysis] 最终捕获 ({captured.Count} 个): [{string.Join(", ", captured)}]");
+        Console.WriteLine($"[CaptureAnalysis] 候选捕获 ({captured.Count} 个): [{string.Join(", ", captured)}]");
         Console.WriteLine($"[CaptureAnalysis] === 分析结束 ===\n");
 #endif
 

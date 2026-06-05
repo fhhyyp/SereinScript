@@ -878,7 +878,7 @@ public class VM
         }
         else
         {
-            throw new RuntimeException($"无法调用类型为 {target?.GetType()} 的值");
+            throw new RuntimeException($"无法调用类型为 {(target?.GetType().Name ?? "NULL")} 的值");
         }
     }
 
