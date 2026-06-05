@@ -808,26 +808,11 @@ public class VM
             if (innerCaptureIndex < 0 || innerCaptureIndex >= captureCount)
                 continue;
 
-            // 从外部帧获取该变量的当前值
-            Value existingValue;
-
-            if (outerVt.LocalNames.TryGetValue(name, out int localSlot))
-            {
-                // 外部变量是局部变量
-                existingValue = _currentFrame.Slots[localSlot];
-            }
-            else if (outerVt.CaptureNames.TryGetValue(name, out int outerCaptureIndex))
-            {
-                // 外部变量是捕获变量
-                int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureIndex;
-                existingValue = _currentFrame.Slots[outerRuntimeSlot];
-            }
-            else
-            {
-                // 兜底：按全局/内置处理（不应该发生）
-                int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureSlot;
-                existingValue = _currentFrame.Slots[outerRuntimeSlot];
-            }
+            // 从外部帧获取该变量的当前值。
+            // outerCaptureSlot 是编译时为该变量分配的捕获槽位索引，直接使用避免名字查找时
+            // 同名不同作用域的变量发生混淆。
+            int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureSlot;
+            Value existingValue = _currentFrame.Slots[outerRuntimeSlot];
 
             // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
             if(_engine.IsPrintVMInfo)

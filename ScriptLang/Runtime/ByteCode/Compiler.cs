@@ -70,6 +70,10 @@ public sealed class Compiler
     // 上一条 Assign 是否为原地操作（不需要 Pop）
     private bool _lastAssignWasInPlace = false;
 
+    // 嵌套捕获变量预注册占位符（来自 CreateInnerCompiler 的第二遍编译）。
+    // CompileLet/CompileVar 首次消费后从集合中移除，后续同名变量定义创建新的局部变量。
+    private readonly HashSet<string> _placeholderCaptureNames = new();
+
     public Compiler(HashSet<string>? knownGlobals = null)
     {
         _scopeStack.Push(new Dictionary<string, VariableBinding>());
@@ -394,10 +398,24 @@ public sealed class Compiler
 
         if (existingBinding != null)
         {
+            // 占位符（来自 CreateInnerCompiler 的嵌套捕获预注册）：
+            //   首次消费后从集合中移除，后续同名变量（不同作用域）将创建独立的局部变量。
+            //   若 binding 不在占位符集合中（已被前一个作用域消费），说明这是影子变量。
+            if (!_scopeStack.Peek().ContainsKey(expr.Name) && !_placeholderCaptureNames.Remove(expr.Name))
+            {
 #if DEBUG
-            Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Region={existingBinding.Region}, Slot={existingBinding.Slot})");
+                Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' as shadowed local (placeholder consumed)");
 #endif
-            EmitStoreSlot(existingBinding);
+                var binding = DefineVariable(expr.Name, isMutable: false);
+                EmitStoreSlot(binding);
+            }
+            else
+            {
+#if DEBUG
+                Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Region={existingBinding.Region}, Slot={existingBinding.Slot})");
+#endif
+                EmitStoreSlot(existingBinding);
+            }
         }
         else
         {
@@ -423,7 +441,15 @@ public sealed class Compiler
         VariableBinding binding;
         if (existingBinding != null)
         {
-            binding = existingBinding;
+            // 与 CompileLet 相同的占位符消费逻辑
+            if (!_scopeStack.Peek().ContainsKey(expr.Name) && !_placeholderCaptureNames.Remove(expr.Name))
+            {
+                binding = DefineVariable(expr.Name, isMutable: true);
+            }
+            else
+            {
+                binding = existingBinding;
+            }
         }
         else
         {
@@ -940,6 +966,8 @@ public sealed class Compiler
                 {
                     Region = SlotRegion.Capture
                 };
+                // 标记为占位符：首次消费后移除，后续同名变量将被视为影子变量创建新槽位
+                innerCompiler._placeholderCaptureNames.Add(varName);
 #if DEBUG
                 Console.WriteLine($"[CreateInnerCompiler] 预注册嵌套捕获变量: '{varName}' → 捕获槽位 {captureIndex}");
 #endif

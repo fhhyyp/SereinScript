@@ -13,31 +13,29 @@ public sealed class VariableTableBuilder
     private readonly List<string> _globalNames = new();
     private readonly List<string> _builtinNames = new();
 
-    public int LocalCount => _localSlots.Count;
-    public int CaptureCount => _captureSlots.Count;
+    // 单调递增计数器：即使作用域退出也不回退，避免槽位索引碰撞
+    private int _nextLocalSlot;
+    private int _nextCaptureSlot;
+
+    public int LocalCount => _nextLocalSlot;
+    public int CaptureCount => _nextCaptureSlot;
     public int GlobalCount => _globalNames.Count;
     public int BuiltinCount => _builtinNames.Count;
 
-    /// <summary>分配局部变量槽位</summary>
+    /// <summary>分配局部变量槽位（不去重——不同作用域的同名变量必须获得独立槽位）</summary>
     public int AllocLocal(string name, bool isParameter = false)
     {
-        if (_localSlots.TryGetValue(name, out int slot))
-            return slot;
-
-        slot = _localSlots.Count;
+        int slot = _nextLocalSlot++;
         _localSlots[name] = slot;
         if (isParameter)
             _paramSlots[name] = slot;
         return slot;
     }
 
-    /// <summary>分配捕获变量槽位</summary>
+    /// <summary>分配捕获变量槽位（不去重——由 CreateClosure 直接使用 outerCaptureSlot，无需共享）</summary>
     public int AllocCapture(string name)
     {
-        if (_captureSlots.TryGetValue(name, out int slot))
-            return slot;
-
-        slot = _captureSlots.Count;
+        int slot = _nextCaptureSlot++;
         _captureSlots[name] = slot;
         return slot;
     }
@@ -99,7 +97,7 @@ public sealed class VariableTableBuilder
         }
         return new VariableTable
         {
-            LocalCount = _localSlots.Count,  // 保持原始计数（未使用的局部槽位安全浪费）
+            LocalCount = _nextLocalSlot,  // 使用单调计数器（释放的槽位成为安全空洞）
             CaptureCount = CaptureCount,
             GlobalCount = GlobalCount,
             BuiltinCount = BuiltinCount,

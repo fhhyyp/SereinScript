@@ -11,25 +11,6 @@ class Program
 
     static async Task Main(string[] args)
     {
-#if DEBUG
-        args = ["./Samples/3/3.5-矩阵运算.script"];
-        args = ["./Samples/3/3.2-高阶函数.script"];
-        //args = ["./Samples/2/2.2-条件表达式.script"];
-        args = ["./Samples/test/test-stack-overflow.script"];
-        args = ["./Samples/3/3.4-快速排序.script"];
-
-        args = ["./Samples/1/1.7-数值数据类型.script"];
-        args = ["./Samples/test/test.script"];
-        args = [@"D:\Project\C#\SereinScript\SereinScript\ScriptLang\Samples\2\2.3-循环.script"];
-        args = ["./Samples/test/test-mutual-recursion.script"];
-                args = ["./Samples/3/3.5-矩阵运算.script"];
-        args = ["D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang\\Samples\\test\\test.script"];
-        args = ["./Samples/高级/pinia/run-import.script"];
-        args = ["./Samples/test/test_closure_memory.script"];
-        args = ["./Samples/高级/linq/run-linq.script"];
-        args = ["./Samples/1/1.1-基础运算.script"];
-        args = ["./Samples/4/4.1-CLR对象.script"];
-#endif
 
         string[][] scripts =
         [[ 
