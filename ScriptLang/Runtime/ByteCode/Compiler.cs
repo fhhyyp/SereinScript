@@ -511,23 +511,27 @@ public sealed class Compiler
             _ => throw new InvalidOperationException($"未知的操作符 '{expr.Op}'")
         };
 
+        // &&
         if (expr.Op == "&&")
         {
-            Visit(expr.Left);
-            int jumpIndex = EmitJump(OpCode.JmpIfFalse);
-            // 移除 Emit(OpCode.Pop);  ← JmpIfFalse 已经 Pop 了
-            Visit(expr.Right);
-            PatchJump(jumpIndex);
+            Visit(expr.Left);                              // Push left
+            Emit(OpCode.Dup);                              // 复制一份给 JmpIfFalse Pop
+            int jumpIndex = EmitJump(OpCode.JmpIfFalse);   // Pop 复制的，如果假跳转
+            Emit(OpCode.Pop);                              // 弹掉原来的 left（为真时不需要）
+            Visit(expr.Right);                             // Push right
+            PatchJump(jumpIndex);                          // 为假时跳到这里，栈顶是 left
             return;
         }
 
+        // ||
         if (expr.Op == "||")
         {
-            Visit(expr.Left);
-            int jumpIndex = EmitJump(OpCode.JumpIfTrue);
-            // 移除 Emit(OpCode.Pop);  ← JumpIfTrue 已经 Pop 了
-            Visit(expr.Right);
-            PatchJump(jumpIndex);
+            Visit(expr.Left);                              // Push left
+            Emit(OpCode.Dup);                              // 复制一份给 JumpIfTrue Pop
+            int jumpIndex = EmitJump(OpCode.JumpIfTrue);   // Pop 复制的，如果真跳转
+            Emit(OpCode.Pop);                              // 弹掉原来的 left（为假时不需要）
+            Visit(expr.Right);                             // Push right
+            PatchJump(jumpIndex);                          // 为真时跳到这里，栈顶是 left
             return;
         }
 
@@ -557,12 +561,13 @@ public sealed class Compiler
     private void CompileConditional(ConditionalExpr expr)
     {
         Visit(expr.Cond);
-        int elseJumpIndex = EmitJump(OpCode.JmpIfFalse);
-        // 移除 Emit(OpCode.Pop);
+        Emit(OpCode.Dup);                              // 复制条件值
+        int elseJumpIndex = EmitJump(OpCode.JmpIfFalse); // Pop 复制的
+        Emit(OpCode.Pop);                              // 弹掉原来的
         Visit(expr.Then);
         int endJumpIndex = EmitJump(OpCode.Jmp);
         PatchJump(elseJumpIndex);
-        // 移除 Emit(OpCode.Pop);
+        Emit(OpCode.Pop);                              // 弹掉原来的（为假时）
         Visit(expr.Else);
         PatchJump(endJumpIndex);
     }
@@ -582,18 +587,21 @@ public sealed class Compiler
         Emit(OpCode.Return);
     }
 
+
     private void CompileIf(IfExpr expr)
     {
         Visit(expr.Cond);
+        Emit(OpCode.Dup);
         int elseJumpIndex = EmitJump(OpCode.JmpIfFalse);
-        // 移除 Emit(OpCode.Pop);
+        Emit(OpCode.Pop);
         Visit(expr.Then);
         int endJumpIndex = EmitJump(OpCode.Jmp);
         PatchJump(elseJumpIndex);
-        // 移除 Emit(OpCode.Pop);
+        Emit(OpCode.Pop);
         Visit(expr.Else);
         PatchJump(endJumpIndex);
     }
+
 
     private void CompileWhen(WhenExpr expr)
     {
