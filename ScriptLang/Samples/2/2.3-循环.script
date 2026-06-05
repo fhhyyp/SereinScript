@@ -1,11 +1,10 @@
 ﻿// ==================== For 循环 ====================
 
 var sum = 0
-for a in range(1, 100000000) // range 内部函数会被优化为迭代器
+for a in range(1, 100) // range 内部函数会被优化为迭代器
 {
     sum = sum + a
 }
-return
 
 print("Loop through array:")
 for i in [10, 20, 30] {

@@ -83,7 +83,25 @@ public sealed class VariableTableBuilder
     /// <summary>构建最终的 VariableTable</summary>
     public VariableTable Build()
     {
+        // 去重：捕获变量优先，从局部映射中移除（被 ReplaceBindingInScope 移到捕获区的变量）
+        var localNames = new Dictionary<string, int>(_localSlots);
+        foreach (var key in _captureSlots.Keys)
+        {
+            localNames.Remove(key);
+        }
         return new VariableTable
+        {
+            LocalCount = _localSlots.Count,  // 保持原始计数（未使用的局部槽位安全浪费）
+            CaptureCount = CaptureCount,
+            GlobalCount = GlobalCount,
+            BuiltinCount = BuiltinCount,
+            ParamSlots = new Dictionary<string, int>(_paramSlots),
+            GlobalNames = _globalNames.ToArray(),
+            BuiltinNames = _builtinNames.ToArray(),
+            LocalNames = localNames,
+            CaptureNames = new Dictionary<string, int>(_captureSlots)
+        };
+        /*return new VariableTable
         {
             LocalCount = LocalCount,
             CaptureCount = CaptureCount,
@@ -94,6 +112,6 @@ public sealed class VariableTableBuilder
             BuiltinNames = _builtinNames.ToArray(),
             LocalNames = new Dictionary<string, int>(_localSlots),
             CaptureNames = new Dictionary<string, int>(_captureSlots)
-        };
+        };*/
     }
 }

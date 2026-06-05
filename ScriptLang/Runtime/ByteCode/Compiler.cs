@@ -633,12 +633,12 @@ public sealed class Compiler
 
             int noMatchJump = EmitJump(OpCode.JmpIfFalse);
 
-            Emit(OpCode.Pop);
+            //Emit(OpCode.Pop);
             Visit(clause.Body);
             jumpToEnd.Add(EmitJump(OpCode.Jmp));
 
             PatchJump(noMatchJump);
-            Emit(OpCode.Pop);
+            //Emit(OpCode.Pop);
         }
 
         if (expr.OtherClause is not null)

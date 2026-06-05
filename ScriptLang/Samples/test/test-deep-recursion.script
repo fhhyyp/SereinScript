@@ -8,8 +8,8 @@ let fib = (n) => {
     }
 }
 
-let start = debug.getTickCount()
+let start = now()
 let result = fib(35)
-let end = debug.getTickCount()
+let end = now()
 print("fib(35) = " + result)
-print("耗时: " + (end - start) + "ms")
+print("耗时: " + (end - start) / 10000 + "ms")

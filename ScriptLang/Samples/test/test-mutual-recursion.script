@@ -1,19 +1,18 @@
 // test-mutual-recursion.script
 print("=== 相互递归测试 ===")
-var isOdd = null
 let isEven = (n) => {
     if n == 0 then {
-        true
+       return true
     } else {
-        isOdd(n - 1)
+       return isOdd(n - 1)
     }
 }
 
-isOdd = (n) => {
+let isOdd = (n) => {
     if n == 0 then {
-        false
+       return false
     } else {
-        isEven(n - 1)
+       return isEven(n - 1)
     }
 }
 

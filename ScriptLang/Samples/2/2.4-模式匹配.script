@@ -10,11 +10,3 @@ when value {
         print(t)
     }
 }
-
-
-// let state = false
-// when state {
-//     true => print("1"),
-//     false => print("0"),
-//     _ => print("unknown")
-// }

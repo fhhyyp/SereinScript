@@ -1,5 +1,5 @@
 // pinia.script 
-// createStore ¼òÒ×ÊµÏÖ
+// createStore ç®€æ˜“å®žçŽ°
 let createStore = (options) => {
     let state = options.state()
     let getters = {}
@@ -7,7 +7,7 @@ let createStore = (options) => {
 
     if options.has("getters") then  {
         for key in keys(options.getters) {
-            // Ã¿¸ö getter ¶¼ÊÇÒ»¸öº¯Êý£¬±Õ°ü²¶»ñ state
+            // æ¯ä¸ª getter éƒ½æ˜¯ä¸€ä¸ªå‡½æ•°ï¼Œé—­åŒ…æ•èŽ· state
             let fn = options.getters[key]
             let getter = () => fn(state)
             getters[key] = getter
@@ -20,7 +20,7 @@ let createStore = (options) => {
             actions[key] = action
         }
     }
-    // ·µ»Ø store ¶ÔÏó
+    // è¿”å›ž store å¯¹è±¡
     return {
         state,
         getters,

@@ -73,8 +73,8 @@ class Program
             @".\Samples\高级\pinia\run-import.script",
         ],
         ];
-
-        scirpt(3,4);
+        
+        scirpt(5, 6);
 
         if (args.Length == 0)
         {

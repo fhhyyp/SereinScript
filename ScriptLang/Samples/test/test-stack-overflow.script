@@ -18,7 +18,13 @@ let testDepth = (depth) => {
 }
 
 testDepth(232)
-// testDepth(500)
-// testDepth(1000)
-// testDepth(5000)
-// testDepth(10000)
+testDepth(500)
+testDepth(1000)
+testDepth(5000)
+testDepth(10000)
+testDepth(50000)
+testDepth(100000)
+testDepth(500000)
+testDepth(1000000)
+testDepth(5000000)
+testDepth(10000000)
