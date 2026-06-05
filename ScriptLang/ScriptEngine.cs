@@ -39,12 +39,7 @@ namespace ScriptLang
         /// <summary>
         /// 编译缓存：AST → ByteCodeChunk
         /// </summary>
-        private readonly Dictionary<Expr, ByteCodeChunk> _compilationCache = new();
-
-        /// <summary>
-        /// VM 实例（可重用，全局变量值通过 GlobalSlotRegistry 共享）
-        /// </summary>
-        private VM? _vm;
+        private readonly Dictionary<Expr, ByteCodeChunk> _compilationCache = [];
 
         public ScriptEngine()
         {
@@ -105,10 +100,7 @@ namespace ScriptLang
                 throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
             }
 
-            if (scope == null)
-            {
-                scope = new Scope(GlobalScope);
-            }
+            scope ??= new Scope(GlobalScope);
 
             // 将外部作用域变量注册到 GlobalSlotRegistry
             RegisterExternalScopeToGlobalSlots(scope);
@@ -200,7 +192,7 @@ namespace ScriptLang
         /// <summary>
         /// 预注册外部全局变量（编译前调用）
         /// </summary>
-        public void RegisterGlobal(string name)
+        public static void RegisterGlobal(string name)
         {
             GlobalSlotRegistry.Register(name);
         }
@@ -208,7 +200,7 @@ namespace ScriptLang
         /// <summary>
         /// 设置全局变量值
         /// </summary>
-        public void SetGlobal(string name, Value value)
+        public static void SetGlobal(string name, Value value)
         {
             int slot = GlobalSlotRegistry.GetSlot(name);
             GlobalSlotRegistry.SetValue(slot, value);

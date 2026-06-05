@@ -24,28 +24,21 @@ public record LexDiagnostic(
 /// <summary>
 /// 词法分析器
 /// </summary>
-public class Lexer
+public class Lexer(string source, string filePath)
 {
-    private readonly string _source;
-    private readonly List<Token> _tokens = new();
+    private readonly string _source = source ?? throw new ArgumentNullException(nameof(source));
+    private readonly List<Token> _tokens = [];
     private int _position = 0;
     private int _line = 1;
     private int _column = 1;
 
-    public string? FilePath { get; set; } = string.Empty;
+    public string? FilePath { get; set; } = filePath;
 
     /// <summary>
     /// 
     /// </summary>
     public List<LexDiagnostic> Diagnostics { get; } = [];
 
-
-    public Lexer(string source, string filePath)
-    {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        FilePath = filePath;
-    }
-    
     /// <summary>
     /// 执行词法分析
     /// </summary>
@@ -305,7 +298,7 @@ public class Lexer
         _column--;
         if (_column < 1) _column = 1;
 
-        bool hasDecimalPoint = false;
+        // bool hasDecimalPoint = false;
         bool isHexLiteral = false;
 
         // 检查是否是十六进制 (0x 或 0X)
@@ -344,7 +337,7 @@ public class Lexer
             // 处理小数部分
             if (Peek() == '.' && char.IsDigit(PeekNext()))
             {
-                hasDecimalPoint = true;
+                // hasDecimalPoint = true;
                 sb.Append(Advance()); // 小数点
                 while (char.IsDigit(Peek()))
                 {
@@ -374,7 +367,7 @@ public class Lexer
         {
             AddToken(TokenType.Unknown, numberStr);
         }
-        var t = this._tokens.Last();
+        //var t = this._tokens.Last();
     }
 
     /// <summary>
@@ -438,7 +431,7 @@ public class Lexer
     /// <summary>
     /// 判断字符是否是十六进制数字
     /// </summary>
-    private bool IsHexDigit(char c)
+    private static bool IsHexDigit(char c)
     {
         return char.IsDigit(c) ||
                (c >= 'a' && c <= 'f') ||
@@ -448,7 +441,7 @@ public class Lexer
     /// <summary>
     /// 根据后缀尝试解析数值
     /// </summary>
-    private bool TryParseNumberWithSuffix(string numberStr, string? suffix,
+    private static bool TryParseNumberWithSuffix(string numberStr, string? suffix,
         out TokenType tokenType, out object? value)
     {
         tokenType = TokenType.Unknown;
@@ -583,7 +576,7 @@ public class Lexer
     /// <summary>
     /// 解析十六进制数字
     /// </summary>
-    private bool TryParseHexNumber(string hexStr, string? suffix,
+    private static bool TryParseHexNumber(string hexStr, string? suffix,
         out TokenType tokenType, out object? value)
     {
         tokenType = TokenType.Unknown;
@@ -638,7 +631,7 @@ public class Lexer
     /// <summary>
     /// 解析二进制数字
     /// </summary>
-    private bool TryParseBinaryNumber(string binStr, string? suffix,
+    private static bool TryParseBinaryNumber(string binStr, string? suffix,
         out TokenType tokenType, out object? value)
     {
         tokenType = TokenType.Unknown;

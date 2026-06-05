@@ -5,7 +5,7 @@ namespace ScriptLang;
 
 public sealed class SourceManager
 {
-    private readonly Dictionary<string, string> _sources = new();
+    private readonly Dictionary<string, string> _sources = [];
 
     public void AddSource(string filePath, string source)
     {

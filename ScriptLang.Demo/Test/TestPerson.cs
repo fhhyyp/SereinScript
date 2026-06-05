@@ -11,7 +11,7 @@ public class TestPerson
 {
     public string Name { get; set; } = "";
     public int Age { get; set; }
-    public List<string> Hobbies { get; set; } = new();
+    public List<string> Hobbies { get; set; } = [];
     public string Greet() => $"Hello, I'm {Name}!";
     public int AddYears(int years) => Age + years;
     public void AddHobbies(string hobbie) => Hobbies.Add(hobbie);
@@ -19,7 +19,7 @@ public class TestPerson
     public static string GetSpecies() => "Human";
 }
 
-    
+[AttributeUsage(AttributeTargets.Class)]
 internal class ScirptObjectAttribute : Attribute
 {
 }

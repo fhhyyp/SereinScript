@@ -11,43 +11,43 @@ namespace ScriptLang.Demo
         public partial bool IsTarget(Value value) => value is ClrObjectValue clr && clr.Value is TestPerson;
 
         [PrototypeProperty]
-        private StringValue Name(TestPerson person)
+        private static StringValue Name(TestPerson person)
         {
             return new StringValue(person.Name);
         }
 
         [PrototypeProperty]
-        private NumberValue<int> Age(TestPerson person)
+        private static NumberValue<int> Age(TestPerson person)
         {
             return NumberValueFactory.Create(person.Age);
         }
 
         [PrototypeProperty]
-        private ArrayValue Hobbies(TestPerson person)
+        private static ArrayValue Hobbies(TestPerson person)
         {
-            return new ArrayValue(person.Hobbies.Select(x => (Value)new StringValue(x)).ToList());
+            return new ArrayValue([.. person.Hobbies.Select(x => (Value)new StringValue(x))]);
         }
 
         [PrototypeFunction]
-        public StringValue Greet(TestPerson person)
+        public static StringValue Greet(TestPerson person)
         {
             return new StringValue(person.Greet());
         }
 
         [PrototypeFunction]
-        public NumberValue<int> AddYears(TestPerson person, NumberValue<int> years)
+        public static NumberValue<int> AddYears(TestPerson person, NumberValue<int> years)
         {
             return NumberValueFactory.Create(person.AddYears(years.Value));
         }
 
         [PrototypeFunction]
-        public void AddHobbies(TestPerson person, StringValue hobbie)
+        public static void AddHobbies(TestPerson person, StringValue hobbie)
         {
             person.AddHobbies(hobbie.Value);
         }
 
         [PrototypeFunction]
-        public void SetName(TestPerson person, StringValue name)
+        public static void SetName(TestPerson person, StringValue name)
         {
             person.SetName(name.Value);
         }

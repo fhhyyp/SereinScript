@@ -1,151 +1,136 @@
-﻿
-using ScriptLang.Runtime;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
-/// <summary>
-/// 轻量闭包：仅存储被捕获变量的 VariableInfo 数组
-/// 运行时按槽位索引 O(1) 访问
-/// </summary>
-public sealed class LightweightClosure
+namespace ScriptLang.Runtime
 {
-    /// <summary>捕获的变量信息（按捕获槽位顺序）</summary>
-    internal readonly VariableInfo[] CapturedCells;
 
-    /// <summary>捕获变量数量</summary>
-    public int CaptureCount => CapturedCells.Length;
-
-    public LightweightClosure(VariableInfo[] capturedCells)
+    /// <summary>
+    /// 轻量闭包：仅存储被捕获变量的 VariableInfo 数组
+    /// 运行时按槽位索引 O(1) 访问
+    /// </summary>
+    public sealed class LightweightClosure(VariableInfo[] capturedCells)
     {
-        CapturedCells = capturedCells;
+        /// <summary>捕获的变量信息（按捕获槽位顺序）</summary>
+        internal readonly VariableInfo[] CapturedCells = capturedCells;
+
+        /// <summary>捕获变量数量</summary>
+        public int CaptureCount => CapturedCells.Length;
+
+        /// <summary>
+        /// 获取捕获槽位的 VariableInfo
+        /// </summary>
+        public VariableInfo GetCapture(int captureSlot)
+        {
+            return CapturedCells[captureSlot];
+        }
     }
 
     /// <summary>
-    /// 获取捕获槽位的 VariableInfo
+    /// 作用域（仅用于 Interpreter，VM 不使用）
+    /// 保留以维持现有代码兼容，后续可清理
     /// </summary>
-    public VariableInfo GetCapture(int captureSlot)
+    public class Scope(Scope? parent = null)
     {
-        return CapturedCells[captureSlot];
-    }
-}
+        public System.Guid Guid { get; private set; } = System.Guid.NewGuid();
 
-/// <summary>
-/// 作用域（仅用于 Interpreter，VM 不使用）
-/// 保留以维持现有代码兼容，后续可清理
-/// </summary>
-public class Scope
-{
-    public System.Guid Guid { get; private set; } = System.Guid.NewGuid();
+        private readonly Dictionary<string, VariableInfo> _variables = [];
+        public Scope? Parent { get; } = parent;
 
-    private readonly Dictionary<string, VariableInfo> _variables = new();
-    public Scope? Parent { get; }
+        public Scope CreateChildScope() => new(this);
 
-    public Scope(Scope? parent = null)
-    {
-        Parent = parent;
-    }
-
-    public Scope CreateChildScope() => new Scope(this);
-
-    public void Clear()
-    {
-        foreach (var pair in _variables)
+        public void Clear()
         {
-            if (!pair.Value.IsCaptured)
-                pair.Value.Cell.Value = Value.Null;
-        }
-        _variables.Clear();
-    }
-
-    public void DefineFunction(FunctionValue func)
-        => Define(func.Name, func, isMutable: false);
-
-    public VariableInfo Define(string name, Value value, bool isMutable = true)
-    {
-        if (_variables.ContainsKey(name))
-            throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
-
-        var variable = new VariableInfo(new VariableCell(value), isMutable);
-        _variables[name] = variable;
-        return variable;
-    }
-
-    public void DefineClrObject(string name, object data, bool isMutable = true)
-    {
-        if (_variables.ContainsKey(name))
-            throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
-
-        var value = new ClrObjectValue(data);
-        _variables[name] = new VariableInfo(new VariableCell(value), isMutable);
-    }
-
-    public bool TryGetValue(string name, [NotNullWhen(true)] out VariableInfo? info)
-    {
-        if (_variables.TryGetValue(name, out info))
-            return true;
-
-        if (Parent != null)
-            return Parent.TryGetValue(name, out info);
-
-        return false;
-    }
-
-    public void Set(string name, Value value)
-    {
-        if (_variables.TryGetValue(name, out var info))
-        {
-            if (!info.IsMutable)
-                throw new RuntimeException($"无法为不可变变量 '{name}' 赋值");
-            info.Cell.Value = value;
-            return;
+            foreach (var pair in _variables)
+            {
+                if (!pair.Value.IsCaptured)
+                    pair.Value.Cell.Value = Value.Null;
+            }
+            _variables.Clear();
         }
 
-        if (Parent != null)
+        public void DefineFunction(FunctionValue func)
+            => Define(func.Name, func, isMutable: false);
+
+        public VariableInfo Define(string name, Value value, bool isMutable = true)
         {
-            Parent.Set(name, value);
-            return;
+            if (_variables.ContainsKey(name))
+                throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
+
+            var variable = new VariableInfo(new VariableCell(value), isMutable);
+            _variables[name] = variable;
+            return variable;
         }
 
-        throw new RuntimeException($"当前作用域未定义的变量 '{name}'");
+        public void DefineClrObject(string name, object data, bool isMutable = true)
+        {
+            if (_variables.ContainsKey(name))
+                throw new RuntimeException($"变量 '{name}' 已在此作用域中定义");
+
+            var value = new ClrObjectValue(data);
+            _variables[name] = new VariableInfo(new VariableCell(value), isMutable);
+        }
+
+        public bool TryGetValue(string name, [NotNullWhen(true)] out VariableInfo? info)
+        {
+            if (_variables.TryGetValue(name, out info))
+                return true;
+
+            if (Parent != null)
+                return Parent.TryGetValue(name, out info);
+
+            return false;
+        }
+
+        public void Set(string name, Value value)
+        {
+            if (_variables.TryGetValue(name, out var info))
+            {
+                if (!info.IsMutable)
+                    throw new RuntimeException($"无法为不可变变量 '{name}' 赋值");
+                info.Cell.Value = value;
+                return;
+            }
+
+            if (Parent != null)
+            {
+                Parent.Set(name, value);
+                return;
+            }
+
+            throw new RuntimeException($"当前作用域未定义的变量 '{name}'");
+        }
+
+        public bool Exists(string name)
+        {
+            if (_variables.ContainsKey(name)) return true;
+            if (Parent != null) return Parent.Exists(name);
+            return false;
+        }
+
+        public bool IsDefinedLocally(string name)
+            => _variables.ContainsKey(name);
     }
 
-    public bool Exists(string name)
+    /// <summary>
+    /// 变量容器（引用语义，支持闭包共享）
+    /// </summary>
+    public sealed class VariableCell(Value value)
     {
-        if (_variables.ContainsKey(name)) return true;
-        if (Parent != null) return Parent.Exists(name);
-        return false;
+        public Value Value = value;
     }
 
-    public bool IsDefinedLocally(string name)
-        => _variables.ContainsKey(name);
-}
-
-/// <summary>
-/// 变量容器（引用语义，支持闭包共享）
-/// </summary>
-public sealed class VariableCell(Value value)
-{
-    public Value Value = value;
-}
-
-/// <summary>
-/// 变量信息
-/// </summary>
-public sealed class VariableInfo
-{
-    /// <summary>存储变量值的容器</summary>
-    public VariableCell Cell { get; }
-
-    /// <summary>是否可变</summary>
-    public bool IsMutable { get; set; }
-
-    /// <summary>是否被闭包捕获</summary>
-    public bool IsCaptured { get; set; }
-
-    public VariableInfo(VariableCell cell, bool isMutable, bool isCaptured = false)
+    /// <summary>
+    /// 变量信息
+    /// </summary>
+    public sealed class VariableInfo(VariableCell cell, bool isMutable, bool isCaptured = false)
     {
-        Cell = cell;
-        IsMutable = isMutable;
-        IsCaptured = isCaptured;
+        /// <summary>存储变量值的容器</summary>
+        public VariableCell Cell { get; } = cell;
+
+        /// <summary>是否可变</summary>
+        public bool IsMutable { get; set; } = isMutable;
+
+        /// <summary>是否被闭包捕获</summary>
+        public bool IsCaptured { get; set; } = isCaptured;
     }
 }
 

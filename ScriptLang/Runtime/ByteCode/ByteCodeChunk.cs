@@ -13,7 +13,7 @@ public sealed class ByteCodeChunk
     private readonly List<object?> _constants = [];
 
     /// <summary>常量去重索引</summary>
-    private readonly Dictionary<object?, int> _constantMap = new();
+    private readonly Dictionary<object, int> _constantMap = [];
 
     /// <summary>嵌套闭包代码块</summary>
     private readonly List<ByteCodeChunk> _closures = [];
@@ -103,8 +103,8 @@ public sealed class ByteCodeChunk
     /// <summary>
     /// 获取所有动态常量（调试用）
     /// </summary>
-    internal IEnumerable<object?> GetConstants() => _constants.ToList();
+    internal IEnumerable<object?> GetConstants() => [.. _constants];
 
     /// <summary>获取所有嵌套闭包（用于编译器分析）</summary>
-    internal IEnumerable<ByteCodeChunk> GetClosures() => _closures.ToList();
+    internal IEnumerable<ByteCodeChunk> GetClosures() => [.. _closures];
 }

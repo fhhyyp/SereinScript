@@ -8,12 +8,12 @@ namespace ScriptLang.Parser;
 /// <summary>
 /// 语法分析器（Pratt Parser 实现）
 /// </summary>
-public class Parser
+public class Parser(List<Token> tokens, string filePath)
 {
-    private readonly List<Token> _tokens;
+    private readonly List<Token> _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
     private int _current = 0;
-    private string _filePath;
-    private Token _currentToken => _tokens[_current];
+    private readonly string _filePath = filePath;
+    public Token CurrentToken => _tokens[_current];
 
     public List<ParseException> Diagnostics { get; } = [];
 
@@ -41,13 +41,6 @@ public class Parser
             EndLine: end.Line,
             EndColumn: end.Column + end.Length
         );
-    }
-
-
-    public Parser(List<Token> tokens, string filePath)
-    {
-        _filePath = filePath;
-        _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
     }
 
 
@@ -371,31 +364,12 @@ public class Parser
     
     private Expr ParseCall()
     {
-        var startTokenIndex = _current;
+        // var startTokenIndex = _current;
 
-       
         Expr expr = ParsePrimary();
-
-        /* var previousTokenType = Previous().Type;
-
-       if (MatchFor(previousTokenType,
-                    TokenType.Number_Int, TokenType.Number_Long,
-                    TokenType.Number_Float, TokenType.Number_Double, TokenType.Number_Decimal,
-                    TokenType.String, TokenType.True, TokenType.False, TokenType.Null))
-        {
-            return expr;
-        }
-
-        if(MatchFor(previousTokenType, TokenType.Identifier))
-        {
-
-        }*/
-
 
         while (true)
         {
-
-
             if (Match(TokenType.LeftParen))
             {
                 expr = ParseCallArguments(expr);
@@ -407,7 +381,7 @@ public class Parser
             else if (Match(TokenType.Dot, TokenType.QuestionDot))
             {
                 Token op = Previous();
-                startTokenIndex = _current ;
+                var startTokenIndex = _current ;
                 Token name = Consume(TokenType.Identifier, "在 '.' 之后需要属性名");
                 bool safeNull = op.Type == TokenType.QuestionDot;
 
@@ -424,7 +398,7 @@ public class Parser
         return expr;
     }
     
-    private Expr ParseCallArguments(Expr target)
+    private CallExpr ParseCallArguments(Expr target)
     {
         var args = new List<Expr>();
         var startTokenIndex = _current;
@@ -456,7 +430,7 @@ public class Parser
         return new CallExpr(target, args, span);
     }
     
-    private Expr ParseIndexAccess(Expr target)
+    private IndexAccessExpr ParseIndexAccess(Expr target)
     {
         var startTokenIndex = _current;
         Expr index = ParseExpression();
@@ -626,7 +600,7 @@ public class Parser
     /// <returns></returns>
     private LambdaExpr ParseLambda()
     {
-        List<string> parameters = new();
+        List<string> parameters = [];
 
         var startTokenIndex = _current;
         // ParseLambda 被调用时，可能是在 ( 之后，或者是在标识符之后
@@ -789,7 +763,7 @@ public class Parser
         {
             while (!Check(TokenType.RightBrace) && !IsAtEnd())
             {
-                var t = _currentToken;
+                //var t = _currentToken;
                 var startTokenIndex_when = _current;
                 // 解析模式表达式
                 Expr pattern = ParseExpression();
@@ -1009,7 +983,7 @@ public class Parser
     /// <param name="token"></param>
     /// <param name="types"></param>
     /// <returns></returns>
-    private bool MatchFor(TokenType tokenType, params TokenType[] types)
+    private static bool MatchFor(TokenType tokenType, params TokenType[] types)
     {
         foreach (var type in types)
         {
@@ -1113,7 +1087,7 @@ public class Parser
         return Previous();
     }
 
-    private bool IsRecoverableBoundary(TokenType type)
+    private static bool IsRecoverableBoundary(TokenType type)
     {
         return type switch
         {
@@ -1128,12 +1102,12 @@ public class Parser
     }
 
     /// <summary>
-    /// 
+    /// 错误提示
     /// </summary>
     /// <param name="token"></param>
     /// <param name="message"></param>
     /// <returns></returns>
-    private ParseException Error(Token token, string message)
+    private static  ParseException Error(Token token, string message)
     {
         string location = $"[文件 {token.FilePath} 第 {token.Line} 行, 第 {token.Column} 列]";
         string tokenInfo = $"找到 '{token.Lexeme}' (类型: {token.Type})";
@@ -1142,7 +1116,7 @@ public class Parser
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private ErrorExpr GetErrorExpr(Exception exception, SourceSpan sourceSpan)
+    private static ErrorExpr GetErrorExpr(Exception exception, SourceSpan sourceSpan)
     {
         return new ErrorExpr(exception.Message, sourceSpan);
     }

@@ -18,7 +18,7 @@ namespace ScriptLang.Utils
             /// <summary>
             /// 方法声明类型
             /// </summary>
-            public Type DeclaringType {  get; set; }
+            public Type? DeclaringType {  get; set; }
 
             /// <summary>
             /// 方法类型
@@ -108,11 +108,11 @@ namespace ScriptLang.Utils
         public static EmitMethodInfo CreateMethod(MethodInfo methodInfo, out Delegate @delegate)
         {
             if (methodInfo.DeclaringType == null)
-                throw new ArgumentNullException(nameof(methodInfo.DeclaringType));
+                throw new ArgumentNullException(nameof(methodInfo));
 
             bool isStatic = methodInfo.IsStatic;
             bool isTask = IsGenericTask(methodInfo.ReturnType, out var taskResultType);
-            bool isTaskGeneric = taskResultType != null;
+            bool isTaskGeneric = taskResultType is not null;
 
             Type dynamicReturnType;
             if (!isTask)
@@ -123,7 +123,7 @@ namespace ScriptLang.Utils
             var dynamicMethod = new DynamicMethod(
                 methodInfo.Name + "_Emit",
                 dynamicReturnType,
-                new[] { typeof(object), typeof(object[]) },
+                [typeof(object), typeof(object[])],
                 restrictedSkipVisibility: true);
 
             ILGenerator il = dynamicMethod.GetILGenerator();
@@ -133,7 +133,7 @@ namespace ScriptLang.Utils
             // 1. 声明 ref / out / in 局部变量
             
             LocalBuilder?[] locals = new LocalBuilder?[parameters.Length];
-            List<int> byRefIndexes = new();
+            List<int> byRefIndexes = [];
 
             for (int i = 0; i < parameters.Length; i++)
             {
@@ -208,7 +208,7 @@ namespace ScriptLang.Utils
                 var convertMethod = typeof(EmitHelper)
                     .GetMethod(nameof(ConvertTaskResult),
                         BindingFlags.Static | BindingFlags.NonPublic)!
-                    .MakeGenericMethod(taskResultType);
+                    .MakeGenericMethod(taskResultType!);
 
                 il.Emit(OpCodes.Call, convertMethod);
             }
@@ -275,7 +275,7 @@ namespace ScriptLang.Utils
                 IsAsync = isTask,
                 IsStatic = isStatic,
                 HasByRefParameters = byRefIndexes.Count > 0,
-                ByRefParameterIndexes = byRefIndexes.ToArray()
+                ByRefParameterIndexes = [.. byRefIndexes]
             };
         }
 
@@ -284,17 +284,16 @@ namespace ScriptLang.Utils
         /// </summary>
         public static Func<object, object> CreateFieldGetter(FieldInfo fieldInfo)
         {
-            if (fieldInfo == null)
-                throw new ArgumentNullException(nameof(fieldInfo));
-            
+            ArgumentNullException.ThrowIfNull(fieldInfo);
+
             if (fieldInfo.DeclaringType == null)
-                throw new ArgumentNullException(nameof(fieldInfo.DeclaringType));
+                throw new ArgumentNullException(nameof(fieldInfo));
 
 
             var method = new DynamicMethod(
                 fieldInfo.Name + "_Get",
                 typeof(object),
-                new[] { typeof(object) },
+                [typeof(object)],
                 fieldInfo.DeclaringType,
                 true);
 
@@ -326,17 +325,16 @@ namespace ScriptLang.Utils
         /// </summary>
         public static Action<object, object> CreateFieldSetter(FieldInfo fieldInfo)
         {
-            if (fieldInfo == null)
-                throw new ArgumentNullException(nameof(fieldInfo));
+            ArgumentNullException.ThrowIfNull(fieldInfo);
             if (fieldInfo.DeclaringType == null)
-                throw new ArgumentNullException(nameof(fieldInfo.DeclaringType));
+                throw new ArgumentNullException(nameof(fieldInfo));
             if (fieldInfo.IsInitOnly)
                 throw new InvalidOperationException($"字段 {fieldInfo.Name} 是只读字段，无法设置值。");
 
             var method = new DynamicMethod(
                 fieldInfo.Name + "_Set",
                 null,
-                new[] { typeof(object), typeof(object) },
+                [typeof(object), typeof(object)],
                 fieldInfo.DeclaringType,
                 true);
 
@@ -370,18 +368,14 @@ namespace ScriptLang.Utils
         /// </summary>
         public static Func<object, object> CreatePropertyGetter(PropertyInfo propertyInfo)
         {
-            if (propertyInfo == null)
-                throw new ArgumentNullException(nameof(propertyInfo));
+            ArgumentNullException.ThrowIfNull(propertyInfo);
             if (propertyInfo.DeclaringType == null)
-                throw new ArgumentNullException(nameof(propertyInfo.DeclaringType));
-            var getMethod = propertyInfo.GetGetMethod(true);
-            if (getMethod == null)
-                throw new InvalidOperationException($"属性 {propertyInfo.Name} 没有可用的 Getter。");
-
+                throw new ArgumentNullException(nameof(propertyInfo));
+            var getMethod = propertyInfo.GetGetMethod(true) ?? throw new InvalidOperationException($"属性 {propertyInfo.Name} 没有可用的 Getter。");
             var method = new DynamicMethod(
                 propertyInfo.Name + "_Get",
                 typeof(object),
-                new[] { typeof(object) },
+                [typeof(object)],
                 propertyInfo.DeclaringType,
                 true);
 
@@ -412,19 +406,16 @@ namespace ScriptLang.Utils
         /// </summary>
         public static Action<object, object> CreatePropertySetter(PropertyInfo propertyInfo)
         {
-            if (propertyInfo == null)
-                throw new ArgumentNullException(nameof(propertyInfo));
+            ArgumentNullException.ThrowIfNull(propertyInfo);
             if (propertyInfo.DeclaringType == null)
-                throw new ArgumentNullException(nameof(propertyInfo.DeclaringType));
+                throw new ArgumentNullException(nameof(propertyInfo));
 
-            var setMethod = propertyInfo.GetSetMethod(true);
-            if (setMethod == null)
-                throw new InvalidOperationException($"属性 {propertyInfo.Name} 没有可用的 Setter。");
-
+            var setMethod = propertyInfo.GetSetMethod(true)
+                ?? throw new InvalidOperationException($"属性 {propertyInfo.Name} 没有可用的 Setter。");
             var method = new DynamicMethod(
                 propertyInfo.Name + "_Set",
                 null,
-                new[] { typeof(object), typeof(object) },
+                [typeof(object), typeof(object)],
                 propertyInfo.DeclaringType,
                 true);
 
@@ -462,14 +453,14 @@ namespace ScriptLang.Utils
 
         public static Func<int, object> CreateArrayFactory(Type elementType)
         {
-            if (elementType == null) throw new ArgumentNullException(nameof(elementType));
+            ArgumentNullException.ThrowIfNull(elementType);
 
-            var arrayType = elementType.MakeArrayType();
+            // var arrayType = elementType.MakeArrayType();
 
             var dm = new DynamicMethod(
                 $"NewArray_{elementType.Name}",
                 typeof(object), // 返回 object
-                new[] { typeof(int) }, // 参数：length
+                [typeof(int)], // 参数：length
                 typeof(EmitHelper).Module,
                 true);
 
@@ -496,7 +487,7 @@ namespace ScriptLang.Utils
             DynamicMethod dm = new DynamicMethod(
                 "SetCollectionValue",
                 null,
-                new[] { typeof(object), typeof(object), typeof(object) },
+                [typeof(object), typeof(object), typeof(object)],
                 typeof(EmitHelper).Module,
                 true);
 
@@ -524,10 +515,8 @@ namespace ScriptLang.Utils
             else
             {
                 // 尝试获取 set_Item 方法
-                MethodInfo? setItem = collectionType.GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public);
-                if (setItem == null)
-                    throw new NotSupportedException($"类型 {collectionType} 不支持 set_Item。");
-
+                MethodInfo? setItem = collectionType.GetMethod("set_Item", BindingFlags.Instance | BindingFlags.Public) 
+                    ?? throw new NotSupportedException($"类型 {collectionType} 不支持 set_Item。");
                 var parameters = setItem.GetParameters();
                 var indexType = parameters[0].ParameterType;
                 var valueType = parameters[1].ParameterType;
@@ -565,7 +554,7 @@ namespace ScriptLang.Utils
             DynamicMethod dm = new DynamicMethod(
                 "GetCollectionValue",
                 typeof(object),
-                new[] { typeof(object), typeof(object) },
+                [typeof(object), typeof(object)],
                 typeof(EmitHelper).Module,
                 skipVisibility: true);
 
@@ -585,12 +574,10 @@ namespace ScriptLang.Utils
                 il.Emit(OpCodes.Ret);
             }
             // 非泛型 IDictionary 类型（如 Hashtable、JObject）
-            else if (IsGenericDictionaryType(collectionType, out var keyType, out var valueType))
+            else if (IsGenericDictionaryType(collectionType, out var keyType, out _))
             {
-                var getItem = collectionType.GetMethod("get_Item", new[] { keyType });
-                if (getItem == null)
-                    throw new NotSupportedException($"{collectionType} 未实现 get_Item({keyType})");
-
+                var getItem = collectionType.GetMethod("get_Item", [keyType])
+                        ?? throw new NotSupportedException($"{collectionType} 未实现 get_Item({keyType})");
                 var returnType = getItem.ReturnType;
 
                 il.Emit(OpCodes.Ldarg_0);
@@ -633,10 +620,10 @@ namespace ScriptLang.Utils
                 }
                 */
                 //  GetMethod(name, bindingAttr, binder: null, types, modifiers: null);
-                MethodInfo? getItem = collectionType.GetMethod("get_Item", bindingAttr: BindingFlags.Instance | BindingFlags.Public, binder: null, types: [itemType], modifiers: null);
-                if (getItem == null)
-                    throw new NotSupportedException($"类型 {collectionType} 不支持 get_Item。");
-
+                MethodInfo? getItem = collectionType.GetMethod("get_Item",
+                                                                bindingAttr: BindingFlags.Instance | BindingFlags.Public, 
+                                                                binder: null, types: [itemType!], modifiers: null)
+                                                    ?? throw new NotSupportedException($"类型 {collectionType} 不支持 get_Item。");
                 var indexParamType = getItem.GetParameters()[0].ParameterType;
                 var returnType = getItem.ReturnType;
 

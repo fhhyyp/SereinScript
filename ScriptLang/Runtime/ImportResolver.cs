@@ -6,23 +6,13 @@ namespace ScriptLang.Runtime;
 /// <summary>
 /// 模块解析器：负责执行模块
 /// </summary>
-public class ImportResolver
+public class ImportResolver(ScriptEngine engine)
 {
-    private readonly ScriptEngine _engine;
+    private readonly ScriptEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-    private readonly ConcurrentDictionary<string, ObjectValue> _moduleCache;
+    private readonly ConcurrentDictionary<string, ObjectValue> _moduleCache = new(StringComparer.OrdinalIgnoreCase);
 
     public string RootPath { get; internal set; } = string.Empty;
-
-    //private readonly string _baseDirectory;
-
-    public ImportResolver(ScriptEngine engine/*, string baseDirectory*/)
-    {
-        _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-        
-        _moduleCache = new ConcurrentDictionary<string, ObjectValue>(StringComparer.OrdinalIgnoreCase);
-        //_baseDirectory = baseDirectory;
-    }
 
     /// <summary>
     /// 解析并导入模块

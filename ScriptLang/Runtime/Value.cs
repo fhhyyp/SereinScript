@@ -105,9 +105,9 @@ public static class NumberValueCache
     public static readonly NumberValue<int>[] SmallIntegerCache;
 
     // 特殊值单例
-    public static readonly NumberValue<double> NaN = new NumberValue<double>(double.NaN);
-    public static readonly NumberValue<double> PositiveInfinity = new NumberValue<double>(double.PositiveInfinity);
-    public static readonly NumberValue<double> NegativeInfinity = new NumberValue<double>(double.NegativeInfinity);
+    public static readonly NumberValue<double> NaN;
+    public static readonly NumberValue<double> PositiveInfinity;
+    public static readonly NumberValue<double> NegativeInfinity;
 
     public static readonly NumberValue<int> Int32_M1;
     public static readonly NumberValue<int> Int32_0;
@@ -115,6 +115,10 @@ public static class NumberValueCache
 
     static NumberValueCache()
     {
+        NaN = NumberValueFactory.Create(double.NaN);
+        PositiveInfinity = NumberValueFactory.Create(double.PositiveInfinity);
+        NegativeInfinity = NumberValueFactory.Create(double.NegativeInfinity);
+
         // 初始化小整数缓存
         SmallIntegerCache = new NumberValue<int>[256];
         for (int i = -128; i <= 127; i++)
@@ -640,45 +644,34 @@ public class ClrObjectValue(object? Target) : Value
 /// <summary>
 /// CLR 方法值（表示可被脚本调用的 C# 方法）
 /// </summary>
-public class ClrMethodValue : Value
+public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
 {
-
-    public ClrMethodValue(MethodInfo methodInfo, object? instance)
-    {
-        Delegate =  new DelegateDetails(methodInfo);
-        ParameterCount = methodInfo.GetParameters().Length;
-        IsStatic = methodInfo.IsStatic;
-        ReturnType = methodInfo.ReturnType;
-        MethodInfo = methodInfo;
-        TargetInstance = instance;
-        //_methodInfo = methodInfo;
-    }
 
     /// <summary>
     /// 包装的 MethodInfo
     /// </summary>
-    public DelegateDetails Delegate { get; }
+    public DelegateDetails Delegate { get; } = new DelegateDetails(methodInfo);
 
     /// <summary>
     /// 目标对象（实例方法需要，静态方法为 null）
     /// </summary>
-    public object? TargetInstance { get; set; }
+    public object? TargetInstance { get; set; } = instance;
 
     /// <summary>
     /// 参数数量
     /// </summary>
-    public int ParameterCount { get; }
+    public int ParameterCount { get; } = methodInfo.GetParameters().Length;
 
     /// <summary>
     /// 是否是静态方法
     /// </summary>
-    public bool IsStatic { get; }
+    public bool IsStatic { get; } = methodInfo.IsStatic;
 
     /// <summary>
     /// 返回类型
     /// </summary>
-    public System.Type ReturnType { get; }
-    public MethodInfo MethodInfo { get; }
+    public System.Type ReturnType { get; } = methodInfo.ReturnType;
+    public MethodInfo MethodInfo { get; } = methodInfo;
 
     public override T As<T>()
     {
@@ -725,7 +718,7 @@ public class FunctionValue : Value, ICallable
     public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
     {
         Name = name;
-        Parameters = new List<string>();
+        Parameters = [];
         NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
         IsNative = true;
     }
@@ -734,7 +727,7 @@ public class FunctionValue : Value, ICallable
     public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
     {
         Name = name;
-        Parameters = new List<string>();
+        Parameters = [];
         NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
         IsNativeTask = true;
     }
@@ -764,31 +757,23 @@ public class FunctionValue : Value, ICallable
 /// <summary>
 /// 编译后的函数值
 /// </summary>
-public class CompiledFunctionValue : Value, ICallable
+public class CompiledFunctionValue(
+    List<string> parameters,
+    ByteCodeChunk chunk,
+    VariableTable variableTable,
+    LightweightClosure? closure) : Value, ICallable
 {
     /// <summary>参数名列表</summary>
-    public List<string> Parameters { get; }
+    public List<string> Parameters { get; } = parameters;
 
     /// <summary>字节码块</summary>
-    public ByteCodeChunk Chunk { get; }
+    public ByteCodeChunk Chunk { get; } = chunk;
 
     /// <summary>变量表（描述槽位布局）</summary>
-    public VariableTable VariableTable { get; }
+    public VariableTable VariableTable { get; } = variableTable;
 
     /// <summary>轻量闭包（捕获的变量）</summary>
-    public LightweightClosure? Closure { get; }
-
-    public CompiledFunctionValue(
-        List<string> parameters,
-        ByteCodeChunk chunk,
-        VariableTable variableTable,
-        LightweightClosure? closure)
-    {
-        Parameters = parameters;
-        Chunk = chunk;
-        VariableTable = variableTable;
-        Closure = closure;
-    }
+    public LightweightClosure? Closure { get; } = closure;
 
     public override T As<T>()
     {
@@ -810,23 +795,16 @@ public class CompiledFunctionValue : Value, ICallable
 /// 惰性范围迭代器（不预创建数组，按需生成数值）
 /// 用于 for i in range(start, end) 循环，避免创建海量临时对象
 /// </summary>
-public sealed class RangeIterator : Value
+public sealed class RangeIterator(int start, int end) : Value
 {
     /// <summary>
     /// 获取当前 int 值（不创建 NumberValue 对象，零分配）
     /// </summary>
     public int CurrentInt() => _current;
 
-    private readonly int _start;
-    private readonly int _end;
-    private int _current;
-
-    public RangeIterator(int start, int end)
-    {
-        _start = start;
-        _end = end;
-        _current = start - 1;
-    }
+    private readonly int _start = start;
+    private readonly int _end = end;
+    private int _current = start - 1;
 
     /// <summary>移动到下一个，返回是否还有元素</summary>
     public bool MoveNext()

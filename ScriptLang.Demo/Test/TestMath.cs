@@ -5,7 +5,7 @@ namespace ScriptLang.Demo;
 /// </summary>
 public class TestMath
 {
-    public async Task<int> AddAsync(int a, int b)
+    public static async Task<int> AddAsync(int a, int b)
     {
         await Task.Delay(50);
         return a + b;

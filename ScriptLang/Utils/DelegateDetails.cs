@@ -50,10 +50,7 @@ namespace ScriptLang.Utils
 
         public async Task<object?> InvokeAsync(object? instance, object?[]? args = null)
         {
-            if (args is null)
-            {
-                args = [];
-            }
+            args ??= [];
             if (_emitMethodType.IsStatic)
             {
                 instance = null;
