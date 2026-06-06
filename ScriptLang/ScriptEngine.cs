@@ -15,7 +15,7 @@ namespace ScriptLang
 #else
             false;
 #endif
-        public bool IsPrintInputSciptContent { get; private set; } = true;
+        public bool IsPrintInputSciptContent { get; private set; } = false;
 
         /// <summary>
         /// 脚本依赖导入工具

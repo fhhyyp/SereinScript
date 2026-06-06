@@ -20,7 +20,7 @@ namespace ScriptLang
         });
 
         #region 异常处理函数
-        private static readonly FunctionValue tryCall = new(nameof(tryCall), static async (env, args) =>
+        private static readonly FunctionValue @try = new(nameof(@try), static async (env, args) =>
         {
             if (args.Count is < 1 or > 3)
                 throw new RuntimeException("tryCall() 期望 1 个或 2 个或 3 个参数");
@@ -158,7 +158,7 @@ namespace ScriptLang
 
         private static readonly FunctionValue print = new(nameof(print), static args =>
         {
-            Console.Write("[Console]");
+            //Console.Write("[Console]");
             foreach (var arg in args)
             {
                 Console.Write(arg.AsString() + " ");
@@ -276,7 +276,7 @@ namespace ScriptLang
             {
                 { nameof(debug)   ,  debug     },
                 { nameof(now)     ,  now       },
-                { nameof(tryCall) ,  tryCall   },
+                { nameof(@try) ,  @try   },
                 { nameof(sleep)   ,  sleep     },
                 { nameof(@typeof) ,  @typeof   },
                 { nameof(print)   ,  print     },

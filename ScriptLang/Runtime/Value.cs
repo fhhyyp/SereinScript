@@ -80,7 +80,7 @@ public abstract class Value
 /// </summary>
 public class NullValue : Value
 {
-    public static NullValue Default => new NullValue();
+    public static NullValue Default { get; } = new NullValue();
     public override bool IsNull => true;
 
     public override T As<T>()

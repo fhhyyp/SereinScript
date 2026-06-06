@@ -42,21 +42,28 @@ namespace ScriptLang.System
         }
 
         /// <summary>
-        /// 将脚本值转换为 CLR 对象
+        /// 将脚本值转换为 CLR 对象（用于 JSON 序列化）
         /// </summary>
         private static object? ConvertToClrObject(Value value)
         {
             return value switch
             {
                 NullValue => null,
+                BoolValue b => b.Value,
                 StringValue s => s.Value,
                 NumberValue<int> n => n.Value,
                 NumberValue<long> n => n.Value,
+                NumberValue<float> n => n.Value,
                 NumberValue<double> n => n.Value,
                 NumberValue<decimal> n => (double)n.Value,
-                BoolValue b => b.Value,
-                ArrayValue a => a.Elements.Select(ConvertToClrObject).ToArray(),
+                MutableNumber mn => mn.ToImmutable() is Value v ? ConvertToClrObject(v) : null,
+                ArrayValue a => a.Elements.Select(ConvertToClrObject).ToList(),
                 ObjectValue o => o.Properties.ToDictionary(kv => kv.Key, kv => ConvertToClrObject(kv.Value)),
+                ClrObjectValue co => co.Value,
+                FunctionValue f => f.ToString(),
+                CompiledFunctionValue cf => cf.ToString(),
+                ClrMethodValue cm => cm.ToString(),
+                RangeIterator ri => ri.ToString(),
                 _ => value.ToString()
             };
         }
@@ -72,11 +79,15 @@ namespace ScriptLang.System
                 string s => StringValue.Create(s),
                 int i => NumberValueFactory.Create(i),
                 long l => NumberValueFactory.Create(l),
+                float f => NumberValueFactory.Create(f),
                 double d => NumberValueFactory.Create(d),
+                decimal m => NumberValueFactory.Create(m),
                 bool b => BoolValue.Create(b),
                 JsonElement element => ConvertJsonElement(element),
+                List<object> list => new ArrayValue([.. list.Select(ConvertToScriptValue)]),
                 object[] arr => new ArrayValue([.. arr.Select(ConvertToScriptValue)]),
-                Dictionary<string, object> dict => new ObjectValue(dict.ToDictionary(kv => kv.Key, kv => ConvertToScriptValue(kv.Value))),
+                Dictionary<string, object> dict => new ObjectValue(
+                    dict.ToDictionary(kv => kv.Key, kv => ConvertToScriptValue(kv.Value))),
                 _ => StringValue.Create(obj.ToString() ?? "")
             };
         }
@@ -94,7 +105,8 @@ namespace ScriptLang.System
                 JsonValueKind.True => BoolValue.True,
                 JsonValueKind.False => BoolValue.False,
                 JsonValueKind.Array => new ArrayValue([.. element.EnumerateArray().Select(ConvertJsonElement)]),
-                JsonValueKind.Object => new ObjectValue(element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value))),
+                JsonValueKind.Object => new ObjectValue(
+                    element.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value))),
                 _ => StringValue.Create(element.ToString())
             };
         }
