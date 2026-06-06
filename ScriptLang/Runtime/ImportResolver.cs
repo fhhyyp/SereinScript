@@ -20,8 +20,7 @@ public class ImportResolver
     public string RootPath { get; internal set; } = string.Empty;
 
     public const string System = "system";
-
-
+    private ObjectValue _systemModules;
     public ImportResolver(ScriptEngine engine)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
@@ -36,8 +35,9 @@ public class ImportResolver
             { "crypto", new ClrObjectValue(CryptoModule.Instance) },
             { "process", new ClrObjectValue(ProcessModule.Instance) }
         };
-
-        foreach(var item in module.Values)
+        _systemModules = new ObjectValue(module);
+        _moduleCache[System] = _systemModules;
+        foreach (var item in module.Values)
         {
             if(item is ClrObjectValue clr && clr.Value is IPrototype prototype)
             {
@@ -55,32 +55,23 @@ public class ImportResolver
     {
         if(filePath == System)
         {
-            var module = new Dictionary<string, Value>
-            {
-                { "file", new ClrObjectValue(FileModule.Instance) },
-                { "network", new ClrObjectValue(NetworkModule.Instance) },
-                { "console", new ClrObjectValue(ConsoleModule.Instance) },
-                { "path", new ClrObjectValue(PathModule.Instance) },
-                { "json", new ClrObjectValue(JsonModule.Instance) },
-                { "timer", new ClrObjectValue(TimerModule.Instance) },
-                { "crypto", new ClrObjectValue(CryptoModule.Instance) },
-                { "process", new ClrObjectValue(ProcessModule.Instance) }
-            };
-            return new ObjectValue(module);
-        }
-
-        var fullPath = ResolveImportPath(filePath);
-
-        if (_moduleCache.TryGetValue(fullPath, out var cached))
-            return cached;
-
-        if (fullPath.EndsWith(".ssc", StringComparison.OrdinalIgnoreCase))
-        {
-            return await LoadCompiledModuleAsync(fullPath);
+            return _systemModules;
         }
         else
         {
-            return await LoadSourceModuleAsync(fullPath, scope);
+            var fullPath = ResolveImportPath(filePath);
+
+            if (_moduleCache.TryGetValue(fullPath, out var cached))
+                return cached;
+
+            if (fullPath.EndsWith(".ssc", StringComparison.OrdinalIgnoreCase))
+            {
+                return await LoadCompiledModuleAsync(fullPath);
+            }
+            else
+            {
+                return await LoadSourceModuleAsync(fullPath, scope);
+            }
         }
     }
 
