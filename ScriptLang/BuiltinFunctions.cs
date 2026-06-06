@@ -4,11 +4,29 @@ using ScriptLang.Runtime;
 
 namespace ScriptLang
 {
+    internal static class TryCall
+    {
+        private static ObjectValue Result(bool ok, Value? result = null, string? message = null, string? stack = null)
+        {
+            var propertys = new Dictionary<string, Value>(4)
+            {
+                {nameof(ok), BoolValue.Create(ok)},
+                {nameof(result), result ?? Value.Null},
+                {nameof(message), StringValue.Create(message)},
+                {nameof(stack), StringValue.Create(stack)},
+            };
+            return new ObjectValue(propertys);
+        }
+
+        internal static ObjectValue Succeed(Value value) => Result(false, value);
+        internal static ObjectValue Error(Exception ex) => Result(false, message: ex.Message, stack: ex.StackTrace);
+    }
 
     public static class BuiltinFunctions
     {
         private static readonly FunctionValue debug = new(nameof(debug), static async (args) =>
         {
+            throw new Exception("测试抛出异常");
             Console.WriteLine($"debug:: {string.Join(", ", args)}");
             return Value.Null;
         });
@@ -18,10 +36,79 @@ namespace ScriptLang
             return NumberValueFactory.Create(DateTime.Now.Ticks);
         });
 
-        private static readonly FunctionValue nowtime = new(nameof(nowtime), static (args) =>
+        private static readonly FunctionValue tryCall = new(nameof(tryCall), static async (env, args) =>
         {
-            return new StringValue(DateTime.Now.ToString());
+            if (args.Count is < 1 or > 3)
+                throw new RuntimeException("tryCall() 期望 1 个或 2 个或 3 个参数");
+
+            if (args[0] is not ICallable callable)
+                throw new RuntimeException("tryCall() 第 1 个参数期望 FunctionValue");
+
+            try
+            {
+                var result = await callable.CallAsync(env);
+                return TryCall.Succeed(result);
+            }
+            catch (Exception ex)
+            {
+                // 处理错误回调（如果有第2个参数）
+                if (args.Count == 2)
+                {
+                    if (args[1] is ICallable catchBackcall)
+                    {
+                        await TryErrorCallback(catchBackcall, env, ex);
+                    }
+                    else
+                    {
+                        throw new RuntimeException("tryCall() 第 2 个参数期望 FunctionValue");
+                    }
+                }
+
+                return TryCall.Error(ex);
+            }
+            finally
+            {
+                // 处理错误回调（如果有第2个参数）
+                if (args.Count == 3)
+                {
+                    if (args[2] is ICallable finallyBackcall)
+                    {
+                        await FinallyCallback(finallyBackcall, env);
+                    }
+                    else
+                    {
+                        throw new RuntimeException("tryCall() 第 3 个参数期望 FunctionValue");
+                    }
+                }
+            }
+            static async Task TryErrorCallback(ICallable callback, ScriptEngine env, Exception ex)
+            {
+                try
+                {
+                    await callback.CallAsync(env, new ClrObjectValue(ex));
+                }
+                catch (Exception callbackEx)
+                {
+                    Console.WriteLine($"处理 'tryCall' catch 时发生异常：{callbackEx}");
+                }
+            }
+            static async Task FinallyCallback(ICallable callback, ScriptEngine env)
+            {
+                try
+                {
+                    await callback.CallAsync(env);
+                }
+                catch (Exception callbackEx)
+                {
+                    Console.WriteLine($"处理 'tryCall' finally 时发生异常：{callbackEx}");
+                }
+            }
         });
+
+        /*private static readonly FunctionValue nowtime = new(nameof(nowtime), static (args) =>
+        {
+            return StringValue.Create(DateTime.Now.ToString());
+        });*/
 
         private static readonly FunctionValue sleep = new(nameof(sleep), static async (args) =>
         {
@@ -56,10 +143,15 @@ namespace ScriptLang
                 ObjectValue => "object",
                 FunctionValue => "function",
                 NullValue => "null",
+                ClrObjectValue => "clrObject",
+                ClrMethodValue => "clrMethod",
+                CompiledFunctionValue => "compiledFunction",
+                MutableNumber => "mutableNumber",
+                RangeIterator => "rangeIterator",
                 _ => "unknown"
             };
 
-            return new StringValue(typeStr);
+            return StringValue.Create(typeStr);
         });
 
         private static readonly FunctionValue print = new(nameof(print), static args =>
@@ -111,7 +203,7 @@ namespace ScriptLang
             if (args[0] is not ObjectValue obj)
                 throw new RuntimeException("keys() 期望对象");
 
-            var keys = obj.Properties.Keys.Select(k => new StringValue(k)).Cast<Value>().ToList();
+            var keys = obj.Properties.Keys.Select(k => StringValue.Create(k)).Cast<Value>().ToList();
             return new ArrayValue(keys);
         });
 
@@ -166,10 +258,10 @@ namespace ScriptLang
 
             return args[0] switch
             {
-                NumberValue<int> number_int32 => new StringValue(number_int32.Value.ToString()),
-                NumberValue<double> number_double => new StringValue(number_double.Value.ToString()),
-                StringValue s => new StringValue(s.Value),
-                BoolValue b => new StringValue(b.Value ? Boolean.TrueString : Boolean.FalseString),
+                NumberValue<int> number_int32 => StringValue.Create(number_int32.Value.ToString()),
+                NumberValue<double> number_double => StringValue.Create(number_double.Value.ToString()),
+                StringValue s => StringValue.Create(s.Value),
+                BoolValue b => StringValue.Create(b.Value ? Boolean.TrueString : Boolean.FalseString),
                 _ => throw new RuntimeException("str() 无法转换该值")
             };
         });
@@ -177,7 +269,7 @@ namespace ScriptLang
         public static List<FunctionValue> FunctionCaches { get; private set; } = [
                 debug,
                 now,
-                nowtime,
+                tryCall,
                 sleep,
                 @typeof,
                 print,

@@ -10,7 +10,7 @@ namespace ScriptLang.Demo
         [PrototypeProperty]
         private static StringValue Name(TestPerson person)
         {
-            return new StringValue(person.Name);
+            return StringValue.Create(person.Name);
         }
 
         [PrototypeProperty]
@@ -22,13 +22,13 @@ namespace ScriptLang.Demo
         [PrototypeProperty]
         private static ArrayValue Hobbies(TestPerson person)
         {
-            return new ArrayValue([.. person.Hobbies.Select(x => (Value)new StringValue(x))]);
+            return new ArrayValue([.. person.Hobbies.Select(x => (Value)StringValue.Create(x))]);
         }
 
         [PrototypeFunction]
         public static StringValue Greet(TestPerson person)
         {
-            return new StringValue(person.Greet());
+            return StringValue.Create(person.Greet());
         }
 
         [PrototypeFunction]

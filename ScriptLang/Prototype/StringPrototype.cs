@@ -22,33 +22,33 @@ namespace ScriptLang.Prototype
         [PrototypeFunction(Name = "toUpper")]
         private static StringValue ToUpper(StringValue str)
         {
-            return new StringValue(str.Value.ToUpper());
+            return StringValue.Create(str.Value.ToUpper());
         }
 
         [PrototypeFunction(Name = "toLower")]
         private static StringValue ToLower(StringValue str)
         {
-            return new StringValue(str.Value.ToLower());
+            return StringValue.Create(str.Value.ToLower());
         }
 
         [PrototypeFunction(Name = "trim")]
         private static StringValue Trim(StringValue str)
         {
-            return new StringValue(str.Value.Trim());
+            return StringValue.Create(str.Value.Trim());
         }
 
         [PrototypeFunction(Name = "split")]
         private static ArrayValue Split(StringValue str, StringValue separator)
         {
             var parts = str.Value.Split(separator.Value);
-            return new ArrayValue([.. parts.Select(p => (Value)new StringValue(p))]);
+            return new ArrayValue([.. parts.Select(p => (Value)StringValue.Create(p))]);
         }
 
         [PrototypeFunction(Name = "substring")]
         private static StringValue Substring(StringValue str, NumberValue<int> start, NumberValue<int>? length = null)
         {
             int len = length != null ? length.Value : str.Value.Length - start.Value;
-            return new StringValue(str.Value.Substring(start.Value, len));
+            return StringValue.Create(str.Value.Substring(start.Value, len));
         }
 
         [PrototypeFunction(Name = "contains")]

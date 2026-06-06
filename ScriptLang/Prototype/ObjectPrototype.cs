@@ -23,7 +23,7 @@ namespace ScriptLang.Prototype
         private static ArrayValue Keys(ObjectValue obj)
         {
             return new ArrayValue(
-                [.. obj.Properties.Keys.Select(k => (Value)new StringValue(k))]
+                [.. obj.Properties.Keys.Select(k => (Value)StringValue.Create(k))]
             );
         }
 

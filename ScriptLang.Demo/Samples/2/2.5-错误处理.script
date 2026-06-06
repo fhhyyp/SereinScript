@@ -1,0 +1,12 @@
+
+var data = 1
+let result = tryCall(() =>  {
+	data = 2
+},ex => {
+	data = 3
+	print("ex", ex.Message)
+},() => {
+	data = 4
+})
+print("ok", result.ok)
+print("data", data)

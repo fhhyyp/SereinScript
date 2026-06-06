@@ -57,9 +57,9 @@ public abstract class Value
         {
             ArrayValue a => "[" + string.Join(", ", a.Elements) + "]",
             BoolValue b => b.Value ? "true" : "false",
-            ClrMethodValue cm => $"<clr:func>{cm.MethodInfo.DeclaringType?.Name}.{cm.MethodInfo.Name}()",
-            ClrObjectValue co => $"<clr:obj>{co.Value?.GetType().FullName}",
-            FunctionValue f => $"<func>({string.Join(',', f.Parameters)}) = {{}}",
+            ClrMethodValue cm => $"{cm.MethodInfo.DeclaringType?.Name}.{cm.MethodInfo.Name}()",
+            ClrObjectValue co => $"{co.Value}",
+            FunctionValue f => $"({string.Join(',', f.Parameters)}) = {{}}",
             NullValue => "null",
             NumberValue<int> n => n.Value.ToString(CultureInfo.InvariantCulture),
             NumberValue<long> n => n.Value.ToString(CultureInfo.InvariantCulture),
@@ -68,7 +68,7 @@ public abstract class Value
             NumberValue<decimal> n => n.Value.ToString(CultureInfo.InvariantCulture),
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
             StringValue s => s.Value,
-            CompiledFunctionValue cf => $"<c:func>({string.Join(',', cf.Parameters)}) = {{}}",
+            CompiledFunctionValue cf => $"({string.Join(',', cf.Parameters)}) = {{}}",
             _ => "unknown"
         };
     }
@@ -467,9 +467,29 @@ public sealed class MutableNumber : Value
 /// <summary>
 /// 字符串值
 /// </summary>
-public class StringValue(string Value) : Value
+public class StringValue : Value
 {
-    public string Value { get; } = Value;
+    public string Value { get; }
+
+    public static readonly StringValue Empty;
+
+    private static readonly Lock @lock = new();
+
+    public StringValue(string Value) => this.Value = Value;
+
+    public static StringValue Create(string? value)
+    {
+        if(string.IsNullOrEmpty(value)) return Empty;
+        return new StringValue(value);
+    }
+
+    static StringValue()
+    {
+        lock (@lock)
+        {
+            Empty = new StringValue(string.Empty);
+        }
+    }
 
     public override bool IsString => true;
 
@@ -720,17 +740,23 @@ public class FunctionValue : Value, ICallable
     /// <summary>参数名列表</summary>
     public List<string> Parameters { get; }
 
+    /// <summary> 是否需要平台参数 </summary>
+    private bool IsNeedEngine; //{ get; }
+
     /// <summary>是否是原生函数</summary>
-    public bool IsNative { get; }
+    private bool IsNative; //{ get; }
 
     /// <summary>是否为原生异步函数</summary>
-    public bool IsNativeTask { get; }
+    private bool IsNativeTask; // { get; }
 
     /// <summary>原生函数委托</summary>
-    public Func<List<Value>, Value>? NativeFunc { get; }
+    private Func<List<Value>, Value>? NativeFunc ;//{ get; }
 
     /// <summary>原生异步函数委托</summary>
-    public Func<List<Value>, Task<Value>>? NativeTask { get; }
+    private Func<List<Value>, Task<Value>>? NativeTask ;//{ get; }
+
+    private Func<ScriptEngine, List<Value>, Value>? EnvNativeFunc;// { get; }
+    private Func<ScriptEngine, List<Value>, Task<Value>>? EnvNativeTask;// { get; }
 
     /// <summary>参数数量</summary>
     public int ParameterCount => Parameters.Count;
@@ -738,19 +764,39 @@ public class FunctionValue : Value, ICallable
     /// <summary>创建同步原生函数</summary>
     public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
     {
+        IsNative = true;
         Name = name;
         Parameters = [];
         NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
-        IsNative = true;
     }
 
     /// <summary>创建异步原生函数</summary>
     public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
     {
+        IsNativeTask = true;
         Name = name;
         Parameters = [];
         NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+    }
+
+    /// <summary>创建异步原生函数，调用时传入平台参数</summary>
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Value> nativeFunc)
+    {
+        IsNeedEngine = true;
+        IsNative = true;
+        Name = name;
+        Parameters = [];
+        EnvNativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+    }
+
+    /// <summary>创建异步原生函数，调用时传入平台参数</summary>
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Task<Value>> nativeFunc)
+    {
+        IsNeedEngine = true;
         IsNativeTask = true;
+        Name = name;
+        Parameters = [];
+        EnvNativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
     }
 
     public override T As<T>()
@@ -763,14 +809,29 @@ public class FunctionValue : Value, ICallable
     /// <summary>调用函数</summary>
     public async Task<Value> CallAsync(ScriptEngine engine, params List<Value> args)
     {
-        if (IsNative)
+        if (IsNeedEngine)
         {
-            return NativeFunc!(args);
+            if (IsNative)
+            {
+                return EnvNativeFunc!(engine, args);
+            }
+            else if (IsNativeTask)
+            {
+                return await EnvNativeTask!(engine, args);
+            }
         }
-        else if (IsNativeTask)
+        else
         {
-            return await NativeTask!(args);
+            if (IsNative)
+            {
+                return NativeFunc!(args);
+            }
+            else if (IsNativeTask)
+            {
+                return await NativeTask!(args);
+            }
         }
+       
 
         throw new RuntimeException($"FunctionValue 不支持 DSL Lambda 调用，请使用 CompiledFunctionValue");
     }

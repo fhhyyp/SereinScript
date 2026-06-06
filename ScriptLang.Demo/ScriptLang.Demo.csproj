@@ -49,6 +49,9 @@
     <None Update="Samples\2\2.4-模式匹配.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Samples\2\2.5-错误处理.script">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Samples\3\3.1-闭包.script">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -1,4 +1,4 @@
-﻿namespace ScriptLang.Prototype
+﻿namespace ScriptLang.System
 {
     internal class ScriptRuntimeObject<T> where T : new()
     {

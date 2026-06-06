@@ -138,7 +138,11 @@ public class VM
             }
             catch (Exception ex)
             {
+#if DEBUG
                 throw new RuntimeException($"执行错误 at IP={_currentFrame.IP}: {inst.OpCode} - {ex.Message}");
+#else
+                throw;
+#endif
             }
 
             // 只有非控制流指令才自动 IP++
@@ -955,7 +959,11 @@ public class VM
             }
             catch (Exception ex)
             {
-                throw new RuntimeException($"执行错误 at {_currentFrame.IP}: {inst.OpCode} - {ex.Message}");
+#if DEBUG
+                throw new RuntimeException($"执行错误 at IP={_currentFrame.IP}: {inst.OpCode} - {ex.Message}");
+#else
+                throw;
+#endif
             }
 
             if (!IsControlFlowInstruction(inst.OpCode))
@@ -1067,7 +1075,7 @@ public class VM
             int i = index.As<int>();
             if (i < 0 || i >= str.Value.Length)
                 throw new RuntimeException($"字符串索引越界: {i}");
-            Push(new StringValue(str.Value[i].ToString()));
+            Push(StringValue.Create(str.Value[i].ToString()));
         }
         else if (target is ObjectValue obj && index is StringValue key)
         {
@@ -1267,7 +1275,7 @@ public class VM
         }
 
         if (left.IsString || right.IsString)
-            return new StringValue(left.AsString() + right.AsString());
+            return StringValue.Create(left.AsString() + right.AsString());
 
         if (left is ArrayValue leftArr)
         {
@@ -1328,7 +1336,7 @@ public class VM
         {
             var str = left.AsString();
             var repeat = right.As<int>();
-            return new StringValue(string.Concat(Enumerable.Repeat(str, repeat)));
+            return StringValue.Create(string.Concat(Enumerable.Repeat(str, repeat)));
         }
 
         throw new RuntimeException($"不支持的操作: {left} * {right}");
@@ -1497,7 +1505,7 @@ public class VM
             float f => NumberValueFactory.Create(f),
             double d => NumberValueFactory.Create(d),
             decimal m => NumberValueFactory.Create(m),
-            string s => new StringValue(s),
+            string s => StringValue.Create(s),
             bool b => BoolValue.Create(b),
             _ => throw new RuntimeException($"不支持的常量类型: {constant?.GetType()}")
         };
@@ -1527,7 +1535,7 @@ public class VM
             float f => NumberValueFactory.Create(f),
             double d => NumberValueFactory.Create(d),
             decimal m => NumberValueFactory.Create(m),
-            string s => new StringValue(s),
+            string s => StringValue.Create(s),
             bool b => BoolValue.Create(b),
             _ => new ClrObjectValue(clrValue)
         };

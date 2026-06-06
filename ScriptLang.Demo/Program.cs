@@ -24,6 +24,7 @@ class Program
             @".\Samples\2\2.2-条件表达式.script",
             @".\Samples\2\2.3-循环.script",
             @".\Samples\2\2.4-模式匹配.script",
+            @".\Samples\2\2.5-错误处理.script",
         ],
         [
             @".\Samples\3\3.1-闭包.script",
@@ -51,7 +52,7 @@ class Program
             @".\Samples\高级\pinia\run-import.script",
         ],
         ];
-        //scirpt(1, 2);
+        scirpt(2, 5);
         void scirpt(int page, int index)
         {
             var script = scripts[page - 1][index - 1];
