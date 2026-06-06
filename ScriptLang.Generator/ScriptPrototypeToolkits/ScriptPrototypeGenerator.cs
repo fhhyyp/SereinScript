@@ -100,14 +100,21 @@ public class ScriptPrototypeGenerator : IIncrementalGenerator
     /// <param name="classCaches"></param>
     private static void GeneratorCode(SourceProductionContext context, ClassCache classCaches)
     {
-        if (context.CancellationToken.IsCancellationRequested)
+        try
         {
-            return;
+            if (context.CancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            var generatedFileName = $"{classCaches.Type.Name}.g.cs";
+            var generatedCode = classCaches.GenerateCode(context);
+            context.AddSource(generatedFileName, SourceText.From(generatedCode, Encoding.UTF8));
         }
-        
-        var generatedFileName = $"{classCaches.Type.Name}.g.cs";
-        var generatedCode = classCaches.GenerateCode(context);
-        context.AddSource(generatedFileName, SourceText.From(generatedCode, Encoding.UTF8));
+        catch (System.Exception ex)
+        {
+            Debug.WriteLine($"无法生成 '{classCaches.Type.FullName}' 代码，异常 ： {ex.Message} ");
+        }
 
     }
 
@@ -117,11 +124,25 @@ public class ScriptPrototypeGenerator : IIncrementalGenerator
 
         namespace ScriptLang
         {
-            /// <summary> 定义原型扩展的属性 </summary>
-            [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-            internal sealed class PrototypeExtensionAttribute : Attribute
-            {
-            }
+           /// <summary> 定义原型扩展的属性 </summary>
+           [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
+           internal sealed class PrototypeExtensionAttribute : Attribute
+           {
+               /// <summary> 是否将该类作为参数传递给方法（适用于需要拓展 Value 类型方法）</summary>
+               public bool PushThis = false;
+
+               /// <summary> 生成的属性、方法命名风格（如果属性、方法存在别名，会忽略此设置） </summary>
+               public NamingFormat NamingFormat = NamingFormat.Net;
+           }
+
+           /// <summary> 命名风格 </summary>
+           public enum NamingFormat
+           {
+               /// <summary> 首字母大写 </summary>
+               Net,
+               /// <summary> 首字母小写 </summary>
+               Js,
+           }
         
             /// <summary> 定义原型方法的属性 </summary>
             [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]

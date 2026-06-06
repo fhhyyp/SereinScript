@@ -46,6 +46,19 @@ namespace ScriptLang.Generator.Extensions
             }
         }
 
+        /// <summary> 生成首字母大写风格名称 </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static string GetNetName(string name)
+        {
+            return char.ToUpper(name[0]) + name.Substring(1); // 名称首字母大写
+        }
+        /// <summary> 生成首字母小写风格名称 </summary>
+        public static string GetJsName(string name)
+        {
+            return char.ToLower(name[0]) + name.Substring(1); // 名称首字母大写
+        }
+
         /// <summary>
         /// 检查是否继承了某个类
         /// </summary>

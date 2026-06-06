@@ -1,6 +1,7 @@
 ﻿#nullable disable
 
 using Microsoft.CodeAnalysis;
+using ScriptLang.Generator.Extensions;
 using ScriptLang.Generator.Models;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +11,14 @@ namespace ScriptLang.Generator;
 
 internal static class ScriptPrototypeExtension
 {
+
+    private static readonly DiagnosticDescriptor PROTOTYPE001 = new DiagnosticDescriptor(id: "PROTOTYPE001",
+                                        title: "缺少参数",
+                                        messageFormat: "需要参数 '{0}'",
+                                        category: "DiagnosticsGenerator",
+                                        DiagnosticSeverity.Warning,
+                                        isEnabledByDefault: true);
+
     /// <summary>
     /// 代码生成
     /// </summary>
@@ -106,13 +115,21 @@ internal static class ScriptPrototypeExtension
                                            .AppendCode($"void {iprototypeType}.Init()")
                                            .AppendCodeBlok(() =>
                                            {
-                                               var methods = generator.Cache.GetItems().OfType<MethodCache>();
-                                               var genPropertys = methods.Where(x => x.AttrsCache.ContainsAttr<PrototypePropertyAttribute>());
-                                               var genFunctions = methods.Where(x => x.AttrsCache.ContainsAttr<PrototypeFunctionAttribute>());
-                                               foreach (var property in genPropertys) { generator.GenerateProperty(property); }
-                                               foreach (var method in genFunctions) { generator.GenerateMethod(method); }
+                                               var classCache = generator.Cache;
+                                               var isPushThis = classCache.Cache.GetAttr<PrototypeExtensionAttribute, bool>(x => x.PushThis);
+                                               var namingFormat = classCache.Cache.GetAttr<PrototypeExtensionAttribute, NamingFormat>(x => x.NamingFormat);
 
-
+                                               var methods = classCache.GetItems().OfType<MethodCache>();
+                                               var genPropertys = methods.Where(x => x.AttrsCache.ContainsAttr<PrototypePropertyAttribute>() /* && x.Parameters.Count > 0 */);
+                                               var genFunctions = methods.Where(x => x.AttrsCache.ContainsAttr<PrototypeFunctionAttribute>() /* && x.Parameters.Count > 0 */);
+                                               foreach (var property in genPropertys) 
+                                               {
+                                                   generator.GenerateProperty(property, isPushThis, namingFormat);
+                                               }
+                                               foreach (var method in genFunctions) 
+                                               { 
+                                                   generator.GenerateMethod(method, isPushThis, namingFormat);
+                                               }
                                                var isTargertMethod = methods.FirstOrDefault(x => x.IsPartial && x.Name == isTargertMethodName && x.Parameters.Count == 1);
                                                if (isTargertMethod == null) 
                                                {
@@ -126,7 +143,7 @@ internal static class ScriptPrototypeExtension
                                                         defaultSeverity: DiagnosticSeverity.Error,
                                                         isEnabledByDefault: true
                                                     );
-                                                   generator.Context.ReportDiagnostic(Diagnostic.Create(desc, location: generator.Cache.Syntax.Identifier.GetLocation(), generator.Cache.Type.Name));
+                                                   generator.Context.ReportDiagnostic(Diagnostic.Create(desc, location: classCache.Syntax.Identifier.GetLocation(), classCache.Type.Name));
                                                }
 
                                                generator.AppendCode($"_isLoad = true;");
@@ -138,85 +155,74 @@ internal static class ScriptPrototypeExtension
 
     
 
-    internal static GeneratorCache<ClassCache> GenerateProperty(this GeneratorCache<ClassCache> generator, MethodCache methodCache)
+    internal static GeneratorCache<ClassCache> GenerateProperty(this GeneratorCache<ClassCache> generator, MethodCache methodCache, bool isPushThis, NamingFormat namingFormat)
     {
-        // 获取属性名称的方法第一个参数默认是原型本身
-        /*
-        var count = new Func<Value, ScriptEngine, Value>((v, env)=>
-           {
-               var target = (ArrayValue)v;
-               return Count(target);
-           });*/
         var dictName = $"_prototypeMethods";
         var funcType = $"Func<{ScriptValue}, {ScriptEngine}, {ScriptValue}>";
         var defineName = methodCache.AttrsCache.GetAttr<PrototypePropertyAttribute, string>(x => x.Name);
         if (string.IsNullOrWhiteSpace(defineName))
-            defineName = methodCache.Name;
+        {
+            if (namingFormat == NamingFormat.Net)
+            {
+                defineName = GeneratorHelper.GetNetName(methodCache.Name);
+            }
+            else
+            {
+                defineName = GeneratorHelper.GetJsName(methodCache.Name);
+            }
+        }
         var varName = $"_{methodCache.Name}";
         generator.AppendCode($"var {varName} = new {funcType}((v, env)=>")
                  .AppendCodeBlok(() =>
                  {
-                     if (generator.Cache.Type.Name.StartsWith("Clr"))
+                     if (!isPushThis)
                      {
-
+                         generator.AppendCode($"return {methodCache.Name}();");
+                         return;
                      }
-                     var targetParamType = methodCache.Parameters[0].Type.FullName;
+                     if (methodCache.Parameters.Count == 0)
+                     {
+                         generator.AppendCode($"return {ScriptNullValue};");
+                         return;
+                     }
+                     var param0 = methodCache.Parameters[0];
+                     var targetParamType = param0.Type.FullName;
                      var isScriptValue = IsScriptValueType(targetParamType);
                      if (isScriptValue)
                      {
-                         generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})v;");
+                         generator.AppendCode($"var target = ({param0.Type.FullName})v;");
                      }
-                     /*else if(targetParamType == ScriptClrObjectValue)
-                     {
-                     }*/
                      else
                      {
-                         generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})(({ScriptClrObjectValue})v).Value;");
+                         generator.AppendCode($"var target = ({param0.Type.FullName})(({ScriptClrObjectValue})v).Value;");
                      }
                      generator.AppendCode($"return {methodCache.Name}(target);");
+
+
                  })
                  .AppendCode($");")
                  .AppendCode($"{dictName}.Add(\"{defineName}\", {varName});");
         return generator;
     }
 
-    /*internal static GeneratorCache<ClassCache> GenerateMethod(
-    this GeneratorCache<ClassCache> generator,
-    MethodCache methodCache)
-    {
-        var defineName = GetDefineName(methodCache);
-        var methodContext = CreateMethodContext(methodCache);
 
-        generator.AppendCode(
-            $"var _{methodCache.Name} = new Func<{ScriptValue}, {ScriptEngine}, {ScriptValue}>((v, env)=>")
-        .AppendCodeBlok(() =>
-        {
-            generator.AppendCode(
-                $"return new {ScriptFunctionValue}(\"{defineName}\", {(methodCache.IsAsync ? "async " : "")}args =>")
-            .AppendCodeBlok(() =>
-            {
-                GenerateArgumentValidation(generator, methodContext);
-                GenerateTargetBinding(generator, methodContext);
-                GenerateMethodInvocation(generator, methodContext);
-            })
-            .AppendCode(");");
-        })
-        .AppendCode(");")
-        .AppendCode($"_prototypeMethods.Add(\"{defineName}\", _{methodCache.Name});")
-        .AppendCode();
-
-        return generator;
-    }*/
-
-
-    internal static GeneratorCache<ClassCache> GenerateMethod(this GeneratorCache<ClassCache> generator, MethodCache methodCache)
+    internal static GeneratorCache<ClassCache> GenerateMethod(this GeneratorCache<ClassCache> generator, MethodCache methodCache, bool isPushThis, NamingFormat namingFormat)
     {
         var dictName = $"_prototypeMethods";
         var funcType = $"Func<{ScriptValue}, {ScriptEngine}, {ScriptValue}>";
         var varName = $"_{methodCache.Name}";
         var defineName = methodCache.AttrsCache.GetAttr<PrototypeFunctionAttribute, string>(x => x.Name);
         if (string.IsNullOrWhiteSpace(defineName))
-            defineName = methodCache.Name;
+        {
+            if(namingFormat == NamingFormat.Net)
+            {
+                defineName = GeneratorHelper.GetNetName(methodCache.Name);
+            }
+            else
+            {
+                defineName = GeneratorHelper.GetJsName(methodCache.Name);
+            }
+        }
 
         var isAsync = methodCache.IsAsync;
 
@@ -229,8 +235,8 @@ internal static class ScriptPrototypeExtension
                               .AppendCodeBlok(() =>
                               {
                                   var envIndex = methodCache.Parameters.Any(x => x.Type.FullName == ScriptEngine) ? methodCache.Parameters.FindIndex(x => x.Type.FullName == ScriptEngine) : -1;
+                                  var needArgNum = (envIndex > 0 ? methodCache.Parameters.Count - 1 : methodCache.Parameters.Count) - (isPushThis ? 1 : 0);
 
-                                  var needArgNum = (envIndex > 0 ? methodCache.Parameters.Count - 1 : methodCache.Parameters.Count) - 1;
                                   generator.AppendCode($"if(args.Count != {needArgNum})")
                                            .AppendCodeBlok(() =>
                                            {
@@ -239,8 +245,8 @@ internal static class ScriptPrototypeExtension
                                            .AppendCode();
 
                                   int paramIndex = 0;
-                                  // 第一个参数默认是原型本身，所以从第二个参数开始检查
-                                  for (int _index = 1; _index < methodCache.Parameters.Count; _index++)
+                                  // 需要传入自身时，第一个参数默认是原型本身，所以从第二个参数开始检查
+                                  for (int _index = (isPushThis ? 1 : 0); _index < methodCache.Parameters.Count; _index++)
                                   {
                                       if (_index == envIndex) continue;
                                       var param = methodCache.Parameters[_index];
@@ -250,14 +256,10 @@ internal static class ScriptPrototypeExtension
                                                .AppendCode();
                                       paramIndex++;
                                   }
-                                  List<string> argNames = ["target"];
+                                  List<string> argNames = (isPushThis ? ["target"] : []);
                                   paramIndex = 0;
-                                  for (int i = 1; i < methodCache.Parameters.Count; i++)
+                                  for (int i = (isPushThis ? 1 : 0); i < methodCache.Parameters.Count; i++)
                                   {
-                                      //var param = methodCache.Parameters[i];
-                                      //var paramType = param.Type.FullName;
-                                      //var isScriptValue = IsScriptValueType(paramType);
-
                                       if (i == envIndex)
                                       {
                                           argNames.Add("env");
@@ -268,22 +270,20 @@ internal static class ScriptPrototypeExtension
                                           paramIndex++;
                                       }
                                   }
-                                  var targetParamType = methodCache.Parameters[0].Type.FullName;
-                                  var isScriptValue = IsScriptValueType(targetParamType);
-                                  if (isScriptValue)
+                                  if (isPushThis)
                                   {
-                                      generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})v;");
-                                  }
-                                 /* else if (targetParamType == ScriptClrObjectValue)
-                                  {
-                                  }*/
-                                  else
-                                  {
-                                      generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})(({ScriptClrObjectValue})v).Value;");
+                                      var targetParamType = methodCache.Parameters[0].Type.FullName;
+                                      var isScriptValue = IsScriptValueType(targetParamType);
+                                      if (isScriptValue)
+                                      {
+                                          generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})v;");
+                                      }
+                                      else
+                                      {
+                                          generator.AppendCode($"var target = ({methodCache.Parameters[0].Type.FullName})(({ScriptClrObjectValue})v).Value;");
+                                      }
                                   }
 
-
-                                  //  "global::System.Threading.Tasks.ValueTask<global::ScriptLang.Runtime.ArrayValue>"
 
                                   if (methodCache.ReturnType.IsVoid)
                                   {
@@ -302,7 +302,6 @@ internal static class ScriptPrototypeExtension
                                           generator.AppendCode($"await {methodCache.Name}({string.Join(", ", argNames)});")
                                                    .AppendCode($"return {ScriptValue}.Null;");
                                       }
-                                      
                                   }
                                   else
                                   {
@@ -310,7 +309,6 @@ internal static class ScriptPrototypeExtension
                                                .AppendCode($"return result;");
                                   }
                               })
-                              
                               .AppendCode($");");
                  })
                  .AppendCode($");")
