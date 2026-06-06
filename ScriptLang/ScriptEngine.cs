@@ -124,6 +124,47 @@ namespace ScriptLang
         }
 
         /// <summary>
+        /// 从已编译的 ByteCodeChunk 创建执行任务（跳过编译阶段，直接从 .ssc 文件加载后使用）
+        /// </summary>
+        /// <param name="chunk">已反序列化的字节码块</param>
+        /// <param name="filePath">.ssc 文件路径（可选，用于 import 模块路径解析）。传入后自动设置 ImportResolver.RootPath</param>
+        /// <returns>可重复执行的 ScriptTask</returns>
+        public ScriptTask CreateTask(ByteCodeChunk chunk, string? filePath = null)
+        {
+            ArgumentNullException.ThrowIfNull(chunk);
+
+            // 从 .ssc 文件路径推导 import 模块根目录（编译产物本身不含路径信息，保持可移植性）
+            if (filePath != null && Path.GetDirectoryName(Path.GetFullPath(filePath)) is string rootPath)
+            {
+                ImportResolver.RootPath = rootPath;
+            }
+
+            // 从 VariableTable 恢复全局变量注册
+            var vt = chunk.VariableTable;
+            if (vt != null && vt.GlobalCount > 0)
+            {
+                foreach (var name in vt.GlobalNames)
+                {
+                    GlobalSlotRegistry.Register(name);
+                }
+                GlobalSlotRegistry.InitializeValues();
+            }
+
+            // 创建执行工厂
+            Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var vm = new VM(this);
+                var result = await vm.ExecuteAsync(chunk);
+                sw.Stop();
+                Console.WriteLine($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
+                return result;
+            });
+
+            return new ScriptTask(factory, new CancellationTokenSource());
+        }
+
+        /// <summary>
         /// 编译执行模式（唯一执行路径）
         /// </summary>
         private ScriptTask CreateCompiledTask(Expr expr)
