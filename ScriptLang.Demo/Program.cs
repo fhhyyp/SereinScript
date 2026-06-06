@@ -9,7 +9,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        string[][] scripts =
+        /*string[][] scripts =
         [[
             @".\Samples\1\1.1-基础运算.script",
             @".\Samples\1\1.2-变量声明.script",
@@ -51,9 +51,13 @@ class Program
             @".\Samples\高级\pinia\run-import.script",
         ],
         ];
-
-        // 默认选择
-        //scirpt(6, 1);
+        scirpt(6, 1);
+        void scirpt(int page, int index)
+        {
+            var script = scripts[page - 1][index - 1];
+            args = [script];
+        }
+         */
 
         if (args.Length == 0)
         {
@@ -62,7 +66,8 @@ class Program
             Console.WriteLine("  ScriptLang.Demo --compare <script-path>  编译执行 vs 编译→保存→加载→执行 对比");
             Console.WriteLine("  ScriptLang.Demo --save <script-path>     编译并保存为 .ssc 文件");
             Console.WriteLine("  ScriptLang.Demo --load <ssc-path>        加载 .ssc 文件并执行");
-            Console.WriteLine("  ScriptLang.Demo --bench <script-path>    批量对比所有预设脚本");
+            Console.WriteLine("  ScriptLang.Demo --build <script-path>    递归编译脚本及其所有 import 依赖为 .ssc");
+            //Console.WriteLine("  ScriptLang.Demo --bench                  批量对比所有预设脚本");
             return;
         }
 
@@ -84,20 +89,16 @@ class Program
             return;
         }
 
-        if (args[0] == "--bench")
+        if (args[0] == "--build" && args.Length >= 2)
         {
-            await BenchMode(scripts);
+            BuildMode(args[1]);
             return;
         }
 
         // 默认模式：直接执行
         await RunScript(args[0]);
 
-        void scirpt(int page, int index)
-        {
-            var script = scripts[page - 1][index - 1];
-            args = [script];
-        }
+        
     }
 
     // ==================== 运行模式 ====================
@@ -248,6 +249,223 @@ class Program
         }
     }
 
+    // ==================== 构建模式：递归批量编译 ====================
+
+    /// <summary>
+    /// 递归编译脚本及其所有 import 依赖为 .ssc
+    /// 依赖按拓扑顺序编译（叶子先编译），支持循环依赖（通过已编译集合去重）
+    /// </summary>
+    static void BuildMode(string scriptPath)
+    {
+        var exePath = AppDomain.CurrentDomain.BaseDirectory;
+        var fullPath = Path.GetFullPath(Path.Combine(exePath, scriptPath));
+        if (!File.Exists(fullPath))
+        {
+            Console.WriteLine($"文件不存在: {fullPath}");
+            return;
+        }
+
+        var compiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var rootDir = Path.GetDirectoryName(fullPath)!;
+
+        Console.WriteLine($"递归编译: {Path.GetFileName(fullPath)}");
+        Console.WriteLine($"根目录: {rootDir}");
+        Console.WriteLine();
+
+        BuildRecursive(fullPath, rootDir, compiled);
+
+        Console.WriteLine($"\n完成：共编译 {compiled.Count} 个文件");
+    }
+
+    /// <summary>递归编译脚本及其依赖</summary>
+    static void BuildRecursive(string scriptPath, string rootDir, HashSet<string> compiled)
+    {
+        // 规范化路径避免重复
+        var normalizedPath = Path.GetFullPath(scriptPath);
+
+        string sscPath = Path.ChangeExtension(normalizedPath, ".ssc");
+
+        if (compiled.Contains(sscPath))
+            return;
+
+        // 解析脚本收集 import 依赖
+        var ast = ParseScript(normalizedPath);
+        var imports = CollectImports(ast);
+
+        // 先编译依赖（深度优先 → 叶子先编译）
+        foreach (var importPath in imports)
+        {
+            var resolvedPath = ResolveImportForBuild(importPath, rootDir);
+            if (resolvedPath != null && File.Exists(resolvedPath))
+            {
+                BuildRecursive(resolvedPath, rootDir, compiled);
+            }
+            else
+            {
+                Console.WriteLine($"  ⚠ 跳过（找不到源文件）: {importPath}");
+            }
+        }
+
+        // 编译当前脚本
+        var compiler = new Compiler();
+        var chunk = compiler.Compile(ast);
+
+        ByteCodeChunk.Save(chunk, sscPath);
+        compiled.Add(sscPath);
+
+        var info = new FileInfo(sscPath);
+        var sourceInfo = new FileInfo(normalizedPath);
+        Console.WriteLine($"  ✅ {Path.GetFileName(normalizedPath)} → {Path.GetFileName(sscPath)}  ({info.Length} bytes, {chunk.Code.Count} 指令)");
+    }
+
+    /// <summary>从 AST 收集中所有 import 的文件路径</summary>
+    static List<string> CollectImports(ScriptLang.Parser.Expr ast)
+    {
+        var imports = new List<string>();
+
+        CollectImportsRecursive(ast, imports);
+
+        return imports;
+    }
+
+    static void CollectImportsRecursive(ScriptLang.Parser.Expr expr, List<string> imports)
+    {
+        switch (expr)
+        {
+            case ScriptLang.Parser.ImportStmt import:
+                imports.Add(import.FilePath);
+                break;
+
+            case ScriptLang.Parser.ProgramExpr program:
+                foreach (var stmt in program.Statements)
+                    CollectImportsRecursive(stmt, imports);
+                break;
+
+            case ScriptLang.Parser.BlockExpr block:
+                foreach (var stmt in block.Statements)
+                    CollectImportsRecursive(stmt, imports);
+                break;
+
+            case ScriptLang.Parser.LambdaExpr lambda:
+                CollectImportsRecursive(lambda.Body, imports);
+                break;
+
+            case ScriptLang.Parser.IfExpr ifExpr:
+                CollectImportsRecursive(ifExpr.Then, imports);
+                CollectImportsRecursive(ifExpr.Else, imports);
+                break;
+
+            case ScriptLang.Parser.WhenExpr whenExpr:
+                foreach (var clause in whenExpr.Clauses)
+                    CollectImportsRecursive(clause.Body, imports);
+                if (whenExpr.OtherClause != null)
+                    CollectImportsRecursive(whenExpr.OtherClause.Body, imports);
+                break;
+
+            case ScriptLang.Parser.ForExpr forExpr:
+                CollectImportsRecursive(forExpr.Body, imports);
+                break;
+
+            case ScriptLang.Parser.ReturnExpr ret when ret.Value != null:
+                CollectImportsRecursive(ret.Value, imports);
+                break;
+
+            case ScriptLang.Parser.BinaryExpr binary:
+                CollectImportsRecursive(binary.Left, imports);
+                CollectImportsRecursive(binary.Right, imports);
+                break;
+
+            case ScriptLang.Parser.UnaryExpr unary:
+                CollectImportsRecursive(unary.Expr, imports);
+                break;
+
+            case ScriptLang.Parser.ConditionalExpr cond:
+                CollectImportsRecursive(cond.Cond, imports);
+                CollectImportsRecursive(cond.Then, imports);
+                CollectImportsRecursive(cond.Else, imports);
+                break;
+
+            case ScriptLang.Parser.CallExpr call:
+                CollectImportsRecursive(call.Target, imports);
+                foreach (var arg in call.Args)
+                    CollectImportsRecursive(arg, imports);
+                break;
+
+            case ScriptLang.Parser.LetExpr let:
+                CollectImportsRecursive(let.Value, imports);
+                break;
+
+            case ScriptLang.Parser.VarExpr var:
+                CollectImportsRecursive(var.Value, imports);
+                break;
+
+            case ScriptLang.Parser.AssignExpr assign:
+                CollectImportsRecursive(assign.Value, imports);
+                break;
+
+            case ScriptLang.Parser.ArrayLiteralExpr arr:
+                foreach (var elem in arr.Elements)
+                    CollectImportsRecursive(elem, imports);
+                break;
+
+            case ScriptLang.Parser.ObjectLiteralExpr obj:
+                foreach (var prop in obj.Properties)
+                    CollectImportsRecursive(prop.Value, imports);
+                break;
+
+            case ScriptLang.Parser.MemberAccessExpr member:
+                CollectImportsRecursive(member.Target, imports);
+                break;
+
+            case ScriptLang.Parser.MemberAssignExpr memberAssign:
+                CollectImportsRecursive(memberAssign.Target, imports);
+                CollectImportsRecursive(memberAssign.Value, imports);
+                break;
+
+            case ScriptLang.Parser.IndexAccessExpr index:
+                CollectImportsRecursive(index.Target, imports);
+                CollectImportsRecursive(index.Index, imports);
+                break;
+
+            case ScriptLang.Parser.IndexAssignExpr indexAssign:
+                CollectImportsRecursive(indexAssign.Target, imports);
+                CollectImportsRecursive(indexAssign.Index, imports);
+                CollectImportsRecursive(indexAssign.Value, imports);
+                break;
+        }
+    }
+
+    /// <summary>为构建模式解析 import 路径到实际 .script 文件</summary>
+    static string? ResolveImportForBuild(string importPath, string rootDir)
+    {
+        // 如果是相对路径，基于 rootDir 解析
+        string basePath;
+        if (Path.IsPathRooted(importPath))
+            basePath = Path.GetFullPath(importPath);
+        else
+            basePath = Path.GetFullPath(Path.Combine(rootDir, importPath));
+
+        // 已有后缀 → 直接返回（ImportResolver 运行时会在 .ssc/.script 间选择）
+        if (Path.HasExtension(basePath))
+        {
+            // 构建阶段我们编译 .script 源文件
+            string scriptPath = basePath.EndsWith(".ssc", StringComparison.OrdinalIgnoreCase)
+                ? Path.ChangeExtension(basePath, ".script")
+                : basePath;
+            return scriptPath;
+        }
+
+        // 无后缀 → 找 .script（构建时编译源文件）
+        string withScript = basePath + ".script";
+        if (File.Exists(withScript)) return withScript;
+
+        // 如果 .ssc 已存在（无需重新编译），返回 null
+        string withSsc = basePath + ".ssc";
+        if (File.Exists(withSsc)) return null;
+
+        return null;
+    }
+
     // ==================== 加载模式 ====================
 
     static async Task LoadMode(string sscPath)
@@ -279,6 +497,38 @@ class Program
         {
             Console.WriteLine($"异常: {ex}");
         }
+    }
+
+    
+    // ==================== 辅助方法 ====================
+
+    static ScriptEngine CreateEngine()
+    {
+        var engine = new ScriptEngine();
+        engine.PrototypeManager.Register<TestPersonPrototype>();
+        if (!BuiltinFunctions.FunctionCaches.Any(f => f.Name == "new_Person"))
+        {
+            BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person", _ => new ClrObjectValue(new TestPerson())));
+        }
+        return engine;
+    }
+
+    static ScriptLang.Parser.Expr ParseScript(string fullPath)
+    {
+        string script = File.ReadAllText(fullPath);
+        var lexer = new ScriptLang.Lexer.Lexer(script, fullPath);
+        var tokens = lexer.ScanTokens();
+        var parser = new ScriptLang.Parser.Parser(tokens, fullPath);
+        var expr = parser.Parse();
+
+        if (parser.Diagnostics.Count > 0)
+        {
+            foreach (var diag in parser.Diagnostics)
+                Console.WriteLine($"解析异常: {diag}");
+            throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
+        }
+
+        return expr;
     }
 
     // ==================== 批量对比模式 ====================
@@ -358,34 +608,4 @@ class Program
         }
     }
 
-    // ==================== 辅助方法 ====================
-
-    static ScriptEngine CreateEngine()
-    {
-        var engine = new ScriptEngine();
-        engine.PrototypeManager.Register<TestPersonPrototype>();
-        if (!BuiltinFunctions.FunctionCaches.Any(f => f.Name == "new_Person"))
-        {
-            BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person", _ => new ClrObjectValue(new TestPerson())));
-        }
-        return engine;
-    }
-
-    static ScriptLang.Parser.Expr ParseScript(string fullPath)
-    {
-        string script = File.ReadAllText(fullPath);
-        var lexer = new ScriptLang.Lexer.Lexer(script, fullPath);
-        var tokens = lexer.ScanTokens();
-        var parser = new ScriptLang.Parser.Parser(tokens, fullPath);
-        var expr = parser.Parse();
-
-        if (parser.Diagnostics.Count > 0)
-        {
-            foreach (var diag in parser.Diagnostics)
-                Console.WriteLine($"解析异常: {diag}");
-            throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
-        }
-
-        return expr;
-    }
 }
