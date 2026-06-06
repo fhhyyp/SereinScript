@@ -1,12 +1,15 @@
+import { file } from "system"
 
-var data = 1
-let result = tryCall(() =>  {
-	data = 2
+// print(file.read("D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang.Demo\\Samples\\2\\2.1-逻辑运算.script"))
+
+let result = tryCall(() => {
+	file.read("D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang.Demo\\Samples\\2\\2.1-逻辑运算.script")
 },ex => {
-	data = 3
 	print("ex", ex.Message)
-},() => {
-	data = 4
 })
+
 print("ok", result.ok)
-print("data", data)
+print("result", result.result)
+
+
+

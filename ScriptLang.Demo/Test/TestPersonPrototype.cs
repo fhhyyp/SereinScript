@@ -2,7 +2,7 @@
 
 namespace ScriptLang.Demo
 {
-    [PrototypeExtension]
+    [PrototypeExtension(PushThis = true)]
     internal partial  class TestPersonPrototype
     {
         public partial bool IsTarget(Value value) => value is ClrObjectValue clr && clr.Value is TestPerson;

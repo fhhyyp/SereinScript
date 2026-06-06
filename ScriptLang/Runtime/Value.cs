@@ -661,7 +661,7 @@ public class ClrObjectValue(object? Target) : Value
     public Dictionary<string, object> GetDebugProperties()
     {
         var result = new Dictionary<string, object>();
-        var properties = Value?.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance) ?? [];
+        var properties = Value?.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance) ?? [];
         foreach (var prop in properties)
         {
             try
@@ -708,7 +708,7 @@ public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
     /// <summary>
     /// 返回类型
     /// </summary>
-    public System.Type ReturnType { get; } = methodInfo.ReturnType;
+    public Type ReturnType { get; } = methodInfo.ReturnType;
     public MethodInfo MethodInfo { get; } = methodInfo;
 
     public override T As<T>()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -155,7 +156,7 @@ internal sealed class ByteCodeChunkWriter(BinaryWriter writer)
                 WriteString(s);
                 break;
 
-            case System.Collections.IList list:
+            case IList list:
                 _writer.Write((byte)SerializedType.List);
                 _writer.Write(list.Count);
                 foreach (var item in list)

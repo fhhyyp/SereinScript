@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -42,14 +43,17 @@ public class VM
 
     static VM()
     {
-        var funcs = BuiltinFunctions.FunctionCaches;
-        _builtinValues = new Value[funcs.Count];
-        _builtinSlots = new Dictionary<string, int>(funcs.Count);
+        var systemValues = BuiltinCache.SystemValues;
+        _builtinValues = new Value[systemValues.Count];
+        _builtinSlots = new Dictionary<string, int>(systemValues.Count);
 
-        for (int i = 0; i < funcs.Count; i++)
+        foreach(var item in systemValues.Select((kvp, i)=>(kvp, i)))
         {
-            _builtinValues[i] = funcs[i];
-            _builtinSlots[funcs[i].Name] = i;
+            var index = item.i;
+            var name = item.kvp.Key;
+            var value = item.kvp.Value;
+            _builtinValues[index] = value;
+            _builtinSlots[name] = index;
         }
     }
 
@@ -58,10 +62,12 @@ public class VM
         _engine = engine;
         _globalScope = new Scope();
 
-        // 注册内置函数到全局作用域（兼容性保留）
-        foreach (var func in BuiltinFunctions.FunctionCaches)
+        // 注册系统默认函数、对象到全局作用域（兼容性保留）
+        foreach (var item in BuiltinCache.SystemValues)
         {
-            _globalScope.DefineFunction(func);
+            var name = item.Key;
+            var value = item.Value;
+            _globalScope.Define(name, value, isMutable: false);
         }
 
         // 初始化全局变量值数组
@@ -90,7 +96,7 @@ public class VM
             for (int i = 0; i < constants.Count; i++)
             {
                 var constant = constants[i];
-                if (constant is System.Collections.IList list)
+                if (constant is IList list)
                     Console.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
                 else
                     Console.WriteLine($"  [{i}] = {constant}");

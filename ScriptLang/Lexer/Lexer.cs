@@ -320,8 +320,8 @@ public class Lexer(string source, string filePath)
         }
         
         string numberStr = sb.ToString();
-        if (double.TryParse(numberStr, System.Globalization.NumberStyles.Any, 
-            System.Globalization.CultureInfo.InvariantCulture, out double number))
+        if (double.TryParse(numberStr, NumberStyles.Any, 
+            CultureInfo.InvariantCulture, out double number))
         {
             AddToken(TokenType.Number_Double, numberStr, number);
         }
@@ -736,7 +736,7 @@ public class Lexer(string source, string filePath)
         _column--;    // 回退列
         if (_column < 1) _column = 1;
         
-        while (char.IsLetterOrDigit(Peek()) || Peek() == '_'|| Peek() == '@')
+        while (char.IsLetterOrDigit(Peek()) || Peek() == '_'/*|| Peek() == '@'*/)
         {
             sb.Append(Advance());
         }

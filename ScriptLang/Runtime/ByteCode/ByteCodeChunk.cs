@@ -1,4 +1,6 @@
-﻿namespace ScriptLang.Runtime.ByteCode;
+﻿using System.Text;
+
+namespace ScriptLang.Runtime.ByteCode;
 
 /// <summary>表示一个字节码块</summary>
 public sealed class ByteCodeChunk
@@ -170,7 +172,7 @@ public sealed class ByteCodeChunk
         ArgumentNullException.ThrowIfNull(chunk);
         ArgumentNullException.ThrowIfNull(stream);
 
-        using var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         var serializer = new ByteCodeChunkWriter(writer);
         serializer.Write(chunk);
     }
@@ -201,7 +203,7 @@ public sealed class ByteCodeChunk
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+        using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var deserializer = new ByteCodeChunkReader(reader);
         return deserializer.Read();
     }

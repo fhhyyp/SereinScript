@@ -25,12 +25,10 @@ namespace ScriptLang.Runtime
     }
 
     /// <summary>
-    /// 作用域（仅用于 Interpreter，VM 不使用）
-    /// 保留以维持现有代码兼容，后续可清理
+    /// 作用域
     /// </summary>
     public class Scope(Scope? parent = null)
     {
-        public System.Guid Guid { get; private set; } = System.Guid.NewGuid();
 
         private readonly Dictionary<string, VariableInfo> _variables = [];
         public Scope? Parent { get; } = parent;
@@ -46,9 +44,6 @@ namespace ScriptLang.Runtime
             }
             _variables.Clear();
         }
-
-        public void DefineFunction(FunctionValue func)
-            => Define(func.Name, func, isMutable: false);
 
         public VariableInfo Define(string name, Value value, bool isMutable = true)
         {

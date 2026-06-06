@@ -507,10 +507,6 @@ class Program
     {
         var engine = new ScriptEngine();
         engine.PrototypeManager.Register<TestPersonPrototype>();
-        if (!BuiltinFunctions.FunctionCaches.Any(f => f.Name == "new_Person"))
-        {
-            BuiltinFunctions.FunctionCaches.Add(new FunctionValue("new_Person", _ => new ClrObjectValue(new TestPerson())));
-        }
         return engine;
     }
 

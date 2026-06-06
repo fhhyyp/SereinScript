@@ -241,8 +241,8 @@ public sealed class Compiler
             };
         }
 
-        // 4. 内置函数
-        if (BuiltinFunctions.FunctionCaches.Any(f => f.Name == name))
+        // 4. 内置对象、函数
+        if (BuiltinCache.SystemValues.Any(f => f.Key == name))
         {
             int builtinIndex = _varTable.AllocBuiltin(name);
             return new VariableBinding(builtinIndex, false)

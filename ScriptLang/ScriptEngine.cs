@@ -2,6 +2,7 @@
 using ScriptLang.Prototype;
 using ScriptLang.Runtime;
 using ScriptLang.Runtime.ByteCode;
+using System.Diagnostics;
 using System.Reflection.Metadata;
 
 namespace ScriptLang
@@ -43,12 +44,12 @@ namespace ScriptLang
 
         public ScriptEngine()
         {
-            ImportResolver = new ImportResolver(this);
             PrototypeManager = new PrototypeManager(this);
-
+            ImportResolver = new ImportResolver(this);
             PrototypeManager.Register<ArrayPrototype>();
             PrototypeManager.Register<ObjectPrototype>();
             PrototypeManager.Register<StringPrototype>();
+
         }
 
         /// <summary>
@@ -60,7 +61,7 @@ namespace ScriptLang
         public ScriptTask CreateTask(string filePath, Scope? scope = null)
         {
             GlobalScope.Clear();
-            BuiltinFunctions.RegisterAll(GlobalScope);
+            BuiltinCache.RegisterAll(GlobalScope);
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);
@@ -153,7 +154,7 @@ namespace ScriptLang
             // 创建执行工厂
             Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
             {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var sw = Stopwatch.StartNew();
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
                 sw.Stop();
@@ -173,7 +174,7 @@ namespace ScriptLang
             if (!_compilationCache.TryGetValue(expr, out var chunk))
             {
 #if DEBUG
-                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var sw = Stopwatch.StartNew();
 #endif
                 var compiler = new Compiler();
                 chunk = compiler.Compile(expr);
@@ -195,7 +196,7 @@ namespace ScriptLang
             // 创建执行工厂
             Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
             {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var sw = Stopwatch.StartNew();
 #if DEBUG
 #endif
                 // 每次执行创建新的 VM 实例（保证栈/帧隔离）
