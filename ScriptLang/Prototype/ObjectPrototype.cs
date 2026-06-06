@@ -71,6 +71,4 @@ namespace ScriptLang.Prototype
             obj.Properties.Clear();
         }
     }
-
-
 }

@@ -496,6 +496,8 @@ public sealed class Compiler
             var binding = ResolveVariable(expr.Name);
             if (binding == null)
                 throw new InvalidOperationException($"未定义的变量 '{expr.Name}'");
+            if (!binding.IsMutable)
+                throw new InvalidOperationException($"无法为不可变变量 '{expr.Name}' 赋值（使用 var 声明可变变量）");
 
             OpCode inPlaceOp = bin.Op switch
             {
@@ -521,6 +523,8 @@ public sealed class Compiler
         var binding2 = ResolveVariable(expr.Name);
         if (binding2 == null)
             throw new InvalidOperationException($"未定义的变量 '{expr.Name}'");
+        if (!binding2.IsMutable)
+            throw new InvalidOperationException($"无法为不可变变量 '{expr.Name}' 赋值（使用 var 声明可变变量）");
         EmitStoreSlot(binding2);
     }
 
@@ -948,9 +952,13 @@ public sealed class Compiler
             if (binding != null && (binding.Region == SlotRegion.Builtin || binding.Region == SlotRegion.Global))
                 continue;
 
+            // 继承外层变量的可变性：let → 不可变，var → 可变
+            // 默认 true 与旧行为一致，当无法定位外层 binding 时保持安全默认
+            bool isMutable = binding?.IsMutable ?? true;
+
             int captureIndex = innerCompiler._varTable.AllocCapture(varName);
             innerCompiler._localNames.Add(varName);
-            innerScope[varName] = new VariableBinding(captureIndex, true, isCaptured: true)
+            innerScope[varName] = new VariableBinding(captureIndex, isMutable, isCaptured: true)
             {
                 Region = SlotRegion.Capture
             };
@@ -964,9 +972,14 @@ public sealed class Compiler
                 if (innerScope.ContainsKey(varName))
                     continue;
 
+                // 继承外层变量的可变性：let → 不可变，var → 可变
+                // 默认 true 与旧行为一致，当无法定位外层 binding 时保持安全默认
+                var outerBinding = ResolveVariable(varName);
+                bool nestedIsMutable = outerBinding?.IsMutable ?? true;
+
                 int captureIndex = innerCompiler._varTable.AllocCapture(varName);
                 innerCompiler._localNames.Add(varName);
-                innerScope[varName] = new VariableBinding(captureIndex, true, isCaptured: true)
+                innerScope[varName] = new VariableBinding(captureIndex, nestedIsMutable, isCaptured: true)
                 {
                     Region = SlotRegion.Capture
                 };

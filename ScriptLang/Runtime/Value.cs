@@ -1,8 +1,11 @@
-using ScriptLang.Runtime.ByteCode;
-using ScriptLang.Utils;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Xml.Linq;
+using ScriptLang.Runtime.ByteCode;
+using ScriptLang.Utils;
 
 namespace ScriptLang.Runtime;
 
@@ -13,55 +16,40 @@ namespace ScriptLang.Runtime;
 /// </summary>
 public abstract class Value
 {
-    public static readonly Value Null = new NullValue();
+    public static readonly Value Null = NullValue.Default;
 
     public abstract T As<T>();
-    
-    public bool IsNull => this is NullValue;
-    //[Obsolete("temp", true)]
-    public virtual bool IsNumber => IsNumber_Decimal  || IsNumber_Double  || IsNumber_Float || IsNumber_Long || IsNumber_Int;
-    public virtual bool IsNumber_Decimal => this is NumberValue<decimal>;
-    public virtual bool IsNumber_Double => this is NumberValue<double>;
-    public virtual bool IsNumber_Float => this is NumberValue<float>;
-    public virtual bool IsNumber_Long => this is NumberValue<long>;
-    public virtual bool IsNumber_Int => this is NumberValue<int>;
+
+    #region 类型判断
+    /// <summary> 是否为 null  </summary>
+    public virtual bool IsNull => false;
+
+    /// <summary> 是否为数值 </summary>
+    public virtual bool IsNumber => false;
+    public virtual bool IsNumber_Decimal => false;
+    public virtual bool IsNumber_Double => false;
+    public virtual bool IsNumber_Float => false;
+    public virtual bool IsNumber_Long => false;
+    public virtual bool IsNumber_Int => false;
 
     /// <summary>是否为可变数值</summary>
     public virtual bool IsMutableNumber => false;
 
+    public virtual bool IsString => false;
+    public virtual bool IsBool => false;
+    public virtual bool IsObject => false;
+    public virtual bool IsArray => false;
+    public virtual bool IsFunction => false;
+    public virtual bool IsClrObject => false;
+    public virtual bool IsClrMethod => false;
+    #endregion
+
     /// <summary>转换为不可变值（MutableNumber 重写）</summary>
     public virtual Value ToImmutableValue() => this;
-
-    public bool IsString => this is StringValue;
-    public bool IsBool => this is BoolValue;
-    public bool IsObject => this is ObjectValue;
-    public bool IsArray => this is ArrayValue;
-    public bool IsFunction => this is FunctionValue;
-    public bool IsClrObject => this is ClrObjectValue;
-    public bool IsClrMethod => this is ClrMethodValue;
-
-    /*public T AsNumber<T>() where T : struct, IEquatable<T>, IFormattable, IConvertible
-    {
-        if(this is NumberValue<T> number)
-        {
-            return number.Value;
-        }
-        throw new NotImplementedException($"无法转换为 {typeof(T).Name} 类型");
-    }*/
-
-    public NumberValue<T> AsNumberValue<T>() where T : struct, IEquatable<T>, IFormattable, IConvertible
-    {
-        if(this is NumberValue<T> number)
-        {
-            return number;
-        }
-        throw new NotImplementedException($"无法转换为 NumberValue<{typeof(T).Name}> 类型");
-    }
-
-    public string AsString() => (this as StringValue)?.Value  ?? this.ToString();
-    public bool AsBool() => (this as BoolValue)?.Value  ?? false;
-    public Dictionary<string, Value> AsObject() => (this as ObjectValue)?.Properties  ?? [];
-    public List<Value> AsArray() => (this as ArrayValue)?.Elements  ?? [];
+    public string AsString() => (this as StringValue)?.Value ?? this.ToString();
+    public virtual bool AsBool() => false;
+    public virtual Dictionary<string, Value> AsObject() => [];
+    public virtual List<Value> AsArray() => [];
     
     public override string ToString()
     {
@@ -79,7 +67,8 @@ public abstract class Value
             NumberValue<double> n => n.Value.ToString(CultureInfo.InvariantCulture),
             NumberValue<decimal> n => n.Value.ToString(CultureInfo.InvariantCulture),
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
-            StringValue s => $"\"{s.Value}\"",
+            StringValue s => s.Value,
+            CompiledFunctionValue cf => $"<c:func>({string.Join(',', cf.Parameters)}) = {{}}",
             _ => "unknown"
         };
     }
@@ -91,11 +80,14 @@ public abstract class Value
 /// </summary>
 public class NullValue : Value
 {
+    public static NullValue Default => new NullValue();
+    public override bool IsNull => true;
+
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(NullValue)) return (T)(object)this;
-        throw new InvalidCastException($"Cannot cast NullValue to {typeof(T)}");
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'NullValue'");
     }
 }
 
@@ -144,6 +136,13 @@ public static class NumberValueFactory
 public class NumberValue<TNumber>(TNumber Value) : Value where TNumber : struct, IEquatable<TNumber>, IFormattable, IConvertible
 {
     public TNumber Value { get; } = Value;
+
+    public override bool IsNumber => IsNumber_Int || IsNumber_Double || IsNumber_Decimal || IsNumber_Long || IsNumber_Float;
+    public override bool IsNumber_Decimal => Value is decimal;
+    public override bool IsNumber_Double => Value is double;
+    public override bool IsNumber_Float => Value is float;
+    public override bool IsNumber_Long => Value is long;
+    public override bool IsNumber_Int => Value is int;
 
     /// <summary>
     /// 工厂方法 - 使用缓存
@@ -446,7 +445,7 @@ public sealed class MutableNumber : Value
             NumberKind.Float => (T)(object)_floatValue,
             NumberKind.Double => (T)(object)_doubleValue,
             NumberKind.Decimal => (T)(object)_decimalValue,
-            _ => throw new InvalidCastException($"Cannot cast MutableNumber to {typeof(T)}")
+            _ => throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'MutableNumber'"),
         };
     }
 
@@ -472,12 +471,14 @@ public class StringValue(string Value) : Value
 {
     public string Value { get; } = Value;
 
+    public override bool IsString => true;
+
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(StringValue)) return (T)(object)this;
         if (typeof(T) == typeof(string)) return (T)(object)Value;
-        throw new InvalidCastException($"Cannot cast StringValue to {typeof(T)}");
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'StringValue'");
     }
 }
 
@@ -488,20 +489,27 @@ public class BoolValue : Value
 {
     public bool Value { get; private set; }
 
+    public override bool IsBool => true;
+
+    public override bool AsBool() => Value;
+
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(BoolValue)) return (T)(object)this;
-        throw new InvalidCastException($"Cannot cast BoolValue to {typeof(T)}");
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'BoolValue'");
     }
 
     public static readonly BoolValue True;
     public static readonly BoolValue False;
-
+    private static readonly Lock @lock = new();
     static BoolValue()
     {
-        True = new BoolValue(true);
-        False = new BoolValue(false);
+        lock (@lock)
+        {
+            True = new BoolValue(true);
+            False = new BoolValue(false);
+        }
     }
 
     private BoolValue(bool value)
@@ -520,6 +528,9 @@ public class ObjectValue(Dictionary<string, Value> Properties) : Value
 {
     public Dictionary<string, Value> Properties { get; } = Properties;
 
+    public override bool IsObject => true;
+    public override Dictionary<string, Value> AsObject() => Properties;
+
     public void Set(string key, Value value) => Properties[key] = value;
 
     public Value Get(string key) => Properties[key];
@@ -534,7 +545,8 @@ public class ObjectValue(Dictionary<string, Value> Properties) : Value
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ObjectValue)) return (T)(object)this;
-        throw new InvalidCastException($"Cannot cast ObjectValue to {typeof(T)}");
+        
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'ObjectValue'");
     }
 }
 
@@ -550,6 +562,10 @@ public class ArrayValue(List<Value> Elements) : Value //, IObservableValue
     public List<Value> Value => Elements;
 
     public List<Value> Elements { get; } = Elements;
+
+    public override bool IsArray => true;
+
+    public override List<Value> AsArray() => Elements;
 
     public void Add(Value v)
     {
@@ -594,7 +610,7 @@ public class ArrayValue(List<Value> Elements) : Value //, IObservableValue
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ArrayValue)) return (T)(object)this;
-        throw new InvalidCastException($"Cannot cast ArrayValue to {typeof(T)}");
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'ArrayValue'");
     }
 
 }
@@ -609,13 +625,14 @@ public class ClrObjectValue(object? Target) : Value
     /// </summary>
     public object? Value { get; } = Target; //?? throw new ArgumentNullException(nameof(Target));
 
+    public override bool IsClrObject => true;
 
     public override T As<T>()
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ClrObjectValue)) return (T)(object)this;
         if (Value is T typed) return typed;
-        throw new InvalidCastException($"Cannot cast ClrObjectValue({Value?.GetType()}) to {typeof(T)}");
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'ClrObjectValue'");
     }
 
     /// <summary>
@@ -646,6 +663,7 @@ public class ClrObjectValue(object? Target) : Value
 /// </summary>
 public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
 {
+    public override bool IsClrMethod => true;
 
     /// <summary>
     /// 包装的 MethodInfo
@@ -677,7 +695,8 @@ public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
     {
         if (this is T result) return result;
         if (typeof(T) == typeof(ClrMethodValue)) return (T)(object)this;
-        throw new InvalidCastException($"Cannot cast ClrMethodValue to {typeof(T)}");
+
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'ClrMethodValue'");
     }
 
     internal async Task<object?> InvokeAsync(object?[]? args = null)
@@ -693,6 +712,8 @@ public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
 /// </summary>
 public class FunctionValue : Value, ICallable
 {
+    public override bool IsFunction => true;
+
     /// <summary>函数名称</summary>
     public string Name { get; }
 
@@ -735,7 +756,8 @@ public class FunctionValue : Value, ICallable
     public override T As<T>()
     {
         if (this is T result) return result;
-        throw new InvalidCastException($"Cannot cast FunctionValue to {typeof(T)}");
+
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'FunctionValue'");
     }
 
     /// <summary>调用函数</summary>
@@ -778,7 +800,8 @@ public class CompiledFunctionValue(
     public override T As<T>()
     {
         if (this is T result) return result;
-        throw new InvalidCastException($"Cannot cast CompiledFunctionValue to {typeof(T)}");
+
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'CompiledFunctionValue'");
     }
 
     public async Task<Value> CallAsync(ScriptEngine engine, List<Value> args)

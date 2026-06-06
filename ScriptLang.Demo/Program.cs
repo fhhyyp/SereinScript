@@ -9,7 +9,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        /*string[][] scripts =
+        string[][] scripts =
         [[
             @".\Samples\1\1.1-基础运算.script",
             @".\Samples\1\1.2-变量声明.script",
@@ -56,7 +56,7 @@ class Program
         {
             var script = scripts[page - 1][index - 1];
             args = [script];
-        }*/
+        }
          
 
         if (args.Length == 0)

@@ -1,8 +1,10 @@
-﻿using ScriptLang.Runtime;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Runtime.Serialization;
+using ScriptLang.Runtime;
 
 namespace ScriptLang
 {
+
     public static class BuiltinFunctions
     {
         private static readonly FunctionValue debug = new(nameof(debug), static async (args) =>
@@ -187,7 +189,6 @@ namespace ScriptLang
                 @double,
                 str,
             ];
-
 
         public static void RegisterAll(Scope scope)
         {
