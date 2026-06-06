@@ -122,7 +122,13 @@ public class Lexer(string source, string filePath)
                 // 注释支持
                 if (Match('/'))
                 {
+                    // 单行注释 //
                     while (Peek() != '\n' && !IsAtEnd()) Advance();
+                }
+                else if (Match('*'))
+                {
+                    // 跨行注释 /* */
+                    ReadBlockComment();
                 }
                 else
                 {
@@ -215,6 +221,43 @@ public class Lexer(string source, string filePath)
                 _position - startPos
             ));
         }
+    }
+
+    /// <summary>
+    /// 读取跨行注释 /* ... */
+    /// </summary>
+    private void ReadBlockComment()
+    {
+        int startLine = _line;
+        int startColumn = _column - 2; // 回退到 /*
+        int startPos = _position - 2;
+
+        while (!IsAtEnd())
+        {
+            if (Peek() == '*' && PeekNext() == '/')
+            {
+                Advance(); // *
+                Advance(); // /
+                return;    // 注释正常结束
+            }
+
+            if (Peek() == '\n')
+            {
+                _line++;
+                _column = 0;
+            }
+
+            Advance();
+        }
+
+        // EOF reached without closing */
+        Diagnostics.Add(new LexDiagnostic(
+            "未终止的跨行注释（缺少 */）",
+            FilePath ?? string.Empty,
+            startLine,
+            startColumn,
+            _position - startPos
+        ));
     }
 
     private void ReadString_v1()
