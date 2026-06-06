@@ -1,9 +1,7 @@
 import { file } from "system"
 
-// print(file.read("D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang.Demo\\Samples\\2\\2.1-逻辑运算.script"))
-
 let result = tryCall(() => {
-	file.read("D:\\Project\\C#\\SereinScript\\SereinScript\\ScriptLang.Demo\\Samples\\2\\2.1-逻辑运算.script")
+	file.read("D:\\Project\\MyTest\\HttpSelfHostDemo\\packages\\Newtonsoft.Json.13.0.3\\lib\\net6.0\\Newtonsoft.Json.xml")  // 实际上不存在这个路径
 },ex => {
 	print("ex", ex.Message)
 })

@@ -70,8 +70,10 @@ public class VM
             _globalScope.Define(name, value, isMutable: false);
         }
 
-        // 初始化全局变量值数组
-        GlobalSlotRegistry.InitializeValues();
+        // 注意：不在此处调用 GlobalSlotRegistry.InitializeValues()，
+        // 因为全局槽位的值可能已由外层 VM 的 import 指令设置。
+        // 若重置会清除已导入的全局变量（如 system 模块），导致闭包内访问失败。
+        // GetValues() 内部有懒初始化保护：首次访问时若 _values.Length != Count 则自动初始化。
     }
 
     // ==================== 主执行循环 ====================
