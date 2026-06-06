@@ -1,5 +1,8 @@
-using ScriptLang.Runtime.ByteCode;
 using System.Collections.Concurrent;
+using System.Net;
+using ScriptLang.Prototype;
+using ScriptLang.Runtime.ByteCode;
+using ScriptLang.System;
 
 namespace ScriptLang.Runtime;
 
@@ -7,14 +10,41 @@ namespace ScriptLang.Runtime;
 /// 模块解析器：负责加载并执行被 import 的模块
 /// 支持 .script（源码）和 .ssc（编译产物）两种格式，优先加载 .ssc
 /// </summary>
-public class ImportResolver(ScriptEngine engine)
+public class ImportResolver
 {
-    private readonly ScriptEngine _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+    private readonly ScriptEngine _engine;
 
     /// <summary>模块缓存（按解析后的完整路径去重）</summary>
     private readonly ConcurrentDictionary<string, ObjectValue> _moduleCache = new(StringComparer.OrdinalIgnoreCase);
 
     public string RootPath { get; internal set; } = string.Empty;
+
+    public const string System = "system";
+
+
+    public ImportResolver(ScriptEngine engine)
+    {
+        _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        var module = new Dictionary<string, Value>
+        {
+            { "file", new ClrObjectValue(FileModule.Instance) },
+            { "network", new ClrObjectValue(NetworkModule.Instance) },
+            { "console", new ClrObjectValue(ConsoleModule.Instance) },
+            { "path", new ClrObjectValue(PathModule.Instance) },
+            { "json", new ClrObjectValue(JsonModule.Instance) },
+            { "timer", new ClrObjectValue(TimerModule.Instance) },
+            { "crypto", new ClrObjectValue(CryptoModule.Instance) },
+            { "process", new ClrObjectValue(ProcessModule.Instance) }
+        };
+
+        foreach(var item in module.Values)
+        {
+            if(item is ClrObjectValue clr && clr.Value is IPrototype prototype)
+            {
+                engine.PrototypeManager.Register(prototype);
+            }
+        }
+    }
 
     /// <summary>
     /// 解析并导入模块
@@ -23,6 +53,22 @@ public class ImportResolver(ScriptEngine engine)
     /// <param name="scope">外部作用域</param>
     public async Task<ObjectValue> ResolveAsync(string filePath, Scope? scope = null)
     {
+        if(filePath == System)
+        {
+            var module = new Dictionary<string, Value>
+            {
+                { "file", new ClrObjectValue(FileModule.Instance) },
+                { "network", new ClrObjectValue(NetworkModule.Instance) },
+                { "console", new ClrObjectValue(ConsoleModule.Instance) },
+                { "path", new ClrObjectValue(PathModule.Instance) },
+                { "json", new ClrObjectValue(JsonModule.Instance) },
+                { "timer", new ClrObjectValue(TimerModule.Instance) },
+                { "crypto", new ClrObjectValue(CryptoModule.Instance) },
+                { "process", new ClrObjectValue(ProcessModule.Instance) }
+            };
+            return new ObjectValue(module);
+        }
+
         var fullPath = ResolveImportPath(filePath);
 
         if (_moduleCache.TryGetValue(fullPath, out var cached))

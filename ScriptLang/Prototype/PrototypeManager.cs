@@ -21,6 +21,12 @@ namespace ScriptLang
             Prototypes.Add(prototype);
         }
 
+        public void Register<T>(T instance) where T : IPrototype 
+        {
+            instance.Init();
+            Prototypes.Add(instance);
+        }
+
         public bool TryGetValue(Value target, string menber, [NotNullWhen(true)]out Value? value)
         {
             foreach(IPrototype prototypes in Prototypes)

@@ -5,7 +5,7 @@ namespace ScriptLang.Prototype
     /// <summary>
     /// 对象原型拓展方法
     /// </summary>
-    [PrototypeExtension]
+    [PrototypeExtension(PushThis = true, NamingFormat = NamingFormat.Js)]
     public partial class ObjectPrototype
     {
         public partial bool IsTarget(Value value)
@@ -13,13 +13,13 @@ namespace ScriptLang.Prototype
             return value.IsObject;
         }
 
-        [PrototypeProperty(Name = "count")]
+        [PrototypeProperty]
         private static NumberValue<int> Count(ObjectValue obj)
         {
             return NumberValueFactory.Create(obj.Properties.Count);
         }
 
-        [PrototypeFunction(Name = "keys")]
+        [PrototypeFunction]
         private static ArrayValue Keys(ObjectValue obj)
         {
             return new ArrayValue(
@@ -27,19 +27,19 @@ namespace ScriptLang.Prototype
             );
         }
 
-        [PrototypeFunction(Name = "values")]
+        [PrototypeFunction]
         private static ArrayValue Values(ObjectValue obj)
         {
             return new ArrayValue([.. obj.Properties.Values]);
         }
 
-        [PrototypeFunction(Name = "has")]
+        [PrototypeFunction]
         private static BoolValue Has(ObjectValue obj, StringValue key)
         {
             return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
         }
 
-        [PrototypeFunction(Name = "get")]
+        [PrototypeFunction]
         private static Value Get(ObjectValue obj, StringValue key)
         {
             return obj.Properties.TryGetValue(key.Value, out var value)
@@ -47,25 +47,25 @@ namespace ScriptLang.Prototype
                 : Value.Null;
         }
 
-        [PrototypeFunction(Name = "set")]
+        [PrototypeFunction]
         private static void Set(ObjectValue obj, StringValue key, Value value)
         {
             obj.Set(key.Value, value);
         }
 
-        [PrototypeFunction(Name = "containsKey")]
+        [PrototypeFunction]
         private static BoolValue ContainsKey(ObjectValue obj, StringValue key)
         {
             return BoolValue.Create(obj.Properties.ContainsKey(key.Value));
         }
 
-        [PrototypeFunction(Name = "remove")]
+        [PrototypeFunction]
         private static BoolValue Remove(ObjectValue obj, StringValue key)
         {
             return BoolValue.Create(obj.Properties.Remove(key.Value));
         }
 
-        [PrototypeFunction(Name = "clear")]
+        [PrototypeFunction]
         private static void Clear(ObjectValue obj)
         {
             obj.Properties.Clear();

@@ -7,7 +7,7 @@ namespace ScriptLang.Prototype
     /// 数组原型拓展方法
     /// </summary>
 
-    [PrototypeExtension]
+    [PrototypeExtension(PushThis = true, NamingFormat = NamingFormat.Js)]
     public partial class ArrayPrototype
     {
         public partial bool IsTarget(Value value)
@@ -15,39 +15,39 @@ namespace ScriptLang.Prototype
             return value is ArrayValue;
         }
 
-        [PrototypeProperty(Name = "count")]
+        [PrototypeProperty]
         private static NumberValue<int> Count(ArrayValue array)
         {
             return NumberValueFactory.Create(array.Elements.Count);
         }
 
-        [PrototypeProperty(Name = "length")]
+        [PrototypeProperty]
         private static NumberValue<int> Length(ArrayValue array)
         {
             return NumberValueFactory.Create(array.Elements.Count);
         }
 
-        [PrototypeFunction(Name = "add")]
+        [PrototypeFunction]
         private static void Add(ArrayValue array, Value item)
         {
             array.Add(item);
         }
 
 
-        [PrototypeFunction(Name = "first")]
+        [PrototypeFunction]
         private static Value First(ArrayValue array)
         {
             return array.Elements.Count > 0 ? array.Elements[0] : Value.Null;
         }
 
-        [PrototypeFunction(Name = "last")]
+        [PrototypeFunction]
         private static Value Last(ArrayValue array)
         {
             return array.Elements.Count > 0 ? array.Elements[^1] : Value.Null;
         }
 
 
-        [PrototypeFunction(Name = "select")]
+        [PrototypeFunction]
         private static async ValueTask<ArrayValue> Select(ArrayValue array, ICallable func, ScriptEngine engine)
         {
             if (func == null)
@@ -59,7 +59,7 @@ namespace ScriptLang.Prototype
             return new ArrayValue(result);
         }
 
-        [PrototypeFunction(Name = "where")]
+        [PrototypeFunction]
         private static async ValueTask<ArrayValue> Where(ArrayValue array, ICallable func, ScriptEngine engine)
         {
             if (func == null)
@@ -77,19 +77,19 @@ namespace ScriptLang.Prototype
             return new ArrayValue(result);
         }
 
-        [PrototypeFunction(Name = "orderBy")]
+        [PrototypeFunction]
         private static ArrayValue OrderBy(ArrayValue array)
         {
             return OrderByImpl(array, true);
         }
 
-        [PrototypeFunction(Name = "orderByDesc")]
-        private static ArrayValue OrderByDescending(ArrayValue array)
+        [PrototypeFunction]
+        private static ArrayValue OrderByDesc(ArrayValue array)
         {
             return OrderByImpl(array, false);
         }
 
-        [PrototypeFunction(Name = "toList")]
+        [PrototypeFunction]
         private static ArrayValue ToList(ArrayValue array)
         {
             return new ArrayValue(array.Elements);

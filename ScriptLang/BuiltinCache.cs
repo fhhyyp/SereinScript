@@ -4,29 +4,12 @@ using ScriptLang.Runtime;
 
 namespace ScriptLang
 {
-    internal static class TryCall
-    {
-        private static ObjectValue Result(bool ok, Value? result = null, string? message = null, string? stack = null)
-        {
-            var propertys = new Dictionary<string, Value>(4)
-            {
-                {nameof(ok), BoolValue.Create(ok)},
-                {nameof(result), result ?? Value.Null},
-                {nameof(message), StringValue.Create(message)},
-                {nameof(stack), StringValue.Create(stack)},
-            };
-            return new ObjectValue(propertys);
-        }
 
-        internal static ObjectValue Succeed(Value value) => Result(false, value);
-        internal static ObjectValue Error(Exception ex) => Result(false, message: ex.Message, stack: ex.StackTrace);
-    }
 
-    public static class BuiltinFunctions
+    public static class BuiltinCache
     {
         private static readonly FunctionValue debug = new(nameof(debug), static async (args) =>
         {
-            throw new Exception("测试抛出异常");
             Console.WriteLine($"debug:: {string.Join(", ", args)}");
             return Value.Null;
         });
@@ -36,6 +19,7 @@ namespace ScriptLang
             return NumberValueFactory.Create(DateTime.Now.Ticks);
         });
 
+        #region 异常处理函数
         private static readonly FunctionValue tryCall = new(nameof(tryCall), static async (env, args) =>
         {
             if (args.Count is < 1 or > 3)
@@ -104,6 +88,24 @@ namespace ScriptLang
                 }
             }
         });
+        private static class TryCall
+        {
+            private static ObjectValue Result(bool ok, Value? result = null, string? message = null, string? stack = null)
+            {
+                var propertys = new Dictionary<string, Value>(4)
+            {
+                {nameof(ok), BoolValue.Create(ok)},
+                {nameof(result), result ?? Value.Null},
+                {nameof(message), StringValue.Create(message)},
+                {nameof(stack), StringValue.Create(stack)},
+            };
+                return new ObjectValue(propertys);
+            }
+
+            internal static ObjectValue Succeed(Value value) => Result(false, value);
+            internal static ObjectValue Error(Exception ex) => Result(false, message: ex.Message, stack: ex.StackTrace);
+        } 
+        #endregion
 
         /*private static readonly FunctionValue nowtime = new(nameof(nowtime), static (args) =>
         {
@@ -266,27 +268,37 @@ namespace ScriptLang
             };
         });
 
-        public static List<FunctionValue> FunctionCaches { get; private set; } = [
-                debug,
-                now,
-                tryCall,
-                sleep,
-                @typeof,
-                print,
-                range,
-                len,
-                keys,
-                @bool,
-                @int,
-                @double,
-                str,
-            ];
+        public static Dictionary<string, Value> SystemValues { get; private set; } 
+
+        static BuiltinCache()
+        {
+            var values = new Dictionary<string, Value>() 
+            {
+                { nameof(debug)   ,  debug     },
+                { nameof(now)     ,  now       },
+                { nameof(tryCall) ,  tryCall   },
+                { nameof(sleep)   ,  sleep     },
+                { nameof(@typeof) ,  @typeof   },
+                { nameof(print)   ,  print     },
+                { nameof(range)   ,  range     },
+                { nameof(len)     ,  len       },
+                { nameof(keys)    ,  keys      },
+                { nameof(@bool)   ,  @bool     },
+                { nameof(@int)    ,  @int      },
+                { nameof(@double) ,  @double   },
+                { nameof(str)     ,  str       },
+            };
+            //values = values.OrderBy(x => x.Key, StringComparer.CurrentCulture).ToDictionary(x => x.Key, x => x.Value); // 进行排序
+            SystemValues = values;
+        }
 
         public static void RegisterAll(Scope scope)
         {
-            foreach (var item in FunctionCaches)
+            foreach (var item in SystemValues)
             {
-                scope.DefineFunction(item);
+                var name = item.Key;
+                var value = item.Value;
+                scope.Define(name, value, isMutable: false);
             }
 
         }
