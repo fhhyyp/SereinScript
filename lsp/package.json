@@ -1,0 +1,65 @@
+{
+  "name": "sereinscript-lsp",
+  "displayName": "SereinScript LSP",
+  "description": "Language support for SereinScript",
+  "version": "0.0.3",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/sereinscript-lsp.git"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "activationEvents": [
+    "onLanguage:sereinscript"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "sereinscript",
+        "extensions": [
+          ".script"
+        ],
+        "aliases": [
+          "SereinScript",
+          "sereinscript"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sereinscript",
+        "scopeName": "source.sereinscript",
+        "path": "./syntaxes/sereinscript.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "SereinScript",
+      "properties": {
+        "sereinscript.server.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the SereinScript LSP server DLL"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yourusername/sereinscript-lsp/issues"
+  },
+  "homepage": "https://github.com/yourusername/sereinscript-lsp#readme"
+}

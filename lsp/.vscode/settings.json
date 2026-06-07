@@ -1,0 +1,4 @@
+{
+  "sereinscript.server.path": "path/to/ScriptLang.Lsp.dll",
+  "sereinscript.trace.server": "verbose"  // 或 "verbose"
+}
