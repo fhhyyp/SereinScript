@@ -1,393 +1,275 @@
-# SereinDSL 项目文档
+<p align="center">
+  <h1 align="center">🌤️ SereinScript</h1>
+  <p align="center">
+    <strong>表达式驱动的 .NET 动态脚本语言</strong>
+    <br/>
+    轻量 · 可嵌入 · 全异步 · IDE 原生支持
+  </p>
+</p>
 
-## 项目简介
+<p align="center">
+  <img src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet" alt=".NET 10.0" />
+  <img src="https://img.shields.io/badge/Language-C%23%20Latest-239120?logo=csharp" alt="C#" />
+  <img src="https://img.shields.io/badge/LSP-3.17-blue?logo=visualstudio" alt="LSP" />
+  <img src="https://img.shields.io/badge/VS%20Code-Extension-blue?logo=visualstudiocode" alt="VS Code" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+</p>
 
-SereinDSL 是一套基于 CLR 运行的自定义领域特定语言（DSL），旨在提供一种简洁、灵活的脚本语言，用于快速开发和执行各种任务。该 DSL 支持变量声明、表达式计算、控制流、函数、数组、对象等特性，并提供与 CLR 的无缝集成能力。
+---
 
+## 📖 项目介绍
+
+**SereinScript**（前身为 SereinDSL）是一门基于 .NET CLR 平台的**表达式驱动**动态脚本语言。JavaScript 风格语法，原生支持闭包、模式匹配、异步调用与 CLR 互操作，旨在为 .NET 应用提供零摩擦的脚本扩展能力。
+
+### 核心理念
+
+> **一切皆为表达式** — `if`、`for`、`when` 不是语句，而是会求值的表达式。这意味着你可以写：
+> ```javascript
+> let grade = if score >= 90 then "A" else "B"
+> ```
+
+### 为什么选择 SereinScript？
+
+| 特性 | 说明 |
+|------|------|
+| 🚀 **轻量嵌入** | 纯 .NET 实现，无原生依赖，直接引用 DLL 即可 |
+| 🔄 **全异步** | 原生 `async/await`，CLR 的 `Task<T>` 调用无缝转为脚本异步 |
+| 🧩 **CLR 互操作** | 零配置访问 .NET 对象属性与方法，脚本与宿主双向通行 |
+| ⚡ **字节码编译** | AST → 字节码 → 持久化（`.ssc`），预编译方案适合生产环境 |
+| 🔧 **编译期扩展** | Roslyn 源码生成器自动生成原型绑定，零反射开销 |
+| 🛠️ **IDE 原生支持** | 内置 LSP 服务器 + VS Code 扩展，智能补全、悬停、跳转定义 |
+
+### 适用场景
+
+- 🎮 **游戏脚本系统** — 轻量高性能，适合嵌入游戏引擎驱动逻辑
+- 🔌 **插件与扩展平台** — 允许用户通过脚本自定义应用行为
+- ⚙️ **自动化运维** — 脚本化编排流程，结合 CLR 能力调用系统 API
+- 📚 **教学与学习** — 编译器前端 + 字节码 VM 的完整 C# 参考实现
+
+### 代码速览
+
+```javascript
+// Lambda 函数
+let factorial = (n) => {
+    if n <= 1 then 1
+    else n * factorial(n - 1)
+}
+print("5! = " + factorial(5))
+
+// 对象与数组
+let user = {
+    name = "Alice",
+    skills = ["C#", "JavaScript", "Python"]
+}
+for skill in user.skills {
+    print(skill)
+}
+
+// 模式匹配
+let score = 85
+when score {
+    90 => print("A"),
+    80 => print("B"),
+    _  => print("其他")
+}
+
+// 模块导入
+import { add, mul } from "math.script"
+```
+
+---
+
+## 🏗️ 项目架构
+
+SereinScript 采用经典的编译前端 + 字节码虚拟机 + 编辑器支持分层架构：
+
+```mermaid
+graph LR
+    subgraph "编译前端"
+        LEXER["Lexer<br/>词法分析"] --> PARSER["Pratt Parser<br/>语法分析"]
+    end
+
+    subgraph "运行时"
+        PARSER --> COMPILER["Compiler<br/>字节码编译"]
+        COMPILER --> BC["ByteCodeChunk<br/>字节码"]
+        BC --> VM["VM<br/>虚拟机执行"]
+        BC --> DISK[("💾 .ssc<br/>持久化")]
+        DISK --> VM
+    end
+
+    subgraph "编辑器"
+        PARSER -.-> LSP["LSP Server<br/>语言服务器"]
+        LSP --> CODE["VS Code<br/>智能补全/悬停/跳转"]
+    end
+
+    subgraph "扩展"
+        GEN["Roslyn Generator<br/>编译期代码生成"] --> PROTO["Prototype<br/>原型系统"]
+        PROTO --> VM
+    end
+
+    style DISK fill:#fff3e0
+    style CODE fill:#e8f5e9
+```
+
+### 项目组成
+
+| 项目 | 层级 | 说明 |
+|------|------|------|
+| **ScriptLang** | 核心库 | Lexer（词法）→ Parser（Pratt 语法）→ Compiler（字节码编译）→ VM（虚拟机执行）→ Prototype（原型系统） |
+| **ScriptLang.Generator** | 编译器插件 | Roslyn Incremental Source Generator，编译期生成原型绑定代码，避免反射 |
+| **ScriptLang.Lsp** | 编辑器支持 | LSP 语言服务器，提供补全、悬停、跳转定义、查找引用、文档符号等智能功能 |
+| **ScriptLang.Demo** | CLI 工具 | 脚本执行、编译对比、字节码保存/加载、批量编译 |
+
+> 详细的架构分析与模块设计请参见 [项目架构文档](docs/project/architecture.md)
+
+---
+
+## 🚀 如何使用
+
+### 环境要求
+
+- .NET SDK **10.0+**
+- Windows / Linux / macOS
+
+### 快速上手
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/yourusername/SereinScript.git
+cd SereinScript/SereinScript
+
+# 2. 构建
+dotnet build
+
+# 3. 运行第一个脚本
+cd ScriptLang.Demo/bin/Debug/net10.0/
+./ScriptLang.Demo ./Samples/1/1.1-基础运算.script
+```
+
+### 在 .NET 项目中嵌入
+
+```csharp
+using ScriptLang;
+
+var engine = new ScriptEngine();
+
+// 执行脚本文件
+var task = engine.CreateTask("./script.script");
+var result = await task.RunAsync();
+
+// 执行代码字符串
+var task2 = engine.CreateTask("let a = 10; let b = 20; a + b", "<memory>");
+var result2 = await task2.RunAsync();
+```
+
+### 命令行工具
+
+```bash
+ScriptLang.Demo <script>                    # 直接执行
+ScriptLang.Demo --save <script>             # 编译为 .ssc 字节码
+ScriptLang.Demo --load <file.ssc>           # 加载字节码执行
+ScriptLang.Demo --build <script>            # 递归编译（含 import）
+ScriptLang.Demo --compare <script>          # 验证编译正确性
+```
+
+### VS Code 扩展
+
+1. 进入 `ScriptLang.Lsp/lsp/`，运行 `npm install && npx vsce package`
+2. 安装生成的 `.vsix` 文件
+3. 在设置中配置 LSP 服务器路径
+
+支持功能：
+- ✅ 代码补全（变量、关键字、代码片段、成员访问 `.`）
+- ✅ 悬停提示（显示符号类型与定义信息）
+- ✅ 跳转定义（F12）
+- ✅ 查找引用（Shift+F12）
+- ✅ 文档大纲（Ctrl+Shift+O）
+
+> 完整使用指南请参见 [如何使用](docs/guide/getting-started.md) | 完整语法参考请参见 [语言参考手册](docs/SereinScript-Language-Reference.md)
+
+---
+
+## 🔧 如何二次开发
+
+SereinScript 采用模块化分层设计，各层独立、接口清晰，便于扩展。
+
+### 开发环境
+
+```bash
+dotnet build        # 构建全部项目
+dotnet test         # 运行测试（如有）
+```
+
+推荐使用 Visual Studio 2022 / JetBrains Rider / VS Code 打开 `SereinScript.sln`。
+
+### 常见扩展场景
+
+| 你想做什么 | 入口 |
+|-----------|------|
+| 添加新的语法结构（如 `++` 运算符） | Lexer → Parser → AST → Compiler → VM |
+| 添加新的内置函数（如 `random()`） | `BuiltinCache.cs` + LSP `SymbolTable` |
+| 添加新的系统模块（如 `math`） | `ScriptLang/System/` + 全局作用域注册 |
+| 为值类型扩展原型方法 | 使用 `[PrototypeExtension]` / `[PrototypeFunction]` 属性 |
+| 扩展 LSP 功能（如 Rename） | 新建 Handler + 注册到 `Program.cs` |
+| 添加新的 AST 节点类型 | `Ast.cs` + 编译器/VM 对应处理 |
+
+### 开发文档索引
+
+| 文档 | 内容 |
+|------|------|
+| [如何二次开发](docs/guide/development.md) | 完整开发指南：环境、5 大扩展场景、调试、最佳实践 |
+| [项目架构](docs/project/architecture.md) | 架构图、模块详解、数据流 |
+| [词法分析器](docs/dev-lexer.md) | Lexer 实现与扩展 |
+| [语法分析器](docs/dev-parser.md) | Pratt Parser 架构 |
+| [字节码编译器](docs/dev-compiler.md) | AST → ByteCode 编译流程 |
+| [虚拟机](docs/dev-vm.md) | 字节码 VM 执行引擎 |
+| [运行时环境](docs/dev-runtime-environment.md) | Value 系统、作用域、原型 |
+| [系统模块](docs/system-modules.md) | 内置模块接口规格 |
+| [LSP 设计](docs/lsp/DESIGN_lsp.md) | 语言服务器设计 |
+| [字节码持久化](docs/bytecode-persistence/) | `.ssc` 格式设计文档集 |
+
+> 开发指南入口：[docs/guide/development.md](docs/guide/development.md) | 完整文档导航：[docs/index.md](docs/index.md)
+
+---
+
+## 📚 文档目录
+
+```
+docs/
+├── index.md                           # 文档导航首页
+├── SereinScript-Language-Reference.md # 完整语言参考手册
+├── project/
+│   ├── overview.md                    # 项目介绍
+│   └── architecture.md                # 项目架构（含 Mermaid 图）
+├── guide/
+│   ├── getting-started.md             # 如何使用
+│   └── development.md                 # 如何二次开发
+├── dev-lexer.md                       # 词法分析器设计
+├── dev-parser.md                      # 语法分析器设计
+├── dev-compiler.md                    # 字节码编译器设计
+├── dev-vm.md                          # 虚拟机设计
+├── dev-runtime-environment.md         # 运行时环境设计
+├── system-modules.md                  # 系统模块说明
+├── lsp/
+│   └── DESIGN_lsp.md                  # LSP 设计文档
+└── bytecode-persistence/              # 字节码持久化设计
+```
+
+---
 
 ## 社群
 QQ群 955830545
 提供技术交流与支持，欢迎加入。
 因为个人是社畜，所以可能不会及时回复，请谅解。
 
-## 快速开始
+---
 
-1. **克隆仓库**：`git clone https://github.com/yourusername/SereinDSL.git`
-2. **构建项目**：使用 Visual Studio 或 `dotnet build` 命令构建项目
-3. **运行示例**：执行 `ScriptLang.exe` 命令运行默认示例，或指定示例脚本路径
-4. **编写自定义脚本**：创建 `.script` 文件，编写自定义脚本代码
-5. **执行自定义脚本**：使用 `ScriptLang.exe your-script.script` 命令执行自定义脚本
+## 📄 许可证
+
+本项目基于 MIT 许可证开源。
 
 ---
 
-希望本文档能够帮助您了解和使用 SereinDSL。如果您有任何问题或建议，欢迎在 GitHub 仓库中提出 Issue 或 Pull Request。
-
-## 项目架构
-
-SereinDSL 项目采用经典的编译器前端架构，主要由以下核心模块组成：
-
-### 1. 词法分析器（Lexer）
-
-- 负责将源代码转换为 token 序列
-- 支持基本语法元素的识别，如标识符、关键字、运算符、字面量等
-
-### 2. 语法分析器（Parser）
-
-- 基于 Pratt Parser 实现，负责将 token 序列转换为抽象语法树（AST）
-- 支持各种表达式和语句的解析，如变量声明、赋值、函数定义、条件表达式、循环等
-
-### 3. 运行时（Runtime）
-
-- 解释执行抽象语法树
-- 提供变量作用域管理、函数执行、类型转换等功能
-- 支持与 CLR 对象的交互
-
-### 4. 脚本引擎（ScriptEngine）
-
-- 提供脚本加载和执行的入口点
-- 管理模块导入和全局作用域
-
-## DSL 核心概念
-
-### 1. 值类型
-
-- **基本类型**：数字（Number）、字符串（String）、布尔值（Bool）、空值（Null）
-- **复合类型**：数组（Array）、对象（Object）、函数（Function）
-- **CLR 类型**：通过 CLR 互操作支持的 .NET 类型
-
-### 2. 作用域
-
-- 全局作用域：所有脚本共享的顶级作用域
-- 局部作用域：函数和代码块内的作用域
-- 支持变量的定义、读取和修改
-
-### 3. 模块系统
-
-- 支持通过 `import` 语句导入其他脚本模块
-- 支持选择性导入模块成员
-
-### 4. CLR 互操作
-
-- 支持访问 CLR 对象的属性和方法
-- 支持将 CLR 对象作为变量注入到脚本中
-- 支持基本类型和复合类型的双向转换
-
-## DSL 语法介绍
-
-### 1. 变量声明
-
-SereinDSL 支持两种变量声明方式：
-
-- **let**：声明不可变变量
-- **var**：声明可变变量
-
-```javascript
-let a = 10           // 不可变变量
-var b = 20           // 可变变量
-b = b + 50           // 修改变量值
-```
-
-### 2. 表达式
-
-#### 算术表达式
-
-```javascript
-let sum = a + b      // 加法
-let difference = a - b  // 减法
-let product = a * b    // 乘法
-let quotient = a / b    // 除法
-let remainder = a % b   // 取余
-```
-
-#### 字符串操作
-
-```javascript
-let name = "Hello"
-let greeting = name + " World"  // 字符串拼接
-let repeated = "abc" * 3        // 字符串重复
-```
-
-#### 逻辑表达式
-
-```javascript
-let flag = true
-let flag2 = false
-let result1 = flag && flag2  // 逻辑与
-let result2 = flag || flag2  // 逻辑或
-let result3 = !flag          // 逻辑非
-```
-
-### 3. 函数
-
-SereinDSL 支持 Lambda 函数定义：
-
-```javascript
-let add = (a, b) => a + b
-let result = add(5, 3)
-
-let multiply = (x, y) => x * y
-```
-
-### 4. 数据结构
-
-#### 数组
-
-```javascript
-let arr = [1, 2, 3, 4, 5]
-let firstElement = arr[0]
-let length = arr.length
-
-// 数组拼接
-let arr2 = arr + [6, 7, 8]
-```
-
-#### 对象
-
-```javascript
-let person = {
-    name = "Alice",
-    age = 30,
-    active = true,
-    emails = [
-        "alice@google.com",
-        "123456@qq.com"
-    ]
-}
-
-let name = person.name
-let firstEmail = person.emails[0]
-```
-
-### 5. 控制流
-
-#### 条件表达式
-
-```javascript
-let num = 25
-if num > 20 then {
-    print("big")
-} else {
-    print("small")
-}
-
-// 三元表达式
-let status = if num > 30 then "high" else "low"
-```
-
-#### 循环
-
-```javascript
-// 遍历数组
-for i in [10, 20, 30] {
-    print("item:", i)
-}
-
-// 遍历 CLR 集合
-for hobby in person.Hobbies {
-    print(hobby)
-}
-```
-
-#### 模式匹配
-
-```javascript
-let value = 2
-when value {
-    1 => print("one"),
-    2 => print("two"),
-    3 => print("three"),
-    _ => print("other")
-}
-```
-
-### 6. 模块系统
-
-```javascript
-import { store } from "test-import.script"
-import { add, mul } from "math.script"
-```
-
-## 使用方式
-
-### 1. 命令行执行
-
-```bash
-# 编译后执行指定脚本
-ScriptLang.exe ./Samples/1.1-基础运算.script
-```
-
-### 2. 编程方式执行
-
-```csharp
-using ScriptLang;
-
-// 创建脚本引擎
-var engine = new ScriptEngine();
-
-// 执行脚本文件
-var result = await engine.LoadAndRunAsync("./Samples/1.1-基础运算.script");
-
-// 执行脚本代码
-var code = "let a = 10; let b = 20; a + b";
-var result2 = await engine.RunAsync(code, "<memory>");
-
-// 注入 CLR 对象
-var result3 = await engine.RunAsync(code, "<memory>", scope => {
-    scope.Define("person", new ClrObjectValue(new TestPerson()));
-});
-```
-
-## 示例说明
-
-SereinDSL 项目提供了丰富的示例脚本，位于 `Samples` 目录下：
-
-### 基础语法示例
-
-- **1.1-基础运算.script**：演示基本算术运算
-- **1.2-变量声明.script**：演示变量声明和修改
-- **1.3-字符串操作.script**：演示字符串拼接和重复
-- **1.4-函数.script**：演示 Lambda 函数定义和调用
-- **1.5-对象.script**：演示对象创建和属性访问
-- **1.6-数组.script**：演示数组创建和操作
-
-### 高级语法示例
-
-- **2.1-逻辑运算.script**：演示逻辑运算符的使用
-- **2.2-条件表达式.script**：演示条件表达式和三元表达式
-- **2.3-循环.script**：演示 for 循环的使用
-- **2.4-模式匹配.script**：演示 when 模式匹配的使用
-
-### CLR 交互示例
-
-- **4.1-CLR对象.script**：演示与 CLR 对象的交互
-- **4.2-异步调用.script**：演示异步方法调用
-- **4.3-CLR回调.script**：演示 CLR 回调的使用
-
-### LINQ 和高级功能示例
-
-- **LINQ/**：演示类似 LINQ 的链式操作
-- **高级-实现pinia/**：演示模块导入和复杂对象创建
-
-## 运行时内置函数
-
-### 1. 数组方法
-
-SereinDSL 为数组提供了丰富的内置方法：
-
-- **map**：映射数组元素
-- **filter**：过滤数组元素
-- **forEach**：遍历数组元素
-- **slice**：截取数组
-- **push**：添加元素到数组末尾
-- **pop**：移除并返回数组末尾元素
-- **reverse**：反转数组
-- **find**：查找符合条件的元素
-- **findIndex**：查找符合条件的元素索引
-
-### 2. 字符串方法
-
-- **length**：获取字符串长度
-- **split**：分割字符串
-- **substring**：截取字符串
-- **toUpperCase**：转换为大写
-- **toLowerCase**：转换为小写
-- **trim**：去除首尾空白
-- **contains**：检查字符串是否包含指定子串
-- **startsWith**：检查字符串是否以指定子串开头
-- **endsWith**：检查字符串是否以指定子串结尾
-
-### 3. 对象方法
-
-- **keys**：获取对象的所有键
-- **values**：获取对象的所有值
-- **has**：检查对象是否包含指定键
-
-### 4. 类似 LINQ 的操作
-
-通过自定义对象，可以实现类似 LINQ 的链式操作：
-
-```javascript
-let array = (arr) => {
-    let value = arr
-    var arrayObject = {
-        value = value,
-        select = (fn) => {
-            var result = []
-            for item in value {
-                result = result + fn(item)
-            }
-            array(result)
-        },
-        where = (fn) => {
-            var result = []
-            for item in value {
-                when fn(item) {
-                    true => { result = result + item },
-                    false => {}
-                }
-            }
-            array(result)
-        }
-    }
-}
-```
-
-## CLR 互操作
-
-SereinDSL 提供了操作 CLR 对象的能力：
-
-### 1. 属性访问
-
-```javascript
-print(person.Name)      // 访问 CLR 对象的属性
-print(person.Age)
-```
-
-### 2. 方法调用
-
-```javascript
-print(person.Greet())    // 调用 CLR 对象的方法
-print(person.AddYears(5))
-```
-
-### 3. 集合操作
-
-```javascript
-print(person.Hobbies)    // 访问 CLR 集合
-print(person.Hobbies[0])  // 访问集合元素
-
-// 遍历 CLR 集合
-for hobby in person.Hobbies {
-    print(hobby)
-}
-```
-
-### 4. 类型转换
-
-SereinDSL 自动处理脚本类型和 CLR 类型之间的转换：
-
-```javascript
-print(person.AddYears(10.5))  // 脚本传 double，CLR 方法接收 int
-```
-
-## 模块系统
-
-SereinDSL 支持通过 `import` 语句导入其他脚本模块：
-
-### 1. 导入模块成员
-
-```javascript
-import { store } from "test-import.script"
-import { add, mul } from "math.script"
-```
-
-### 2. 模块导出
-
-通过返回包含导出成员的对象来实现模块导出：
-
-```javascript
-// math.script
-let add = (a, b) => a + b
-let mul = (a, b) => a * b
-{ add, mul }  // 导出 add 和 mul 函数
-```
+<p align="center">
+  <sub>Made with ❤️ by developers who believe scripting should be simple and powerful.</sub>
+</p>
