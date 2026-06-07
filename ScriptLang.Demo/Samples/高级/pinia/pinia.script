@@ -1,5 +1,7 @@
 // pinia.script
-// createStore 简易实现
+
+
+
 let createStore = (options) => {
     let state = options.state()
     let getters = {}

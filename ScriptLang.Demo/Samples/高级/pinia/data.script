@@ -1,5 +1,11 @@
 // data.script
 import { createStore } from "pinia.script"
+
+// @returns {{
+//   state:    响应式状态对象
+//   getters:  计算属性集合
+//   actions:  可调用的方法集合
+// }}
 let store = createStore({
     state = () => {
         let obj = { x = 0, y = 0 }
@@ -22,6 +28,6 @@ let store = createStore({
             state.y = state.y - n
         }
     },
-    temp = ""
 })
+
 return { store  }

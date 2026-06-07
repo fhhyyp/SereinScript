@@ -24,6 +24,7 @@ public sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)
     {
         Console.Error.WriteLine($"[LSP.Sync] didOpen: {request.TextDocument.Uri}");
+        ModuleMemberProvider.ClearCache();
         _workspace.OpenOrUpdate(request.TextDocument.Uri, request.TextDocument.Text, request.TextDocument.Version ?? 1);
         return Unit.Task;
     }
@@ -32,8 +33,8 @@ public sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         var text = request.ContentChanges.FirstOrDefault()?.Text ?? "";
         Console.Error.WriteLine($"[LSP.Sync] didChange: {request.TextDocument.Uri}");
-        // 清除该文件的脚本导出缓存（其他文件 import 它时需要反映最新成员）
-        ModuleMemberProvider.ClearCacheForFile(request.TextDocument.Uri.GetFileSystemPath());
+        // 清除全部脚本导出缓存（跨 import 依赖链，任何变更都可能影响其他文件的成员推断）
+        ModuleMemberProvider.ClearCache();
         _workspace.OpenOrUpdate(request.TextDocument.Uri, text, request.TextDocument.Version ?? 1);
         return Unit.Task;
     }

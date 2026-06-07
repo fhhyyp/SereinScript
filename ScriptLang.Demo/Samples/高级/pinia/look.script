@@ -1,5 +1,5 @@
 // look.script
-import { store } from "test-import.script"
+import { store } from "data.script"
 
 let look = () => { 
 	print("current state :")       
@@ -12,3 +12,4 @@ let look = () => {
 return { 
 	look = look
 }
+

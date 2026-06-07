@@ -83,6 +83,9 @@ public static class ModuleMemberProvider
 
             if (ast is not ProgramExpr program) return [];
 
+            // 构建此脚本的 import 映射表（变量名 → 文件路径）
+            var importMap = BuildImportMap(program);
+
             // 1. 找到 return { ... } 中的导出键
             ObjectLiteralExpr? returnObj = null;
             foreach (var stmt in program.Statements)
@@ -105,21 +108,121 @@ public static class ModuleMemberProvider
                     break;
                 }
             }
-            if (targetValue == null) return []; // 成员名不存在
+            if (targetValue == null) return [];
 
             // 3. 如果值是 IdentifierExpr（如 store），查找其 let/var 定义
+            string? targetVarName = null;
             if (targetValue is IdentifierExpr id)
             {
+                targetVarName = id.Name;
                 targetValue = FindDefinition(program, id.Name);
             }
 
-            // 4. 从值中推断成员
-            return InferMembers(targetValue);
+            // 4. 注解优先：检查定义变量上的 @type 注解
+            if (targetVarName != null)
+            {
+                var annotated = AnnotationParser.FindAnnotation(source, targetVarName);
+                if (annotated is { Count: > 0 }) return annotated;
+            }
+
+            // 5. CallExpr 跨文件追踪：如果值来自导入函数的调用，查 @returns 注解
+            if (targetValue is CallExpr call && call.Target is IdentifierExpr callId)
+            {
+                global::System.Console.Error.WriteLine($"[LSP.Annotation] Attempting cross-file trace: '{callId.Name}' via importMap (keys: {string.Join(",", importMap.Keys)})");
+                var crossFile = ResolveCrossFileCall(callId.Name, importMap, source, program);
+                if (crossFile is { Count: > 0 }) return crossFile;
+                global::System.Console.Error.WriteLine($"[LSP.Annotation] Cross-file trace returned empty for '{callId.Name}'");
+            }
+
+            // 6. 回退到 AST 结构推断
+            var inferred = InferMembers(targetValue);
+            global::System.Console.Error.WriteLine($"[LSP.Annotation] Fallback InferMembers returned {inferred.Count} items for '{memberName}'");
+            return inferred;
         }
         catch
         {
             return [];
         }
+    }
+
+    /// <summary>构建当前脚本的 import 映射表：导入变量名 → 绝对文件路径</summary>
+    private static Dictionary<string, string> BuildImportMap(ProgramExpr program)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var stmt in program.Statements)
+        {
+            if (stmt is ImportStmt import)
+            {
+                foreach (var (member, alias) in import.Members)
+                {
+                    var name = alias ?? member;
+                    map[name] = import.FilePath;
+                }
+            }
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// 跨文件追踪：当 CallExpr 调用的是一个导入函数时，
+    /// 逐层追踪到函数定义所在的源文件，查找 @returns 注解。
+    /// </summary>
+    private static List<ModuleMemberInfo>? ResolveCrossFileCall(
+        string funcName,
+        Dictionary<string, string> importMap,
+        string currentSource,
+        ProgramExpr currentProgram)
+    {
+        // 在当前文件的 importMap 中查找 funcName
+        if (!importMap.TryGetValue(funcName, out string? importPath))
+        {
+            global::System.Console.Error.WriteLine($"[LSP.Annotation] '{funcName}' not in importMap");
+            return null;
+        }
+        if (!importPath.EndsWith(".script", StringComparison.OrdinalIgnoreCase))
+        {
+            global::System.Console.Error.WriteLine($"[LSP.Annotation] '{funcName}' import path '{importPath}' not .script");
+            return null;
+        }
+
+        // 解析 import 路径为绝对路径
+        string resolvedPath;
+        if (Path.IsPathRooted(importPath))
+            resolvedPath = Path.GetFullPath(importPath);
+        else
+        {
+            string currentFilePath = currentProgram.SourceSpan.FilePath;
+            global::System.Console.Error.WriteLine($"[LSP.Annotation] Resolving relative import: base='{currentFilePath}' import='{importPath}'");
+            string? baseDir = Path.GetDirectoryName(Path.GetFullPath(currentFilePath));
+            if (baseDir == null) { global::System.Console.Error.WriteLine($"[LSP.Annotation] baseDir is null"); return null; }
+            resolvedPath = Path.GetFullPath(Path.Combine(baseDir, importPath));
+        }
+
+        global::System.Console.Error.WriteLine($"[LSP.Annotation] Resolved path: '{resolvedPath}', exists={File.Exists(resolvedPath)}");
+        if (!File.Exists(resolvedPath)) return null;
+
+        // 读取目标文件，查找函数定义和 @returns 注解
+        try
+        {
+            string targetSource = File.ReadAllText(resolvedPath);
+            var annotated = AnnotationParser.FindAnnotation(targetSource, funcName);
+            if (annotated is { Count: > 0 }) return annotated;
+
+            // 递归：目标文件的函数可能也是从更深层的 import 来的
+            var targetAst = ParseFile(targetSource, resolvedPath);
+            if (targetAst is ProgramExpr targetProgram)
+            {
+                var targetImportMap = BuildImportMap(targetProgram);
+                var targetDef = FindDefinition(targetProgram, funcName);
+                if (targetDef is CallExpr nestedCall && nestedCall.Target is IdentifierExpr nestedId)
+                {
+                    return ResolveCrossFileCall(nestedId.Name, targetImportMap, targetSource, targetProgram);
+                }
+            }
+        }
+        catch { }
+
+        return null;
     }
 
     /// <summary>在 AST 中查找 let/var 定义的值</summary>
@@ -142,7 +245,6 @@ public static class ModuleMemberProvider
 
         switch (expr)
         {
-            // 直接的对象字面量: { state = ..., getters = ..., actions = ... }
             case ObjectLiteralExpr obj:
                 var members = new List<ModuleMemberInfo>();
                 foreach (var prop in obj.Properties)
@@ -157,13 +259,24 @@ public static class ModuleMemberProvider
                 }
                 return members;
 
-            // CallExpr: 函数调用的返回值无法静态确定（图灵完备性限制），
-            // 不猜测参数形状作为返回值。回退到通用 ObjectValue 成员。
             case CallExpr:
                 return [];
         }
 
         return [];
+    }
+
+    /// <summary>解析文件为 AST</summary>
+    private static Expr? ParseFile(string source, string filePath)
+    {
+        try
+        {
+            var lexer = new ScriptLang.Lexer.Lexer(source, filePath);
+            var tokens = lexer.ScanTokens();
+            var parser = new ScriptLang.Parser.Parser(tokens, filePath);
+            return parser.Parse();
+        }
+        catch { return null; }
     }
 
     // ==================== 类型推断 + 原型成员 ====================
