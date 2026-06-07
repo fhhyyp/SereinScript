@@ -6,6 +6,7 @@
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 		<!--OutputItemType="Analyzer" ReferenceOutputAssembly="false"-->
+		<SatelliteResourceLanguages>false</SatelliteResourceLanguages>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -15,6 +15,7 @@ print("person.age:", person.age)  // 输出: person.age: 30
 print("person.emil_0:", person.emil[0])   // 输出:  "alice@google.com",
 print("person.emil_1:", person.emil[1])   // 输出:   "123456@qq.com"
 
+
 // 对象图 + 深层访问
 //let config = {
 //    prop = null, 

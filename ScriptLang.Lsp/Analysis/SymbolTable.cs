@@ -19,9 +19,9 @@ public sealed class SymbolTable
     /// <summary>
     /// 从 AST 构建文档的完整符号表
     /// </summary>
-    public Scope Build(ProgramExpr ast)
+    public Scope Build(ProgramExpr ast, string? basePath = null)
     {
-        return ScopeResolver.BuildScopes(ast, BuiltinNames);
+        return ScopeResolver.BuildScopes(ast, BuiltinNames, basePath);
     }
 
     /// <summary>

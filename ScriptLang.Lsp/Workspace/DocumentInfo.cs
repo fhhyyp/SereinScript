@@ -58,11 +58,12 @@ public sealed class DocumentInfo
         var parser = new Parser.Parser(Tokens, filePath);
         Ast = parser.Parse();
 
-        // Build Symbol Table
+        // Build Symbol Table (pass directory for resolving relative script imports)
         var symTable = new SymbolTable();
         if (Ast is ProgramExpr program)
         {
-            RootScope = symTable.Build(program);
+            string? baseDir = Path.GetDirectoryName(Path.GetFullPath(filePath));
+            RootScope = symTable.Build(program, baseDir);
         }
     }
 

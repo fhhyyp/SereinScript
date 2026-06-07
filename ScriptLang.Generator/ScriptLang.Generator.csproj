@@ -31,6 +31,7 @@
 
 	  <!--允许为null-->
 	  <Nullable>enable</Nullable>
+	  <SatelliteResourceLanguages>false</SatelliteResourceLanguages>
 
   </PropertyGroup>
 

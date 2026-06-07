@@ -3,6 +3,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using ScriptLang.Lsp.Analysis;
 using ScriptLang.Lsp.Workspace;
+using ScriptLang.Parser;
 
 namespace ScriptLang.Lsp.Handlers;
 
@@ -40,18 +41,19 @@ public sealed class CompletionHandler : ICompletionHandler
     {
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
+        {
+            Console.Error.WriteLine($"[LSP.Completion] SKIP: doc={doc != null}, ast={doc?.Ast != null}, scope={doc?.RootScope != null}");
             return Task.FromResult(new CompletionList());
+        }
 
-        // 1. 查当前作用域中的可见符号
         int offset = doc.GetOffset((int)request.Position.Line, (int)request.Position.Character);
         var visibleSymbols = _symbolTable.GetVisibleSymbols(doc.RootScope, offset);
+        var context = GetCompletionContext(doc.Text, offset, request.Context?.TriggerCharacter);
+
+        Console.Error.WriteLine($"[LSP.Completion] pos={request.Position.Line}:{request.Position.Character} trigger={request.Context?.TriggerCharacter ?? "null"} context={context} symbols={visibleSymbols.Count}");
 
         var items = new List<CompletionItem>();
 
-        // 2. 确定上下文
-        var context = GetCompletionContext(doc.Text, offset, request.Context?.TriggerCharacter);
-
-        // 3. 按上下文补全
         switch (context)
         {
             case CompletionContext.MemberAccess:
@@ -68,6 +70,7 @@ public sealed class CompletionHandler : ICompletionHandler
                 break;
         }
 
+        Console.Error.WriteLine($"[LSP.Completion] returning {items.Count} items");
         return Task.FromResult(new CompletionList(items));
     }
 
@@ -80,13 +83,41 @@ public sealed class CompletionHandler : ICompletionHandler
         if (triggerChar == ".")
             return CompletionContext.MemberAccess;
 
-        // 检查是否在 import { } 内部
-        int searchStart = Math.Max(0, offset - 100);
-        string prefix = text[searchStart..Math.Min(offset, text.Length)];
-        if (prefix.Contains("import") && prefix.Contains("{"))
+        // 兜底：检查光标前一个字符是否为 `.`（处理无 triggerChar 的补全请求）
+        if (offset > 0 && text[offset - 1] == '.')
+            return CompletionContext.MemberAccess;
+
+        // 检查是否在 import { } 内部：找光标前最近的未闭合 `{` 是否属于 import
+        if (IsInsideImportBraces(text, offset))
             return CompletionContext.ImportBlock;
 
         return CompletionContext.Identifier;
+    }
+
+    /// <summary>检查光标是否在 import { ... } 的未闭合大括号内</summary>
+    private static bool IsInsideImportBraces(string text, int offset)
+    {
+        int braceDepth = 0;
+
+        for (int i = Math.Min(offset, text.Length - 1); i >= 0; i--)
+        {
+            char c = text[i];
+            if (c == '}') braceDepth++;
+            else if (c == '{')
+            {
+                if (braceDepth > 0) { braceDepth--; continue; }
+                // 找到未闭合的 {，检查前面是否有 import 关键字
+                for (int j = i - 1; j >= Math.Max(0, i - 30); j--)
+                {
+                    if (char.IsLetter(text[j])) continue;
+                    string word = text[Math.Max(0, j - 5)..(j + 1)].Trim();
+                    if (word.EndsWith("import")) return true;
+                    break;
+                }
+                return false;
+            }
+        }
+        return false;
     }
 
     // ==================== 符号补全 ====================
@@ -195,7 +226,50 @@ public sealed class CompletionHandler : ICompletionHandler
 
     private static void AddMemberCompletions(List<CompletionItem> items, DocumentInfo doc, int offset)
     {
-        // 动态类型无法静态推导成员，返回系统内置成员的启发式补全
+        // 尝试从光标上下文推断访问目标（如 `file.` → 查找 `file` 符号的模块成员）
+        var targetSymbol = ResolveMemberTarget(doc, offset);
+        bool hasModuleMembers = false;
+
+        if (targetSymbol?.ModuleMembers is { Count: > 0 } members)
+        {
+            hasModuleMembers = true;
+            foreach (var m in members)
+            {
+                items.Add(new CompletionItem
+                {
+                    Label = m.Name,
+                    Kind = m.IsProperty ? CompletionItemKind.Property : CompletionItemKind.Method,
+                    Detail = m.Description,
+                    SortText = $"0_{m.Name}"
+                });
+            }
+        }
+
+        // 对于本地 let/var 变量，尝试从初始值推断类型并添加原型方法
+        if (targetSymbol != null && targetSymbol.Kind is ScriptSymbolKind.LetVariable or ScriptSymbolKind.VarVariable)
+        {
+            var initExpr = doc.Ast is ProgramExpr p ? ModuleMemberProvider.FindVariableInit(p, targetSymbol.Name) : null;
+            if (initExpr != null)
+            {
+                string typeName = ModuleMemberProvider.InferExprType(initExpr);
+                if (typeName != "unknown")
+                {
+                    var protoMembers = ModuleMemberProvider.GetPrototypeMembers(typeName);
+                    foreach (var m in protoMembers)
+                    {
+                        items.Add(new CompletionItem
+                        {
+                            Label = m.Name,
+                            Kind = m.IsProperty ? CompletionItemKind.Property : CompletionItemKind.Method,
+                            Detail = m.Description,
+                            SortText = $"0_{m.Name}"
+                        });
+                    }
+                }
+            }
+        }
+
+        // 通用 fallback 成员（始终添加，排在最后）
         var commonMembers = new (string name, string desc)[]
         {
             ("length", "字符串/数组长度"),
@@ -211,9 +285,43 @@ public sealed class CompletionHandler : ICompletionHandler
                 Label = name,
                 Kind = CompletionItemKind.Property,
                 Detail = desc,
-                SortText = $"0_{name}"
+                SortText = $"1_{name}"
             });
         }
+    }
+
+    /// <summary>
+    /// 从 `.` 之前的文本推断访问目标符号
+    /// 例如 `file.re|` → 找到 `file` 的 SymbolInfo
+    /// </summary>
+    private static SymbolInfo? ResolveMemberTarget(DocumentInfo doc, int offset)
+    {
+        // 向前查找最近的 `.` 位置（跳过当前字符和空白）
+        int dotPos = offset - 1;
+        while (dotPos >= 0 && doc.Text[dotPos] != '.')
+            dotPos--;
+
+        if (dotPos < 0) return null;
+
+        // 找到 `.` 前的标识符起始位置
+        int idStart = dotPos - 1;
+        // 跳过 `.` 前的空白
+        while (idStart >= 0 && char.IsWhiteSpace(doc.Text[idStart]))
+            idStart--;
+        // 扫描标识符（字母、数字、下划线）
+        int idEnd = idStart + 1;
+        while (idStart >= 0 && (char.IsLetterOrDigit(doc.Text[idStart]) || doc.Text[idStart] == '_'))
+            idStart--;
+
+        // idStart 现在指向标识符前一个字符，需要 +1
+        string targetName = doc.Text[(idStart + 1)..idEnd];
+
+        if (string.IsNullOrEmpty(targetName))
+            return null;
+
+        // 在当前作用域中查找该符号
+        var scope = ScopeResolver.FindScopeAt(doc.RootScope!, idStart + 1);
+        return scope?.Lookup(targetName);
     }
 
     // ==================== Import 补全 ====================

@@ -24,7 +24,15 @@
         "aliases": [
           "SereinScript",
           "sereinscript"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sereinscript",
+        "scopeName": "source.sereinscript",
+        "path": "./syntaxes/sereinscript.tmLanguage.json"
       }
     ],
     "configuration": {

@@ -33,6 +33,7 @@ public sealed class HoverHandler : IHoverHandler
 
     public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
     {
+        Console.Error.WriteLine($"[LSP.Hover] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
             return Task.FromResult<Hover?>(null);
@@ -53,6 +54,7 @@ public sealed class HoverHandler : IHoverHandler
             LetExpr let => BuildDeclarationHover(let.Name, "let", scope, let.SourceSpan),
             VarExpr var => BuildDeclarationHover(var.Name, "var", scope, var.SourceSpan),
             LiteralExpr lit => BuildLiteralHover(lit),
+            MemberAccessExpr member => BuildMemberAccessHover(member, scope, doc),
             LambdaExpr => new MarkedStringsOrMarkupContent(
                 new MarkupContent { Kind = MarkupKind.Markdown, Value = "```sereinscript\n(params) => body\n```\nLambda 表达式" }),
             BinaryExpr bin => new MarkedStringsOrMarkupContent(
@@ -136,6 +138,30 @@ public sealed class HoverHandler : IHoverHandler
                 Kind = MarkupKind.Markdown,
                 Value = $"```sereinscript\n{lit.Value}\n```\n类型: `{type}`"
             });
+    }
+
+    // ==================== 成员访问悬停 ====================
+
+    private static MarkedStringsOrMarkupContent? BuildMemberAccessHover(MemberAccessExpr member, Scope? scope, DocumentInfo doc)
+    {
+        // 查找成员访问的目标符号
+        if (member.Target is not IdentifierExpr id) return null;
+
+        var symbol = scope?.Lookup(id.Name);
+        if (symbol?.ModuleMembers == null) return null;
+
+        var memberInfo = symbol.ModuleMembers.Find(m => m.Name == member.Property);
+        if (memberInfo == null) return null;
+
+        var md = new global::System.Text.StringBuilder();
+        md.AppendLine($"```sereinscript");
+        md.AppendLine($"{id.Name}.{memberInfo.Name}");
+        md.AppendLine("```");
+        if (memberInfo.Description != null)
+            md.AppendLine(memberInfo.Description);
+
+        return new MarkedStringsOrMarkupContent(
+            new MarkupContent { Kind = MarkupKind.Markdown, Value = md.ToString() });
     }
 
     // ==================== 辅助 ====================

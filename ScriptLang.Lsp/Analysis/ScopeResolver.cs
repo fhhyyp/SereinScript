@@ -13,11 +13,10 @@ public static class ScopeResolver
     /// <param name="ast">程序 AST 根节点</param>
     /// <param name="builtinNames">内置函数名集合</param>
     /// <returns>全局作用域（包含所有嵌套作用域）</returns>
-    public static Scope BuildScopes(ProgramExpr ast, HashSet<string> builtinNames)
+    public static Scope BuildScopes(ProgramExpr ast, HashSet<string> builtinNames, string? basePath = null)
     {
         var globalScope = new Scope(null) { Node = ast };
 
-        // 注册内置函数到全局作用域
         foreach (var name in builtinNames)
         {
             globalScope.Symbols[name] = new SymbolInfo(name, ScriptSymbolKind.Builtin, ast.SourceSpan)
@@ -26,24 +25,24 @@ public static class ScopeResolver
             };
         }
 
-        // 先收集所有 import 和顶层声明（第一遍）
-        ResolveProgram(ast, globalScope);
-
+        ResolveProgram(ast, globalScope, basePath);
         return globalScope;
     }
+
+    public static string? CurrentBasePath { get; private set; }
 
     /// <summary>
     /// 遍历 ProgramExpr — 处理顶层声明
     /// </summary>
-    private static void ResolveProgram(ProgramExpr program, Scope scope)
+    private static void ResolveProgram(ProgramExpr program, Scope scope, string? basePath = null)
     {
         foreach (var stmt in program.Statements)
         {
-            ResolveTopLevel(stmt, scope);
+            ResolveTopLevel(stmt, scope, basePath);
         }
     }
 
-    private static void ResolveTopLevel(Expr expr, Scope scope)
+    private static void ResolveTopLevel(Expr expr, Scope scope, string? basePath = null)
     {
         switch (expr)
         {
@@ -61,10 +60,24 @@ public static class ScopeResolver
                 foreach (var (member, alias) in import.Members)
                 {
                     var name = alias ?? member;
+                    List<ModuleMemberInfo>? moduleMembers = null;
+
+                    if (string.Equals(import.FilePath, "system", StringComparison.OrdinalIgnoreCase))
+                    {
+                        moduleMembers = ModuleMemberProvider.GetSystemModuleMembers(name);
+                    }
+                    else if (import.FilePath.EndsWith(".script", StringComparison.OrdinalIgnoreCase) && basePath != null)
+                    {
+                        // 解析相对路径 → 绝对路径 → 解析目标文件的导出成员
+                        string targetPath = Path.GetFullPath(Path.Combine(basePath, import.FilePath));
+                        moduleMembers = ModuleMemberProvider.GetScriptExportMembers(targetPath, name);
+                    }
+
                     scope.Symbols[name] = new SymbolInfo(name, ScriptSymbolKind.Import, import.SourceSpan)
                     {
                         ParentScope = scope,
-                        Detail = $"from \"{import.FilePath}\""
+                        Detail = $"from \"{import.FilePath}\"",
+                        ModuleMembers = moduleMembers
                     };
                 }
                 break;

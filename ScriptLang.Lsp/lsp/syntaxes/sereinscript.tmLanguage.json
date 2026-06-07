@@ -1,0 +1,127 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SereinScript",
+  "scopeName": "source.sereinscript",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.sereinscript",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.sereinscript",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.sereinscript",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.sereinscript",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.sereinscript",
+          "match": "\\b0[xX][0-9a-fA-F_]+([uUlLdDfFmM]*)"
+        },
+        {
+          "name": "constant.numeric.binary.sereinscript",
+          "match": "\\b0[bB][01_]+([uUlLdDfFmM]*)"
+        },
+        {
+          "name": "constant.numeric.float.sereinscript",
+          "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*([eE][+-]?[0-9]+)?[fFdDmM]?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.sereinscript",
+          "match": "\\b[0-9][0-9_]*([uUlLdDfFmM]?)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.sereinscript",
+          "match": "\\b(let|var|if|then|else|when|for|in|return|import|from)\\b"
+        },
+        {
+          "name": "constant.language.sereinscript",
+          "match": "\\b(true|false|null)\\b"
+        },
+        {
+          "name": "entity.name.function.sereinscript",
+          "match": "\\b(print|debug|now|sleep|typeof|range|len|keys|bool|int|double|str|tryCall)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.sereinscript",
+          "match": "(==|!=|<=|>=|&&|\\|\\||=>|->|\\?\\.)"
+        },
+        {
+          "name": "keyword.operator.assignment.sereinscript",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arithmetic.sereinscript",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.comparison.sereinscript",
+          "match": "[<>]"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "support.function.sereinscript",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "comment": "Function calls — identifier immediately followed by ("
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.sereinscript",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

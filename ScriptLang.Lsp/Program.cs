@@ -14,6 +14,7 @@ class Program
             options => options
                 .WithInput(Console.OpenStandardInput())
                 .WithOutput(Console.OpenStandardOutput())
+                .WithHandler<TextDocumentSyncHandler>()
                 .WithHandler<CompletionHandler>()
                 .WithHandler<HoverHandler>()
                 .WithHandler<DefinitionHandler>()

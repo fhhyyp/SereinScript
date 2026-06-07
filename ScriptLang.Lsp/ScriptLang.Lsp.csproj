@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,7 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+	  <SatelliteResourceLanguages>false</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="lsp\package-lock.json" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
@@ -19,6 +24,25 @@
 
   <ItemGroup>
     <Folder Include="lsp\server\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="lsp\package-lock.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="lsp\extension.js">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="lsp\language-configuration.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="lsp\package.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="lsp\syntaxes\sereinscript.tmLanguage.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

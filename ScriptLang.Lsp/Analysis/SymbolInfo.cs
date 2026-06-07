@@ -39,6 +39,9 @@ public sealed class SymbolInfo
     /// <summary>额外信息（如 import 路径）</summary>
     public string? Detail { get; init; }
 
+    /// <summary>模块成员列表（仅 Import 符号）</summary>
+    public List<ModuleMemberInfo>? ModuleMembers { get; set; }
+
     public SymbolInfo(string name, ScriptSymbolKind kind, Parser.SourceSpan sourceSpan)
     {
         Name = name;

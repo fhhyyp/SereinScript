@@ -33,6 +33,7 @@ public sealed class DefinitionHandler : IDefinitionHandler
 
     public Task<LocationOrLocationLinks?> Handle(DefinitionParams request, CancellationToken cancellationToken)
     {
+        Console.Error.WriteLine($"[LSP.Def] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
             return Task.FromResult<LocationOrLocationLinks?>(null);

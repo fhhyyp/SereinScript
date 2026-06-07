@@ -1,4 +1,4 @@
-// test-import.script
+// data.script
 import { createStore } from "pinia.script"
 let store = createStore({
     state = () => {
@@ -21,6 +21,7 @@ let store = createStore({
             state.x = state.x + n
             state.y = state.y - n
         }
-    }
+    },
+    temp = ""
 })
 return { store  }
