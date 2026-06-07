@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="ScriptLang.Demo/ScriptLang.Demo.csproj" Id="9d2c2ec9-8423-40dc-9ffa-ccbf631c3457" />
   <Project Path="ScriptLang.Generator/ScriptLang.Generator.csproj" Id="d2ea05e4-e310-4ac3-bf2c-d11f10f3b13a" />
+  <Project Path="ScriptLang.Lsp/ScriptLang.Lsp.csproj" />
   <Project Path="ScriptLang/ScriptLang.csproj" />
 </Solution>
