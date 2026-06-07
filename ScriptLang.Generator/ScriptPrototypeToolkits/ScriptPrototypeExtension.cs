@@ -3,6 +3,7 @@
 using Microsoft.CodeAnalysis;
 using ScriptLang.Generator.Extensions;
 using ScriptLang.Generator.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -251,11 +252,20 @@ internal static class ScriptPrototypeExtension
                                       if (_index == envIndex) continue;
                                       var param = methodCache.Parameters[_index];
                                       var paramType = param.Type.FullName;
-                                      generator.AppendCode($"if(args[{paramIndex}] is not {paramType} arg{paramIndex})")
-                                               .AppendCode($"    throw new {RuntimeException}(\"{defineName}() 第 {paramIndex + 1} 个参数期望 '{param.Type.Name}' 类型值\");")
+                                      //var hasDefault = !string.IsNullOrWhiteSpace(param.DefaultValue); // 有默认值时，可以不传递参数
+
+                                      // global::ScriptLang.Runtime.StringValue? arg0 = args.Count < 0 ? default
+                                      //   : args[0] is StringValue _arg0 ? _arg0
+                                      //   : throw new global::ScriptLang.Runtime.RuntimeException("read() 第 1 个参数期望 'StringValue' 类型值"); ;
+                                      var argName = $"arg{paramIndex}";
+                                      generator.AppendCode($"{paramType}? {argName} = args.Count <= {paramIndex} ? default")
+                                               .AppendCode($"    : args[{paramIndex}] is {paramType} _{argName} ? _{argName}")
+                                               .AppendCode($"    : throw new {RuntimeException}(\"{defineName}() 第 {paramIndex + 1} 个参数期望 '{param.Type.Name}' 类型值\");")
                                                .AppendCode();
+
                                       paramIndex++;
                                   }
+
                                   List<string> argNames = (isPushThis ? ["target"] : []);
                                   paramIndex = 0;
                                   for (int i = (isPushThis ? 1 : 0); i < methodCache.Parameters.Count; i++)
@@ -270,6 +280,7 @@ internal static class ScriptPrototypeExtension
                                           paramIndex++;
                                       }
                                   }
+                                  // 将值作为参数传入
                                   if (isPushThis)
                                   {
                                       var targetParamType = methodCache.Parameters[0].Type.FullName;

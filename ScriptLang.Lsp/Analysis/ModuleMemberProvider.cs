@@ -101,7 +101,8 @@ public static class ModuleMemberProvider
                 else
                 {
                     string retType = GetFriendlyTypeName(method.ReturnType);
-                    string paramStr = string.Join(",", method.GetParameters().Select(p => $"{GetFriendlyTypeName(p.ParameterType)} {p.Name}"));
+                    string paramStr = string.Join(",", method.GetParameters().Where(x => x.ParameterType != typeof(ScriptLang.ScriptEngine))
+                        .Select(p => $"{GetFriendlyTypeName(p.ParameterType)} {p.Name}"));
                     signature = $"{retType} {name}({paramStr})";
                 }
 

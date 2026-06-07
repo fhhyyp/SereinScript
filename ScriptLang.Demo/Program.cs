@@ -506,7 +506,6 @@ class Program
     static ScriptEngine CreateEngine()
     {
         var engine = new ScriptEngine();
-        engine.PrototypeManager.Register<TestPersonPrototype>();
         return engine;
     }
 
