@@ -12,7 +12,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction]
         [LspDoc("同步读取文本文件全部内容（默认UTF-8）")]
-        public static StringValue Read(StringValue path, StringValue? encoding)
+        public static StringValue Read(StringValue path, StringValue? encoding = null)
         {
             var enc = encoding is null ? Encoding.UTF8 : Encoding.GetEncoding(encoding.Value);
             var content = File.ReadAllText(path.Value, enc); return StringValue.Create(content); 
@@ -20,7 +20,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction]
         [LspDoc("异步读取文本文件全部内容（UTF-8）")]
-        public static async Task<StringValue> ReadAsync(StringValue path, StringValue? encoding)
+        public static async Task<StringValue> ReadAsync(StringValue path, StringValue? encoding = null)
         {
             var enc = encoding is null ? Encoding.UTF8 : Encoding.GetEncoding(encoding.Value);
             var content = await File.ReadAllTextAsync(path.Value, enc);
@@ -29,7 +29,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction]
         [LspDoc("同步写入文本内容到文件（UTF-8）")]
-        public static void Write(StringValue path, StringValue content, StringValue? encoding)
+        public static void Write(StringValue path, StringValue content, StringValue? encoding = null)
         {
             var enc = encoding is null ? Encoding.UTF8 : Encoding.GetEncoding(encoding.Value);
             File.WriteAllText(path.Value, content.Value, enc);
@@ -37,7 +37,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction]
         [LspDoc("异步写入文本内容到文件（UTF-8）")]
-        public static async Task WriteAsync(StringValue path, StringValue content, StringValue? encoding)
+        public static async Task WriteAsync(StringValue path, StringValue content, StringValue? encoding = null)
         {
             var enc = encoding is null ? Encoding.UTF8 : Encoding.GetEncoding(encoding.Value);
             await File.WriteAllTextAsync(path.Value, content.Value, enc);

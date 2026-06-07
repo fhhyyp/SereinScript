@@ -1,8 +1,9 @@
 // main.script
 import { store } from "data.script"
 import { look } from "look.script"
-import { file,network  } from "system"
 
 look()
 store.actions.increment(123)
 look()
+
+

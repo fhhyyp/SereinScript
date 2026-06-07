@@ -8,30 +8,25 @@ namespace ScriptLang
 
     public static class BuiltinCache
     {
-        private static readonly FunctionValue debug = new(nameof(debug), static async (args) =>
-        {
-            Console.WriteLine($"debug:: {string.Join(", ", args)}");
-            return Value.Null;
-        });
+        private static readonly FunctionValue debug = new FunctionValue(nameof(debug),
+            static (List<Value> args) => Console.WriteLine($"debug:: {string.Join(", ", args)}"));
 
-        private static readonly FunctionValue now = new(nameof(now), static (args) =>
-        {
-            return NumberValueFactory.Create(DateTime.Now.Ticks);
-        });
+        private static readonly FunctionValue now = new(nameof(now),
+            static () => NumberValueFactory.Create(DateTime.Now.Ticks));
 
         #region 异常处理函数
         private static readonly FunctionValue @try = new(nameof(@try), static async (env, args) =>
         {
             if (args.Count is < 1 or > 3)
-                throw new RuntimeException("tryCall() 期望 1 个或 2 个或 3 个参数");
+                throw new RuntimeException("try() 期望 1 个或 2 个或 3 个参数");
 
             if (args[0] is not ICallable callable)
-                throw new RuntimeException("tryCall() 第 1 个参数期望 FunctionValue");
+                throw new RuntimeException("try() 第 1 个参数期望 lambda 函数");
 
             try
             {
                 var result = await callable.CallAsync(env);
-                return TryCall.Succeed(result);
+                return TryWrapper.Succeed(result);
             }
             catch (Exception ex)
             {
@@ -44,11 +39,11 @@ namespace ScriptLang
                     }
                     else
                     {
-                        throw new RuntimeException("tryCall() 第 2 个参数期望 FunctionValue");
+                        throw new RuntimeException("tryCall() 第 2 个参数期望 lambda 函数");
                     }
                 }
 
-                return TryCall.Error(ex);
+                return TryWrapper.Error(ex);
             }
             finally
             {
@@ -61,7 +56,7 @@ namespace ScriptLang
                     }
                     else
                     {
-                        throw new RuntimeException("tryCall() 第 3 个参数期望 FunctionValue");
+                        throw new RuntimeException("tryCall() 第 3 个参数期望 lambda 函数");
                     }
                 }
             }
@@ -88,7 +83,7 @@ namespace ScriptLang
                 }
             }
         });
-        private static class TryCall
+        private static class TryWrapper
         {
             private static ObjectValue Result(bool ok, Value? result = null, string? message = null, string? stack = null)
             {
@@ -119,7 +114,6 @@ namespace ScriptLang
 
             var index = args[0].As<int>();
             await Task.Delay(index);
-            return Value.Null;
         });
 
         private static readonly FunctionValue @typeof = new(nameof(@typeof), static (args) =>
@@ -158,14 +152,12 @@ namespace ScriptLang
 
         private static readonly FunctionValue print = new(nameof(print), static args =>
         {
-            //Console.Write("[Console]");
             foreach (var arg in args)
             {
                 Console.Write(arg.AsString() + " ");
                 Debug.Write(arg.AsString() + " ");
             }
             Console.WriteLine();
-            return Value.Null;
         });
 
         private static readonly FunctionValue range = new(nameof(range), static args =>

@@ -25,7 +25,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction]
         [LspDoc("获取路径中的文件名（可选去除扩展名）")]
-        public static StringValue Basename(StringValue path, StringValue? ext)
+        public static StringValue Basename(StringValue path, StringValue? ext = null)
         {
             var fn = Path.GetFileName(path.Value); 
             if (ext is not  null && fn.EndsWith(ext.Value))

@@ -14,7 +14,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction] 
         [LspDoc("发送 HTTP GET 请求\r\noptions.headers 可设置请求头")]
-        public static async Task<ObjectValue> HttpGet(StringValue url, ObjectValue? options)
+        public static async Task<ObjectValue> HttpGet(StringValue url, ObjectValue? options = null)
         { 
             using var client = new HttpClient(); 
             if (options is not null && options.TryGetValue("headers", out var h))
@@ -34,7 +34,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction] 
         [LspDoc("发送 HTTP POST 请求\r\ncontentType 默认为 application/json")]
-        public static async Task<ObjectValue> HttpPost(StringValue url, Value data, StringValue contentType)
+        public static async Task<ObjectValue> HttpPost(StringValue url, Value data, StringValue? contentType = null)
         {
             using var client = new HttpClient();
             HttpContent? content = null; 

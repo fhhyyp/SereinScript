@@ -13,7 +13,7 @@ namespace ScriptLang.System
 
         [PrototypeFunction] 
         [LspDoc("将脚本对象序列化为 JSON 字符串\nindent=true 时格式化缩进输出")]
-        public static StringValue Stringify(Value value, BoolValue? indent)
+        public static StringValue Stringify(Value value, BoolValue? indent = null)
         {
             indent ??= BoolValue.False;
             var obj = ConvertToClrObject(value); 

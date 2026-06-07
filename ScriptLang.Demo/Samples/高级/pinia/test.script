@@ -1,0 +1,13 @@
+import { timer  } from "system"
+var count = 0
+
+let t1 = timer.setInterval(()=>{
+    print(t1)
+    count = count + 1
+    print("count", count, " at ", now())
+    if(count == 1)
+        t1.stop()
+}, 1000)
+
+t1.wait()
+print("完成")

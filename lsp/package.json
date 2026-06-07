@@ -2,7 +2,7 @@
   "name": "sereinscript-lsp",
   "displayName": "SereinScript LSP",
   "description": "Language support for SereinScript",
-  "version": "0.0.3",
+  "version": "0.0.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yourusername/sereinscript-lsp.git"

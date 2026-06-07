@@ -45,7 +45,7 @@ namespace ScriptLang.System
         }
 
         [PrototypeFunction]
-        [LspDoc("计算 HMAC 消息认证码\n支持 md5/sha1/sha256/sha512")]
+        [LspDoc("计算 HMAC 消息认证码\r\n支持 md5/sha1/sha256/sha512")]
         public static StringValue Hmac(StringValue algorithm, StringValue data, StringValue key)
         {
             var keyBytes = Encoding.UTF8.GetBytes(key.Value);

@@ -726,11 +726,11 @@ public class ClrMethodValue(MethodInfo methodInfo, object? instance) : Value
 }
 
 
-/// <summary>
+/*/// <summary>
 /// 函数值（仅用于原生函数）
 /// DSL Lambda 应通过 Compiler 编译为 CompiledFunctionValue
 /// </summary>
-public class FunctionValue : Value, ICallable
+public class FunctionValue2 : Value, ICallable
 {
     public override bool IsFunction => true;
 
@@ -741,22 +741,34 @@ public class FunctionValue : Value, ICallable
     public List<string> Parameters { get; }
 
     /// <summary> 是否需要平台参数 </summary>
-    private bool IsNeedEngine; //{ get; }
+    private readonly bool IsNeedEngine;
 
-    /// <summary>是否是原生函数</summary>
-    private bool IsNative; //{ get; }
+    /// <summary> 是否需要调用参数 </summary>
+    private readonly bool IsNeedArgs;
 
-    /// <summary>是否为原生异步函数</summary>
-    private bool IsNativeTask; // { get; }
+    /// <summary>是否有返回值</summary>
+    private readonly bool IsHasResult; 
 
-    /// <summary>原生函数委托</summary>
-    private Func<List<Value>, Value>? NativeFunc ;//{ get; }
+    /// <summary>是否需要等待</summary>
+    private readonly bool IsAsync;
 
-    /// <summary>原生异步函数委托</summary>
-    private Func<List<Value>, Task<Value>>? NativeTask ;//{ get; }
+    /// <summary>有返回值委托</summary>
+    private Func<List<Value>, Value>? NativeFunc ;
 
-    private Func<ScriptEngine, List<Value>, Value>? EnvNativeFunc;// { get; }
-    private Func<ScriptEngine, List<Value>, Task<Value>>? EnvNativeTask;// { get; }
+    /// <summary>无返回值异步委托</summary>
+    private Func<List<Value>, Task>? NotResultNativeTask;
+
+    /// <summary>有返回值原生异步委托</summary>
+    private Func<List<Value>, Task<Value>>? NativeTask;
+
+    /// <summary>需要环境参数，无返回值委托</summary>
+    private Func<ScriptEngine, List<Value>, Value>? EnvNativeFunc;
+
+    /// <summary>需要环境参数，无返回值异步委托</summary>
+    private Func<ScriptEngine, List<Value>, Task>? EnvNotResultNativeTask;
+
+    /// <summary>需要环境参数，有返回值异步委托</summary>
+    private Func<ScriptEngine, List<Value>, Task<Value>>? EnvNativeTask;
 
     /// <summary>参数数量</summary>
     public int ParameterCount => Parameters.Count;
@@ -764,17 +776,29 @@ public class FunctionValue : Value, ICallable
     /// <summary>创建同步原生函数</summary>
     public FunctionValue(string name, Func<List<Value>, Value> nativeFunc)
     {
-        IsNative = true;
+        IsSync = true; // 同步函数
         Name = name;
         Parameters = [];
         NativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
     }
 
+
+
+    /// <summary>创建无返回值异步原生函数</summary>
+    public FunctionValue(string name, Func<List<Value>, Task> nativeFunc)
+    {
+        IsHasResult = true; // 无返回值
+        IsAsync = true; // 异步函数
+        Name = name;
+        Parameters = [];
+        NotResultNativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+    }
+
     /// <summary>创建异步原生函数</summary>
     public FunctionValue(string name, Func<List<Value>, Task<Value>> nativeFunc)
     {
-        IsNativeTask = true;
-        Name = name;
+        IsAsync = true;  // 异步函数
+        Name = name; 
         Parameters = [];
         NativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
     }
@@ -783,17 +807,28 @@ public class FunctionValue : Value, ICallable
     public FunctionValue(string name, Func<ScriptEngine, List<Value>, Value> nativeFunc)
     {
         IsNeedEngine = true;
-        IsNative = true;
+        IsSync = true;  // 原神
         Name = name;
         Parameters = [];
         EnvNativeFunc = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
+    }
+
+    /// <summary>创建无返回值异步原生函数</summary>
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Task> nativeFunc)
+    {
+        IsHasResult = true; // 无返回值
+        IsNeedEngine = true;
+        IsAsync = true; // 异步函数
+        Name = name;
+        Parameters = [];
+        EnvNotResultNativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
     }
 
     /// <summary>创建异步原生函数，调用时传入平台参数</summary>
     public FunctionValue(string name, Func<ScriptEngine, List<Value>, Task<Value>> nativeFunc)
     {
         IsNeedEngine = true;
-        IsNativeTask = true;
+        IsAsync = true;
         Name = name;
         Parameters = [];
         EnvNativeTask = nativeFunc ?? throw new ArgumentNullException(nameof(nativeFunc));
@@ -811,29 +846,233 @@ public class FunctionValue : Value, ICallable
     {
         if (IsNeedEngine)
         {
-            if (IsNative)
+            if (!IsAsync)
             {
                 return EnvNativeFunc!(engine, args);
             }
-            else if (IsNativeTask)
+            else if (IsAsync)
             {
                 return await EnvNativeTask!(engine, args);
+            }
+            else if (IsHasResult)
+            {
+                await EnvNotResultNativeTask!(engine, args);
+                return Value.Null;
+            }
+            else
+            {
+
             }
         }
         else
         {
-            if (IsNative)
+            if (!IsAsync)
             {
                 return NativeFunc!(args);
             }
-            else if (IsNativeTask)
+            else if (IsAsync)
             {
                 return await NativeTask!(args);
             }
+            else if (IsHasResult)
+            {
+                await NotResultNativeTask!(args);
+                return Value.Null;
+            }
         }
-       
+
+        
+
 
         throw new RuntimeException($"FunctionValue 不支持 DSL Lambda 调用，请使用 CompiledFunctionValue");
+    }
+
+
+}
+*/
+[Flags]
+public enum FunctionFlags : byte
+{
+    None = 0,
+
+    // 基础能力标志 (占用低4位)
+    NeedEngine = 1 << 0,    // 是否需要 ScriptEngine
+    NeedArgs = 1 << 1,    // 是否需要 List<Value>
+    HasResult = 1 << 2,    // 是否有返回值
+    IsAsync = 1 << 3,    // 是否异步
+
+    // 预定义的常用组合 (方便使用)
+    SyncVoid = 0,                              // 无参数，无返回值
+    SyncVoidWithEngine = NeedEngine,                     // 只有引擎
+    SyncVoidWithArgs = NeedArgs,                       // 只有参数
+    SyncVoidFull = NeedEngine | NeedArgs,          // 引擎+参数
+
+    SyncResult = HasResult,                      // 有返回值，无参数
+    SyncResultWithEngine = NeedEngine | HasResult,       // 引擎+返回值
+    SyncResultWithArgs = NeedArgs | HasResult,         // 参数+返回值
+    SyncResultFull = NeedEngine | NeedArgs | HasResult, // 全部
+
+    AsyncVoid = IsAsync,                         // 异步无返回值
+    AsyncVoidWithEngine = NeedEngine | IsAsync,
+    AsyncVoidWithArgs = NeedArgs | IsAsync,
+    AsyncVoidFull = NeedEngine | NeedArgs | IsAsync,
+
+    AsyncResult = HasResult | IsAsync,
+    AsyncResultWithEngine = NeedEngine | HasResult | IsAsync,
+    AsyncResultWithArgs = NeedArgs | HasResult | IsAsync,
+    AsyncResultFull = NeedEngine | NeedArgs | HasResult | IsAsync,
+}
+
+public class FunctionValue : Value, ICallable
+{
+    public override bool IsFunction => true;
+    public string Name { get; }
+    public List<string> Parameters { get; }
+
+    private readonly FunctionFlags _flags;
+    private readonly Delegate _delegate;  // 存储原始委托
+
+    // 属性访问器
+    public bool NeedEngine => (_flags & FunctionFlags.NeedEngine) != 0;
+    public bool NeedArgs => (_flags & FunctionFlags.NeedArgs) != 0;
+    public bool HasResult => (_flags & FunctionFlags.HasResult) != 0;
+    public bool IsAsync => (_flags & FunctionFlags.IsAsync) != 0;
+
+    // 构造函数 - 使用预定义组合
+    public FunctionValue(string name, Action action)
+        : this(name, action, FunctionFlags.SyncVoid) { }
+
+    public FunctionValue(string name, Action<ScriptEngine> action)
+        : this(name, action, FunctionFlags.SyncVoidWithEngine) { }
+
+    public FunctionValue(string name, Action<List<Value>> action)
+        : this(name, action, FunctionFlags.SyncVoidWithArgs) { }
+
+    public FunctionValue(string name, Action<ScriptEngine, List<Value>> action)
+        : this(name, action, FunctionFlags.SyncVoidFull) { }
+
+    public FunctionValue(string name, Func<Value> func)
+        : this(name, func, FunctionFlags.SyncResult) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, Value> func)
+        : this(name, func, FunctionFlags.SyncResultWithEngine) { }
+
+    public FunctionValue(string name, Func<List<Value>, Value> func)
+        : this(name, func, FunctionFlags.SyncResultWithArgs) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Value> func)
+        : this(name, func, FunctionFlags.SyncResultFull) { }
+
+    // 异步构造函数
+    public FunctionValue(string name, Func<Task> task)
+        : this(name, task, FunctionFlags.AsyncVoid) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, Task> task)
+        : this(name, task, FunctionFlags.AsyncVoidWithEngine) { }
+
+    public FunctionValue(string name, Func<List<Value>, Task> task)
+        : this(name, task, FunctionFlags.AsyncVoidWithArgs) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Task> task)
+        : this(name, task, FunctionFlags.AsyncVoidFull) { }
+
+    public FunctionValue(string name, Func<Task<Value>> task)
+        : this(name, task, FunctionFlags.AsyncResult) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, Task<Value>> task)
+        : this(name, task, FunctionFlags.AsyncResultWithEngine) { }
+
+    public FunctionValue(string name, Func<List<Value>, Task<Value>> task)
+        : this(name, task, FunctionFlags.AsyncResultWithArgs) { }
+
+    public FunctionValue(string name, Func<ScriptEngine, List<Value>, Task<Value>> task)
+        : this(name, task, FunctionFlags.AsyncResultFull) { }
+
+    /// <summary>私有构造函数</summary>
+    /// <param name="name"></param>
+    /// <param name="delegate"></param>
+    /// <param name="flags"></param>
+    private FunctionValue(string name, Delegate @delegate, FunctionFlags flags)
+    {
+        Name = name;
+        Parameters = [];
+        _delegate = @delegate;
+        _flags = flags;
+    }
+    
+    public async Task<Value> CallAsync(ScriptEngine engine, List<Value> args)
+    {
+        switch (_flags)
+        {
+            // 同步无返回值
+            case FunctionFlags.SyncVoid:
+                ((Action)_delegate)();
+                return Value.Null;
+
+            case FunctionFlags.SyncVoidWithEngine:
+                ((Action<ScriptEngine>)_delegate)(engine);
+                return Value.Null;
+
+            case FunctionFlags.SyncVoidWithArgs:
+                ((Action<List<Value>>)_delegate)(args);
+                return Value.Null;
+
+            case FunctionFlags.SyncVoidFull:
+                ((Action<ScriptEngine, List<Value>>)_delegate)(engine, args);
+                return Value.Null;
+
+            // 同步有返回值
+            case FunctionFlags.SyncResult:
+                return ((Func<Value>)_delegate)();
+
+            case FunctionFlags.SyncResultWithEngine:
+                return ((Func<ScriptEngine, Value>)_delegate)(engine);
+
+            case FunctionFlags.SyncResultWithArgs:
+                return ((Func<List<Value>, Value>)_delegate)(args);
+
+            case FunctionFlags.SyncResultFull:
+                return ((Func<ScriptEngine, List<Value>, Value>)_delegate)(engine, args);
+
+            // 异步无返回值
+            case FunctionFlags.AsyncVoid:
+                await ((Func<Task>)_delegate)();
+                return Value.Null;
+
+            case FunctionFlags.AsyncVoidWithEngine:
+                await ((Func<ScriptEngine, Task>)_delegate)(engine);
+                return Value.Null;
+
+            case FunctionFlags.AsyncVoidWithArgs:
+                await ((Func<List<Value>, Task>)_delegate)(args);
+                return Value.Null;
+
+            case FunctionFlags.AsyncVoidFull:
+                await ((Func<ScriptEngine, List<Value>, Task>)_delegate)(engine, args);
+                return Value.Null;
+
+            // 异步有返回值
+            case FunctionFlags.AsyncResult:
+                return await ((Func<Task<Value>>)_delegate)();
+
+            case FunctionFlags.AsyncResultWithEngine:
+                return await ((Func<ScriptEngine, Task<Value>>)_delegate)(engine);
+
+            case FunctionFlags.AsyncResultWithArgs:
+                return await ((Func<List<Value>, Task<Value>>)_delegate)(args);
+
+            case FunctionFlags.AsyncResultFull:
+                return await ((Func<ScriptEngine, List<Value>, Task<Value>>)_delegate)(engine, args);
+
+            default:
+                throw new RuntimeException($"Invalid function flags: {_flags}");
+        }
+    }
+
+    public override T As<T>()
+    {
+        if (this is T result) return result;
+        throw new InvalidCastException($"类型 '{typeof(T)}' 无法转化为 'FunctionValue'");
     }
 }
 

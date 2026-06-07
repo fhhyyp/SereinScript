@@ -238,10 +238,21 @@ internal static class ScriptPrototypeExtension
                                   var envIndex = methodCache.Parameters.Any(x => x.Type.FullName == ScriptEngine) ? methodCache.Parameters.FindIndex(x => x.Type.FullName == ScriptEngine) : -1;
                                   var needArgNum = (envIndex > 0 ? methodCache.Parameters.Count - 1 : methodCache.Parameters.Count) - (isPushThis ? 1 : 0);
 
-                                  generator.AppendCode($"if(args.Count != {needArgNum})")
+                                  //var hasDefault = !string.IsNullOrWhiteSpace(param.DefaultValue); // 有默认值时，可以不传递参数
+
+                                  var notRequiredParamCount = methodCache.Parameters.Count(param => !string.IsNullOrWhiteSpace(param.DefaultValue)); // 非必须参数数量
+                                  var requiredParamCount = needArgNum - notRequiredParamCount;
+                                  generator.AppendCode($"if(args.Count < {requiredParamCount})")
                                            .AppendCodeBlok(() =>
                                            {
-                                               generator.AppendCode($"throw new {RuntimeException}(\"{defineName}() 期望 {needArgNum} 个参数\");");
+                                               if(notRequiredParamCount > 0)
+                                               {
+                                                   generator.AppendCode($"throw new {RuntimeException}(\"{defineName}() 至少需要 {requiredParamCount} 个参数\");");
+                                               }
+                                               else
+                                               {
+                                                    generator.AppendCode($"throw new {RuntimeException}(\"{defineName}() 期望 {needArgNum} 个参数\");");
+                                               }
                                            })
                                            .AppendCode();
 
@@ -298,8 +309,8 @@ internal static class ScriptPrototypeExtension
 
                                   if (methodCache.ReturnType.IsVoid)
                                   {
-                                      generator.AppendCode($"{methodCache.Name}({string.Join(", ", argNames)});")
-                                               .AppendCode($"return {ScriptValue}.Null;");
+                                      generator.AppendCode($"{methodCache.Name}({string.Join(", ", argNames)});");
+                                               //.AppendCode($"return {ScriptValue}.Null;");
                                   }
                                   else if (methodCache.ReturnType.IsTask)
                                   {
@@ -310,8 +321,8 @@ internal static class ScriptPrototypeExtension
                                       }
                                       else
                                       {
-                                          generator.AppendCode($"await {methodCache.Name}({string.Join(", ", argNames)});")
-                                                   .AppendCode($"return {ScriptValue}.Null;");
+                                          generator.AppendCode($"await {methodCache.Name}({string.Join(", ", argNames)});");
+                                                   //.AppendCode($"return {ScriptValue}.Null;");
                                       }
                                   }
                                   else

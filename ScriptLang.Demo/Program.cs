@@ -475,13 +475,13 @@ class Program
         var fullPath = Path.GetFullPath(Path.Combine(exePath, sscPath));
         if (!File.Exists(fullPath))
         {
-            Console.WriteLine($"文件不存在: {fullPath}");
+            Console.Error.WriteLine($"文件不存在: {fullPath}");
             return;
         }
 
-        Console.WriteLine($"加载 .ssc 文件: {fullPath}");
+        //Console.WriteLine($"加载 .ssc 文件: {fullPath}");
         var chunk = ByteCodeChunk.Load(fullPath);
-        Console.WriteLine($"加载成功: 指令数={chunk.Code.Count}, 常量数={chunk.ConstantCount}");
+        //Console.WriteLine($"加载成功: 指令数={chunk.Code.Count}, 常量数={chunk.ConstantCount}");
 
         GlobalSlotRegistry.Reset();
         var engine = CreateEngine();
@@ -496,7 +496,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"异常: {ex}");
+            Console.Error.WriteLine($"异常: {ex}");
         }
     }
 
