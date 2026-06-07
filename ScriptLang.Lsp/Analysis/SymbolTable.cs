@@ -11,7 +11,7 @@ public sealed class SymbolTable
     private static readonly HashSet<string> BuiltinNames = new(StringComparer.Ordinal)
     {
         "print", "debug", "now", "sleep", "typeof", "range", "len", "keys",
-        "bool", "int", "double", "str", "tryCall",
+        "bool", "int", "double", "str", "try",
         // system modules
         "file", "network", "console", "path", "json", "timer", "crypto", "process",
     };

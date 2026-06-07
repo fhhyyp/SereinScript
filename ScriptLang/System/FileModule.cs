@@ -1,150 +1,53 @@
-﻿using System.Text;
+using System.Text;
 using ScriptLang.Runtime;
 
 namespace ScriptLang.System
 {
-    /// <summary>
-    /// 文件系统模块
-    /// </summary>
     [PrototypeExtension(NamingFormat = NamingFormat.Js)]
     internal sealed partial class FileModule : ScriptRuntimeObject<FileModule>
     {
         public partial bool IsTarget(Value value) => value is ClrObjectValue clr && clr.Value is FileModule;
 
-        /// <summary>
-        /// 同步读取文件
-        /// </summary>
-        /// <param name="path">文件路径</param>
-        /// <param name="encoding">编码类型（默认 utf-8）</param>
-        /// <returns>文件内容</returns>
-        [PrototypeFunction]
-        public static StringValue Read(StringValue path/*, StringValue encoding*/)
-        {
-            //var enc =  encoding?.Value ?? "utf-8"; Encoding.GetEncoding(enc)
-            var content = File.ReadAllText(path.Value, Encoding.UTF8);
-            return StringValue.Create(content);
-        }
+        [PrototypeFunction] [LspDoc("同步读取文本文件全部内容（UTF-8）")]
+        public static StringValue Read(StringValue path)
+        { var content = File.ReadAllText(path.Value, Encoding.UTF8); return StringValue.Create(content); }
 
-        /// <summary>
-        /// 异步读取文件
-        /// </summary>
-        /// <param name="path">文件路径</param>
-        /// <param name="encoding">编码类型（默认 utf-8）</param>
-        /// <returns>文件内容</returns>
-        [PrototypeFunction]
-        public static async Task<StringValue> ReadAsync(StringValue path/*, StringValue encoding*/)
-        {
-            //var enc =  encoding?.Value ?? "utf-8"; Encoding.GetEncoding(enc)
-            var content = await File.ReadAllTextAsync(path.Value, Encoding.UTF8);
-            return StringValue.Create(content);
-        }
+        [PrototypeFunction] [LspDoc("异步读取文本文件全部内容（UTF-8）")]
+        public static async Task<StringValue> ReadAsync(StringValue path)
+        { var content = await File.ReadAllTextAsync(path.Value, Encoding.UTF8); return StringValue.Create(content); }
 
-        /// <summary>
-        /// 同步写入文件
-        /// </summary>
-        /// <param name="path">目标路径</param>
-        /// <param name="content">写入内容</param>
-        /// <param name="encoding">编码类型（默认 utf-8）</param>
-        [PrototypeFunction]
-        public static void Write(StringValue path, StringValue content/*, StringValue encoding*/)
-        {
-            //var enc =  encoding?.Value ?? "utf-8"; Encoding.GetEncoding(enc)
-            File.WriteAllText(path.Value, content.Value, Encoding.UTF8);
-        }
+        [PrototypeFunction] [LspDoc("同步写入文本内容到文件（UTF-8）")]
+        public static void Write(StringValue path, StringValue content)
+        { File.WriteAllText(path.Value, content.Value, Encoding.UTF8); }
 
-        /// <summary>
-        /// 异步写入文件
-        /// </summary>
-        /// <param name="path">目标路径</param>
-        /// <param name="content">写入内容</param>
-        /// <param name="encoding">编码类型（默认 utf-8）</param>
-        [PrototypeFunction]
+        [PrototypeFunction] [LspDoc("异步写入文本内容到文件（UTF-8）")]
         public static async Task WriteAsync(StringValue path, StringValue content, StringValue encoding)
-        {
-            //var enc =  encoding?.Value ?? "utf-8"; Encoding.GetEncoding(enc)
-            await File.WriteAllTextAsync(path.Value, content.Value, Encoding.UTF8);
-        }
+        { await File.WriteAllTextAsync(path.Value, content.Value, Encoding.UTF8); }
 
-        /// <summary>
-        /// 读取目录内容
-        /// </summary>
-        /// <param name="path">目录路径</param>
-        /// <returns>文件和子目录名称数组</returns>
-        [PrototypeFunction]
+        [PrototypeFunction] [LspDoc("列出目录下的所有文件和子目录路径")]
         public static ArrayValue ReadDir(StringValue path)
-        {
-            var files = Directory.GetFiles(path.Value);
-            var dirs = Directory.GetDirectories(path.Value);
-            var all = files.Concat(dirs).Select(f => (Value)StringValue.Create(f)).ToArray();
-            return new ArrayValue([.. all]);
-        }
+        { var files = Directory.GetFiles(path.Value); var dirs = Directory.GetDirectories(path.Value); var all = files.Concat(dirs).Select(f => (Value)StringValue.Create(f)).ToArray(); return new ArrayValue([.. all]); }
 
-        /// <summary>
-        /// 判断文件或目录是否存在
-        /// </summary>
-        /// <param name="path">路径</param>
-        /// <returns>是否存在</returns>
-        [PrototypeFunction]
-        public static BoolValue Exists(StringValue path) 
+        [PrototypeFunction] [LspDoc("判断指定路径的文件或目录是否存在")]
+        public static BoolValue Exists(StringValue path)
             => BoolValue.Create(File.Exists(path.Value) || Directory.Exists(path.Value));
 
-        /// <summary>
-        /// 创建目录
-        /// </summary>
-        /// <param name="path">创建路径（含目录名称）</param>
-        [PrototypeFunction]
+        [PrototypeFunction] [LspDoc("递归创建目录（包括所有中间目录）")]
         public static void MkDir(StringValue path)
-        {
-            Directory.CreateDirectory(path.Value);
-        }
+        { Directory.CreateDirectory(path.Value); }
 
-        /// <summary>
-        /// 删除文件或目录
-        /// </summary>
-        /// <param name="path">目标路径</param>
-        [PrototypeFunction]
+        [PrototypeFunction] [LspDoc("删除指定文件或目录（目录会递归删除）")]
         public static void Remove(StringValue path)
-        {
-            if (File.Exists(path.Value))
-                File.Delete(path.Value);
-            else if (Directory.Exists(path.Value))
-                Directory.Delete(path.Value, true);
-        }
+        { if (File.Exists(path.Value)) File.Delete(path.Value); else if (Directory.Exists(path.Value)) Directory.Delete(path.Value, true); }
 
-        /// <summary>
-        /// 获取当前工作目录
-        /// </summary>
-        /// <returns>当前目录路径</returns>
-        [PrototypeProperty]
-        private static StringValue Cwd()
-            => StringValue.Create(Directory.GetCurrentDirectory());
+        [PrototypeProperty] [LspDoc("当前工作目录的完整路径")]
+        private static StringValue Cwd() => StringValue.Create(Directory.GetCurrentDirectory());
 
-        /// <summary>
-        /// 更改当前工作目录
-        /// </summary>
-        /// <param name="path">目标目录路径</param>
-        [PrototypeFunction]
-        public static void ChDir(StringValue path)
-            => Directory.SetCurrentDirectory(path.Value);
+        [PrototypeFunction] [LspDoc("更改当前工作目录到指定路径")]
+        public static void ChDir(StringValue path) => Directory.SetCurrentDirectory(path.Value);
 
-        /// <summary>
-        /// 获取文件状态信息
-        /// </summary>
-        /// <param name="path">文件路径</param>
-        /// <returns>文件信息对象</returns>
-        [PrototypeFunction]
+        [PrototypeFunction] [LspDoc("获取文件或目录的详细信息（大小、创建/修改时间、类型）")]
         public static ObjectValue Stat(StringValue path)
-        {
-            var info = new FileInfo(path.Value);
-            var obj = new ObjectValue(new Dictionary<string, Value>
-            {
-                ["size"] = NumberValueFactory.Create(info.Length),
-                ["created"] = StringValue.Create(info.CreationTime.ToString("o")),
-                ["modified"] = StringValue.Create(info.LastWriteTime.ToString("o")),
-                ["isDirectory"] = BoolValue.Create((info.Attributes & FileAttributes.Directory) != 0),
-                ["isFile"] = BoolValue.Create((info.Attributes & FileAttributes.Directory) == 0)
-            });
-            return obj;
-        }
+        { var info = new FileInfo(path.Value); return new ObjectValue(new Dictionary<string, Value> { ["size"] = NumberValueFactory.Create(info.Length), ["created"] = StringValue.Create(info.CreationTime.ToString("o")), ["modified"] = StringValue.Create(info.LastWriteTime.ToString("o")), ["isDirectory"] = BoolValue.Create((info.Attributes & FileAttributes.Directory) != 0), ["isFile"] = BoolValue.Create((info.Attributes & FileAttributes.Directory) == 0) }); }
     }
 }

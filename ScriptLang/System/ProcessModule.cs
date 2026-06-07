@@ -1,105 +1,39 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics;
 using ScriptLang.Runtime;
 
 namespace ScriptLang.System
 {
-    /// <summary>
-    /// 进程模块
-    /// </summary>   
     [PrototypeExtension(NamingFormat = NamingFormat.Js)]
     internal sealed partial class ProcessModule : ScriptRuntimeObject<ProcessModule>
     {
         public partial bool IsTarget(Value value) => value is ClrObjectValue clr && clr.Value is ProcessModule;
 
-        /// <summary>
-        /// 命令行参数
-        /// </summary>
-        [PrototypeProperty]
+        [PrototypeProperty] [LspDoc("命令行参数（args: 参数数组, execPath: 可执行文件路径）")]
         private static ObjectValue Argv()
-        {
-            var args = Environment.GetCommandLineArgs();
-            var list = args.Skip(1).Select(a => (Value)StringValue.Create(a)).ToList();
-            return new ObjectValue(new Dictionary<string, Value>
-            {
-                ["args"] = new ArrayValue(list),
-                ["execPath"] = StringValue.Create(args[0])
-            });
-        }
+        { var args = Environment.GetCommandLineArgs(); return new(new() { ["args"] = new ArrayValue(args.Skip(1).Select(a => (Value)StringValue.Create(a)).ToList()), ["execPath"] = StringValue.Create(args[0]) }); }
 
-        /// <summary>
-        /// 进程 ID
-        /// </summary>
-        [PrototypeProperty]
-        private static NumberValue<int> Pid()
-            => NumberValueFactory.Create(Environment.ProcessId);
+        [PrototypeProperty] [LspDoc("当前进程 ID")]
+        private static NumberValue<int> Pid() => NumberValueFactory.Create(Environment.ProcessId);
 
-        /// <summary>
-        /// 当前工作目录
-        /// </summary>
-        [PrototypeProperty]
-        private static StringValue Cwd()
-            => StringValue.Create(Directory.GetCurrentDirectory());
+        [PrototypeProperty] [LspDoc("当前工作目录")]
+        private static StringValue Cwd() => StringValue.Create(Directory.GetCurrentDirectory());
 
-        /// <summary>
-        /// 更改工作目录
-        /// </summary>
-        /// <param name="path">目标目录</param>
-        [PrototypeFunction]
-        public static void ChDir(StringValue path)
-            => Directory.SetCurrentDirectory(path.Value);
-
-        /// <summary>
-        /// 环境变量
-        /// </summary>
-        /// <returns>环境变量对象</returns>
-        [PrototypeFunction]
-        public static ObjectValue Env()
-        {
-            var env = Environment.GetEnvironmentVariables();
-            var dict = new Dictionary<string, Value>();
-            foreach (DictionaryEntry entry in env)
-            {
-                dict[entry.Key.ToString()] = StringValue.Create(entry.Value?.ToString() ?? "");
-            }
-            return new ObjectValue(dict);
-        }
-
-        /// <summary>
-        /// 执行命令
-        /// </summary>
-        /// <param name="command">要执行的命令</param>
-        /// <returns>退出代码</returns>
-        [PrototypeFunction]
-        public static async Task<NumberValue<int>> Execute(StringValue command)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = command.Value,
-                UseShellExecute = true
-            };
-
-            var process = Process.Start(psi);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                return NumberValueFactory.Create(process.ExitCode);
-            }
-
-            return NumberValueFactory.Create(-1);
-        }
-
-        /// <summary>
-        /// 退出进程
-        /// </summary>
-        /// <param name="code">退出代码（默认 0）</param>
-        [PrototypeFunction]
-        public static void Exit(NumberValue<int> code) => Environment.Exit(code?.Value ?? 0);
-
-        /// <summary>
-        /// 获取进程运行时间
-        /// </summary>
-        [PrototypeProperty]
+        [PrototypeProperty] [LspDoc("进程已运行时间（秒）")]
         private static NumberValue<double> Uptime() => NumberValueFactory.Create(Environment.TickCount64 / 1000.0);
+
+        [PrototypeFunction] [LspDoc("更改当前工作目录")]
+        public static void ChDir(StringValue path) => Directory.SetCurrentDirectory(path.Value);
+
+        [PrototypeFunction] [LspDoc("获取所有环境变量键值对")]
+        public static ObjectValue Env()
+        { var dict = new Dictionary<string, Value>(); foreach (DictionaryEntry e in Environment.GetEnvironmentVariables()) dict[e.Key.ToString()!] = StringValue.Create(e.Value?.ToString() ?? ""); return new ObjectValue(dict); }
+
+        [PrototypeFunction] [LspDoc("执行外部命令并等待完成，返回退出代码")]
+        public static async Task<NumberValue<int>> Execute(StringValue command)
+        { var p = Process.Start(new ProcessStartInfo { FileName = command.Value, UseShellExecute = true }); if (p != null) { await p.WaitForExitAsync(); return NumberValueFactory.Create(p.ExitCode); } return NumberValueFactory.Create(-1); }
+
+        [PrototypeFunction] [LspDoc("以指定退出代码终止当前进程（0=正常）")]
+        public static void Exit(NumberValue<int> code) => Environment.Exit(code?.Value ?? 0);
     }
 }
