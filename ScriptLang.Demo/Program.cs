@@ -111,23 +111,29 @@ class Program
         var fullPath = Path.GetFullPath(Path.Combine(exePath, scriptPath));
         if (!File.Exists(fullPath))
         {
-            Console.WriteLine($"文件不存在: {fullPath}");
+            Console.Error.WriteLine($"文件不存在: {fullPath}");
             return;
         }
 
         var engine = CreateEngine();
         try
         {
+#if DEBUG
             var sw = Stopwatch.StartNew();
             var task = engine.CreateTask(fullPath);
             var result = await task.RunAsync();
             sw.Stop();
             Console.WriteLine($"结果: {result}");
             Console.WriteLine($"耗时: {sw.ElapsedMilliseconds}ms");
+#else
+
+            var task = engine.CreateTask(fullPath);
+            await task.RunAsync();
+#endif
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"异常: {ex}");
+            Console.Error.WriteLine($"异常: {ex}");
         }
     }
 

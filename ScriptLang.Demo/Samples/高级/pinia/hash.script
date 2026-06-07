@@ -1,0 +1,18 @@
+import { crypto  } from "system"
+
+// @returns {{
+//   md5:    md5加密
+//   sha1:   sha1加密
+//   sha256: sha256加密
+//   sha512: sha512加密
+// }}
+let hash = {
+    md5 = (content) => crypto.hash("md5", content),
+    sha1 = (content) => crypto.hash("sha1", content),
+    sha256 = (content) => crypto.hash("sha256", content),
+    sha512 = (content) => crypto.hash("sha512", content),
+}
+
+return {
+    hash
+}

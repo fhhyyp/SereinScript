@@ -1,13 +1,6 @@
-import { timer  } from "system"
-var count = 0
+import {  hash } from "hash.script"
 
-let t1 = timer.setInterval(()=>{
-    print(t1)
-    count = count + 1
-    print("count", count, " at ", now())
-    if(count == 1)
-        t1.stop()
-}, 1000)
+let value = hash
 
-t1.wait()
-print("完成")
+
+print(hash)

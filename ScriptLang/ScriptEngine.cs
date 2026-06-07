@@ -196,15 +196,15 @@ namespace ScriptLang
             // 创建执行工厂
             Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
             {
-                var sw = Stopwatch.StartNew();
 #if DEBUG
+                var sw = Stopwatch.StartNew();
 #endif
                 // 每次执行创建新的 VM 实例（保证栈/帧隔离）
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
+#if DEBUG
                 sw.Stop();
                 Console.WriteLine($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
-#if DEBUG
 #endif
                 return result;
             });
