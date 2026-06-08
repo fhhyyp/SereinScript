@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using ScriptLang.Runtime;
 
@@ -6,8 +7,16 @@ namespace ScriptLang.System
     [PrototypeExtension(NamingFormat = NamingFormat.Js)]
     internal sealed partial class JsonModule : ScriptRuntimeObject<JsonModule>
     {
-        private static readonly JsonSerializerOptions _indentedOptions = new() { WriteIndented = true };
-        private static readonly JsonSerializerOptions _minifiedOptions = new() { WriteIndented = false };
+        private static readonly JsonSerializerOptions _indentedOptions = new() 
+        { 
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+        private static readonly JsonSerializerOptions _minifiedOptions = new()
+        { 
+            WriteIndented = false,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
 
         public partial bool IsTarget(Value value) => value is ClrObjectValue clr && clr.Value is JsonModule;
 
