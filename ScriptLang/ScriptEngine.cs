@@ -125,6 +125,47 @@ namespace ScriptLang
         }
 
         /// <summary>
+        /// 从源代码字符串创建执行任务（用于内存中的脚本代码，如 Excel 宏）
+        /// </summary>
+        /// <param name="source">脚本源代码字符串</param>
+        /// <param name="sourceName">源名称（用于错误报告，如宏名称）</param>
+        /// <param name="scope">外部作用域（可选，用于注入 Excel 对象等）</param>
+        /// <returns>可执行的 ScriptTask</returns>
+        public ScriptTask CreateTaskFromSource(string source, string sourceName, Scope? scope = null)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(sourceName);
+
+            GlobalScope.Clear();
+            BuiltinCache.RegisterAll(GlobalScope);
+
+            // 注册源代码（复用 SourceManager，但来源是内存而非文件）
+            SourceManager.AddSource(sourceName, source);
+
+            // 词法分析
+            var lexer = new Lexer.Lexer(source, sourceName);
+            var tokens = lexer.ScanTokens();
+
+            // 语法分析
+            var parser = new Parser.Parser(tokens, sourceName);
+            var expr = parser.Parse();
+
+            // 检查解析异常
+            if (parser.Diagnostics.Count > 0)
+            {
+                var messages = parser.Diagnostics.Select(d => d.ToString());
+                throw new Exception($"脚本解析错误 ({sourceName}):\n{string.Join("\n", messages)}");
+            }
+
+            // 构建执行作用域
+            scope ??= new Scope(GlobalScope);
+            RegisterExternalScopeToGlobalSlots(scope);
+
+            // 编译并创建任务
+            return CreateCompiledTask(expr);
+        }
+
+        /// <summary>
         /// 从已编译的 ByteCodeChunk 创建执行任务（跳过编译阶段，直接从 .ssc 文件加载后使用）
         /// </summary>
         /// <param name="chunk">已反序列化的字节码块</param>

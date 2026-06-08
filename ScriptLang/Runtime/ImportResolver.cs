@@ -53,25 +53,29 @@ public class ImportResolver
     /// <param name="scope">外部作用域</param>
     public async Task<ObjectValue> ResolveAsync(string filePath, Scope? scope = null)
     {
+        // 1. 优先检查内置/虚拟模块（按原始名称匹配，如 "system", "excel"）
+        if (_moduleCache.TryGetValue(filePath, out var builtin))
+            return builtin;
+
+        // 2. 系统模块（保持兼容）
         if(filePath == System)
         {
             return _systemModules;
         }
+
+        // 3. 文件模块
+        var fullPath = ResolveImportPath(filePath);
+
+        if (_moduleCache.TryGetValue(fullPath, out var cached))
+            return cached;
+
+        if (fullPath.EndsWith(".ssc", StringComparison.OrdinalIgnoreCase))
+        {
+            return await LoadCompiledModuleAsync(fullPath);
+        }
         else
         {
-            var fullPath = ResolveImportPath(filePath);
-
-            if (_moduleCache.TryGetValue(fullPath, out var cached))
-                return cached;
-
-            if (fullPath.EndsWith(".ssc", StringComparison.OrdinalIgnoreCase))
-            {
-                return await LoadCompiledModuleAsync(fullPath);
-            }
-            else
-            {
-                return await LoadSourceModuleAsync(fullPath, scope);
-            }
+            return await LoadSourceModuleAsync(fullPath, scope);
         }
     }
 
@@ -165,6 +169,17 @@ public class ImportResolver
     public void ClearCache()
     {
         _moduleCache.Clear();
+    }
+
+    /// <summary>
+    /// 注册内置/虚拟模块，使脚本中可通过 import 导入
+    /// 每次执行前需重新注册以刷新动态内容（如 Excel 对象引用）
+    /// </summary>
+    /// <param name="moduleName">import 时使用的模块名</param>
+    /// <param name="exports">模块导出的属性集合</param>
+    public void RegisterBuiltinModule(string moduleName, ObjectValue exports)
+    {
+        _moduleCache[moduleName] = exports;
     }
 
     /// <summary>清除指定模块的缓存</summary>
