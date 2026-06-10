@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 
 namespace ScriptLang.Runtime.ByteCode;
@@ -87,29 +88,60 @@ public class VM
         if (_engine.IsPrintVMInfo)
         {
             Console.WriteLine("=== 变量表 ===");
+#if DEBUG
+            Debug.WriteLine("=== 变量表 ===");
+#endif
             var vt = chunk.VariableTable;
             if (vt != null)
             {
                 Console.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
+#if DEBUG
+                Debug.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
+#endif
             }
 
             Console.WriteLine("=== 常量表 ===");
+#if DEBUG
+            Debug.WriteLine("=== 常量表 ===");
+#endif
             var constants = chunk.GetConstants().ToList();
             for (int i = 0; i < constants.Count; i++)
             {
                 var constant = constants[i];
                 if (constant is IList list)
+                {
                     Console.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
+#if DEBUG
+                    Debug.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
+#endif
+                }
                 else
+                {
+
                     Console.WriteLine($"  [{i}] = {constant}");
+#if DEBUG
+                    Debug.WriteLine($"  [{i}] = {constant}");
+#endif
+                }
+
+
             }
 
+#if DEBUG  
+            Debug.WriteLine("=== 指令 ===");
+#endif
             Console.WriteLine("=== 指令 ===");
             for (int i = 0; i < chunk.Code.Count; i++)
             {
                 Console.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
+#if DEBUG
+                Debug.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
+#endif
             }
             Console.WriteLine("=== 执行 ===");
+#if DEBUG
+            Console.WriteLine("=== 执行 ===");
+#endif
         }
 
 
@@ -580,7 +612,13 @@ public class VM
                     _currentFrame.Captures[captureIndex].Cell.Value = value;
                 }
                 if (_engine.IsPrintVMInfo)
-                    Console.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={_currentFrame.Captures[captureIndex].GetHashCode()}");
+                {
+#if DEBUG                    
+                    Debug.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={(_currentFrame.Captures[captureIndex]?.GetHashCode().ToString() ?? "null")}");
+
+#endif
+                    Console.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={_currentFrame.Captures[captureIndex]?.GetHashCode()}");
+                }
             }
             else if (region == SlotRegion.Global)
             {
@@ -608,12 +646,18 @@ public class VM
     {
         if (_engine.IsPrintVMInfo)
         {
+#if DEBUG
+            Debug.WriteLine($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
+#endif
             Console.WriteLine($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
         }
         var returnValue = Pop();
         if (_engine.IsPrintVMInfo)
         {
             Console.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
+#if DEBUG
+            Debug.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
+#endif
         }
 
         // 返回时冻结 MutableNumber
@@ -832,10 +876,22 @@ public class VM
             // 同名不同作用域的变量发生混淆。
             int outerRuntimeSlot = outerVt.CaptureOffset + outerCaptureSlot;
             Value existingValue = _currentFrame.Slots[outerRuntimeSlot];
-
+            if(existingValue is null)
+            {
+#if DEBUG
+                Debug.WriteLine($"[CreateClosure] name={name}, existingValue is null");
+#endif
+                Console.WriteLine($"[CreateClosure] name={name}, existingValue is null");
+                continue;
+            }
             // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
-            if(_engine.IsPrintVMInfo)
+            if (_engine.IsPrintVMInfo)
+            {
+#if DEBUG
+                Debug.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue.GetHashCode()}");
+#endif
                 Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue.GetHashCode()}");
+            }
             var cell = new VariableCell(existingValue);
             var info = new VariableInfo(cell, true) { IsCaptured = true };
 

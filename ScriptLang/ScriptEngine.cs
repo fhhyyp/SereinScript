@@ -9,13 +9,13 @@ namespace ScriptLang
 {
     public sealed class ScriptEngine
     {
-        public bool IsPrintVMInfo { get; private set; } =
+        public bool IsPrintVMInfo { get;  set; } =
 #if debug
             true;
 #else
             false;
 #endif
-        public bool IsPrintInputSciptContent { get; private set; } = false;
+        public bool IsPrintInputSciptContent { get;  set; } = false;
 
         /// <summary>
         /// 脚本依赖导入工具
@@ -72,6 +72,13 @@ namespace ScriptLang
                     Console.WriteLine(script);
                     Console.WriteLine("================解析完毕==============");
                     Console.WriteLine("");
+#if DEBUG
+                    Debug.WriteLine("================加载脚本==============");
+                    Debug.WriteLine($"# 脚本路径：{filePath}");
+                    Debug.WriteLine(script);
+                    Debug.WriteLine("================解析完毕==============");
+                    Debug.WriteLine("");
+#endif
                 }
 
                 SourceManager.AddSource(filePath, script);
@@ -97,6 +104,9 @@ namespace ScriptLang
                 {
                     ParseException? diagnostic = parser.Diagnostics[index];
                     Console.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
+#if DEBUG
+                    Debug.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
+#endif
                 }
                 throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
             }
