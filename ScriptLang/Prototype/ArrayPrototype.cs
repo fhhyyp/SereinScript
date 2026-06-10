@@ -16,35 +16,25 @@ namespace ScriptLang.Prototype
         }
 
         [PrototypeProperty]
-        private static NumberValue<int> Count(ArrayValue array)
-        {
-            return NumberValueFactory.Create(array.Elements.Count);
-        }
+        private static NumberValue<int> Count(ArrayValue array) => NumberValueFactory.Create(array.Elements.Count);
 
         [PrototypeProperty]
-        private static NumberValue<int> Length(ArrayValue array)
-        {
-            return NumberValueFactory.Create(array.Elements.Count);
-        }
+        private static NumberValue<int> Length(ArrayValue array) => NumberValueFactory.Create(array.Elements.Count);
 
         [PrototypeFunction]
-        private static void Add(ArrayValue array, Value item)
-        {
-            array.Add(item);
-        }
-
+        private static void Add(ArrayValue array, Value item) => array.Add(item);
 
         [PrototypeFunction]
-        private static Value First(ArrayValue array)
-        {
-            return array.Elements.Count > 0 ? array.Elements[0] : Value.Null;
-        }
+        private static void Remove(ArrayValue array, Value item) => array.Elements.Remove(item);
 
         [PrototypeFunction]
-        private static Value Last(ArrayValue array)
-        {
-            return array.Elements.Count > 0 ? array.Elements[^1] : Value.Null;
-        }
+        private static void RemoveAt(ArrayValue array, NumberValue<int> item) => array.Elements.RemoveAt(item.Value);
+
+        [PrototypeFunction]
+        private static Value First(ArrayValue array) => array.Elements.Count > 0 ? array.Elements[0] : Value.Null;
+
+        [PrototypeFunction]
+        private static Value Last(ArrayValue array) => array.Elements.Count > 0 ? array.Elements[^1] : Value.Null;
 
 
         [PrototypeFunction]
@@ -78,22 +68,16 @@ namespace ScriptLang.Prototype
         }
 
         [PrototypeFunction]
-        private static ArrayValue OrderBy(ArrayValue array)
-        {
-            return OrderByImpl(array, true);
-        }
+        private static ArrayValue OrderBy(ArrayValue array) => OrderByImpl(array, true);
 
         [PrototypeFunction]
-        private static ArrayValue OrderByDesc(ArrayValue array)
-        {
-            return OrderByImpl(array, false);
-        }
+        private static ArrayValue OrderByDesc(ArrayValue array) => OrderByImpl(array, false);
 
         [PrototypeFunction]
-        private static ArrayValue ToList(ArrayValue array)
-        {
-            return new ArrayValue(array.Elements);
-        }
+        private static void Clear(ArrayValue array) => array.Elements.Clear();
+
+        [PrototypeFunction]
+        private static ArrayValue ToList(ArrayValue array) => new(array.Elements);
 
         // ==================== 辅助方法 ====================
 
