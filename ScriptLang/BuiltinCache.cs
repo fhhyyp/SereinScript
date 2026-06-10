@@ -158,6 +158,7 @@ namespace ScriptLang
                 Debug.Write(arg.AsString() + " ");
             }
             Console.WriteLine();
+            Debug.WriteLine("");
         });
 
         private static readonly FunctionValue range = new(nameof(range), static args =>
