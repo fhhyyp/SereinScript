@@ -68,11 +68,26 @@ public static class GlobalSlotRegistry
 
     /// <summary>
     /// 获取运行时值数组的引用（VM 直接访问，避免拷贝）
+    /// 扩容时保留已有值，防止子模块编译导致的槽位值丢失。
     /// </summary>
     public static Value[] GetValues()
     {
         if (_values.Length != Count)
-            InitializeValues();
+        {
+            if (_values.Length == 0)
+            {
+                InitializeValues();
+            }
+            else
+            {
+                // 扩容但保留旧值
+                var old = _values;
+                _values = new Value[Count];
+                Array.Copy(old, _values, Math.Min(old.Length, Count));
+                for (int i = old.Length; i < _values.Length; i++)
+                    _values[i] = Value.Null;
+            }
+        }
         return _values;
     }
 
