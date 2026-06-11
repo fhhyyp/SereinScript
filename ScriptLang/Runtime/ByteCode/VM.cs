@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
@@ -85,65 +84,34 @@ public class VM
     public async ValueTask<Value> ExecuteAsync(ByteCodeChunk chunk)
     {
 
-        if (_engine.IsPrintVMInfo)
+        ScriptLog.Debug("=== 变量表 ===");
+        var vt = chunk.VariableTable;
+        if (vt != null)
         {
-            Console.WriteLine("=== 变量表 ===");
-#if DEBUG
-            Debug.WriteLine("=== 变量表 ===");
-#endif
-            var vt = chunk.VariableTable;
-            if (vt != null)
-            {
-                Console.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
-#if DEBUG
-                Debug.WriteLine($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
-#endif
-            }
-
-            Console.WriteLine("=== 常量表 ===");
-#if DEBUG
-            Debug.WriteLine("=== 常量表 ===");
-#endif
-            var constants = chunk.GetConstants().ToList();
-            for (int i = 0; i < constants.Count; i++)
-            {
-                var constant = constants[i];
-                if (constant is IList list)
-                {
-                    Console.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
-#if DEBUG
-                    Debug.WriteLine($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
-#endif
-                }
-                else
-                {
-
-                    Console.WriteLine($"  [{i}] = {constant}");
-#if DEBUG
-                    Debug.WriteLine($"  [{i}] = {constant}");
-#endif
-                }
-
-
-            }
-
-#if DEBUG  
-            Debug.WriteLine("=== 指令 ===");
-#endif
-            Console.WriteLine("=== 指令 ===");
-            for (int i = 0; i < chunk.Code.Count; i++)
-            {
-                Console.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
-#if DEBUG
-                Debug.WriteLine($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
-#endif
-            }
-            Console.WriteLine("=== 执行 ===");
-#if DEBUG
-            Console.WriteLine("=== 执行 ===");
-#endif
+            ScriptLog.Debug($"  Locals: {vt.LocalCount}, Captures: {vt.CaptureCount}, Globals: {vt.GlobalCount}, Builtins: {vt.BuiltinCount}");
         }
 
+        ScriptLog.Debug("=== 常量表 ===");
+        var constants = chunk.GetConstants().ToList();
+        for (int i = 0; i < constants.Count; i++)
+        {
+            var constant = constants[i];
+            if (constant is IList list)
+            {
+                ScriptLog.Debug($"  [{i}] = [{string.Join(",", list.Cast<object>())}]");
+            }
+            else
+            {
+                ScriptLog.Debug($"  [{i}] = {constant}");
+            }
+        }
+
+        ScriptLog.Debug("=== 指令 ===");
+        for (int i = 0; i < chunk.Code.Count; i++)
+        {
+            ScriptLog.Debug($"  {i:D4}: {chunk.Code[i].OpCode} {chunk.Code[i].Operand}");
+        }
+        ScriptLog.Debug("=== 执行 ===");
 
         _stack.Clear();
         _frames.Clear();
@@ -153,14 +121,11 @@ public class VM
 
         // 顶层帧填充全局变量和内置函数
         InitFrameSlots(_currentFrame, null);
-        if (_engine.IsPrintVMInfo)
+        for (int i = 0; i < _currentFrame.Slots.Length; i++)
         {
-            for (int i = 0; i < _currentFrame.Slots.Length; i++)
-            {
-                Console.WriteLine($"[VM] Slots[{i}] = {_currentFrame.Slots[i]?.ToString() ?? "null"}");
-            }
+            ScriptLog.Debug($"[VM] Slots[{i}] = {_currentFrame.Slots[i]?.ToString() ?? "null"}");
         }
-           
+
 
         while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
         {
@@ -611,14 +576,7 @@ public class VM
                 {
                     _currentFrame.Captures[captureIndex].Cell.Value = value;
                 }
-                if (_engine.IsPrintVMInfo)
-                {
-#if DEBUG                    
-                    Debug.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={(_currentFrame.Captures[captureIndex]?.GetHashCode().ToString() ?? "null")}");
-
-#endif
-                    Console.WriteLine($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={_currentFrame.Captures[captureIndex]?.GetHashCode()}");
-                }
+                ScriptLog.Debug($"[StoreSlot] 同步 Captures[{captureIndex}].Cell.Value = {value}, CellHashCode={_currentFrame.Captures[captureIndex]?.GetHashCode()}");
             }
             else if (region == SlotRegion.Global)
             {
@@ -644,21 +602,9 @@ public class VM
     /// <returns>true 继续执行，false 表示顶层返回</returns>
     private bool HandleReturn()
     {
-        if (_engine.IsPrintVMInfo)
-        {
-#if DEBUG
-            Debug.WriteLine($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
-#endif
-            Console.WriteLine($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
-        }
+        ScriptLog.Debug($"[HandleReturn] Pop前 栈深度={_stack.Count}, 栈顶={(_stack.Count > 0 ? _stack.Peek()?.ToString() : "空")}");
         var returnValue = Pop();
-        if (_engine.IsPrintVMInfo)
-        {
-            Console.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
-#if DEBUG
-            Debug.WriteLine($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
-#endif
-        }
+        ScriptLog.Debug($"[HandleReturn] 返回值={returnValue}, 类型={returnValue.GetType().Name}");
 
         // 返回时冻结 MutableNumber
         if (returnValue is MutableNumber mn)
@@ -716,11 +662,6 @@ public class VM
         
         var right = Pop();
         var left = _currentFrame.Slots[slot];
-
-        if (_engine.IsPrintVMInfo)
-        {
-            //Console.WriteLine($"[InPlaceOp] slot={slot}, right={right}, left={left}, leftType={left?.GetType().Name ?? "null"},栈深度={_stack.Count}");
-        }
 
         if (left is MutableNumber)
         {
@@ -878,20 +819,12 @@ public class VM
             Value existingValue = _currentFrame.Slots[outerRuntimeSlot];
             if(existingValue is null)
             {
-#if DEBUG
-                Debug.WriteLine($"[CreateClosure] name={name}, existingValue is null (forward reference, creating placeholder cell)");
-#endif
+                ScriptLog.Debug($"[CreateClosure] name={name}, existingValue is null (forward reference, creating placeholder cell)");
                 // 不 continue：即使当前值为 null（前向引用），仍需创建 VariableCell 占位，
                 // 后续 StoreSlot 会通过 Captures[outerCaptureSlot].Cell.Value 同步真实值。
             }
             // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
-            if (_engine.IsPrintVMInfo)
-            {
-#if DEBUG
-                Debug.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
-#endif
-                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
-            }
+            ScriptLog.Debug($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
             // 检查是否已有其他闭包为同一变量创建了 Cell（多闭包捕获同一前向引用）
             // 若有则复用，确保 StoreSlot 一次写入能同步到所有闭包
             VariableInfo info;
@@ -899,8 +832,7 @@ public class VM
                 && _currentFrame.Captures[outerCaptureSlot] != null)
             {
                 info = _currentFrame.Captures[outerCaptureSlot];
-                if (_engine.IsPrintVMInfo)
-                    Console.WriteLine($"[CreateClosure] name={name}, 复用已有 Cell(Hash={info.GetHashCode()})");
+                ScriptLog.Debug($"[CreateClosure] name={name}, 复用已有 Cell(Hash={info.GetHashCode()})");
             }
             else
             {
@@ -912,8 +844,7 @@ public class VM
                 {
                     _currentFrame.Captures[outerCaptureSlot] = info;
                 }
-                if (_engine.IsPrintVMInfo)
-                    Console.WriteLine($"[CreateClosure] 回写 Captures[{outerCaptureSlot}] = new Cell({existingValue}), HashCode={info.GetHashCode()}");
+                ScriptLog.Debug($"[CreateClosure] 回写 Captures[{outerCaptureSlot}] = new Cell({existingValue}), HashCode={info.GetHashCode()}");
             }
             capturedCells[innerCaptureIndex] = info;
         }
@@ -930,9 +861,7 @@ public class VM
     private async Task CallAsync(int argCount)
     {
         _currentFrame.IP++;
-#if DEBUG
-        Console.WriteLine($"[VM.Call] argCount={argCount}, 栈深度={_stack.Count}");
-#endif
+        ScriptLog.Debug($"[VM.Call] argCount={argCount}, 栈深度={_stack.Count}");
         // 弹出参数
         var args = new List<Value>();
         for (int i = 0; i < argCount; i++)
@@ -944,9 +873,7 @@ public class VM
 
         // 弹出函数
         var target = Pop();
-#if DEBUG
-        Console.WriteLine($"[VM.Call] target={target}, target类型={target?.GetType().Name ?? "NULL"}, 参数=[{string.Join(",", args)}]");
-#endif
+        ScriptLog.Debug($"[VM.Call] target={target}, target类型={target?.GetType().Name ?? "NULL"}, 参数=[{string.Join(",", args)}]");
 
         if (target is CompiledFunctionValue compiledFunc)
         {
@@ -969,15 +896,13 @@ public class VM
 
     private void CallCompiledFunction(CompiledFunctionValue func, List<Value> args)
     {
-#if DEBUG
-        Console.WriteLine($"[VM.CallCompiledFunction] 调用 {func.GetHashCode()}, 参数数={func.Parameters.Count}, 闭包={(func.Closure != null ? $"CaptureCount={func.Closure.CaptureCount}" : "null")}");
+        ScriptLog.Debug($"[VM.CallCompiledFunction] 调用 {func.GetHashCode()}, 参数数={func.Parameters.Count}, 闭包={(func.Closure != null ? $"CaptureCount={func.Closure.CaptureCount}" : "null")}");
 
         var vt = func.VariableTable;
         if (vt != null)
         {
-            Console.WriteLine($"[VM.CallCompiledFunction] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
+            ScriptLog.Debug($"[VM.CallCompiledFunction] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
         }
-#endif
         var newFrame = _framePool.Rent();
         newFrame.Init(func.Chunk);
 

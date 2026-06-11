@@ -377,9 +377,7 @@ public sealed class Compiler
             if (!currentScope.ContainsKey(expr.Name))
             {
                 DefineVariable(expr.Name, isMutable: false);
-#if DEBUG
-                Console.WriteLine($"[CompileLet] 预注册递归函数占位符: '{expr.Name}'");
-#endif
+ScriptLog.Debug($"[CompileLet] 预注册递归函数占位符: '{expr.Name}'");
             }
         }
 
@@ -405,18 +403,14 @@ public sealed class Compiler
             {
                 // 占位符已被消费：这是不同作用域的同名变量（影子变量）。
                 // 创建新的局部变量，并清除旧的捕获槽位映射，使后续 AllocCapture 分配独立槽位。
-#if DEBUG
-                Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' as shadowed local (placeholder consumed)");
-#endif
+ScriptLog.Debug($"[CompileLet] StoreSlot '{expr.Name}' as shadowed local (placeholder consumed)");
                 _varTable.FreeCapture(expr.Name);
                 var binding = DefineVariable(expr.Name, isMutable: false);
                 EmitStoreSlot(binding);
             }
             else
             {
-#if DEBUG
-                Console.WriteLine($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Region={existingBinding.Region}, Slot={existingBinding.Slot})");
-#endif
+ScriptLog.Debug($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Region={existingBinding.Region}, Slot={existingBinding.Slot})");
                 EmitStoreSlot(existingBinding);
             }
         }
@@ -749,20 +743,16 @@ public sealed class Compiler
     /// </summary>
     private void CompileLambda(LambdaExpr expr)
     {
-#if DEBUG
-        Console.WriteLine($"[Compiler.CompileLambda] === 开始编译 Lambda ===");
-        Console.WriteLine($"[Compiler.CompileLambda] 参数: [{string.Join(", ", expr.Params)}]");
-        Console.WriteLine($"[Compiler.CompileLambda] _localNames 内容 ({_localNames.Count} 个): [{string.Join(", ", _localNames)}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] === 开始编译 Lambda ===");
+        ScriptLog.Debug($"[Compiler.CompileLambda] 参数: [{string.Join(", ", expr.Params)}]");
+        ScriptLog.Debug($"[Compiler.CompileLambda] _localNames 内容 ({_localNames.Count} 个): [{string.Join(", ", _localNames)}]");
 
         // ===== 第 1 步：分析当前 Lambda 直接引用的自由变量 =====
         _currentLambdaCaptures = new HashSet<string>();
         var freeVars = CaptureAnalysis.Analyze(expr, _localNames);
         _currentLambdaCaptures = null;
 
-#if DEBUG
-        Console.WriteLine($"[Compiler.CompileLambda] 直接自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 直接自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
 
         // ===== 第 2 步：第一遍编译，收集嵌套闭包捕获需求 =====
         var innerCompiler1 = CreateInnerCompiler(expr, freeVars, null);
@@ -776,27 +766,21 @@ public sealed class Compiler
         nestedOnlyVars.ExceptWith(freeVars);
 
 
-#if DEBUG
-        Console.WriteLine($"[Compiler.CompileLambda] 直接自由变量: [{string.Join(", ", freeVars)}]");
-        Console.WriteLine($"[Compiler.CompileLambda] 仅嵌套闭包引用的变量: [{string.Join(", ", nestedOnlyVars)}]");
-        Console.WriteLine($"[Compiler.CompileLambda] 所有需要捕获的变量名 ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 直接自由变量: [{string.Join(", ", freeVars)}]");
+        ScriptLog.Debug($"[Compiler.CompileLambda] 仅嵌套闭包引用的变量: [{string.Join(", ", nestedOnlyVars)}]");
+        ScriptLog.Debug($"[Compiler.CompileLambda] 所有需要捕获的变量名 ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
 
         // ===== 第 3 步：如果有嵌套捕获变量，第二遍重新编译 =====
         if (nestedOnlyVars.Count > 0)
         {
-#if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] 检测到嵌套捕获变量，执行第二遍编译...");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 检测到嵌套捕获变量，执行第二遍编译...");
             var innerCompiler2 = CreateInnerCompiler(expr, freeVars, nestedOnlyVars);
             closureChunk = innerCompiler2.Compile(expr.Body);
 
             // 重新收集（验证用）
             var verifyCaptureNames = new HashSet<string>(freeVars);
             CollectNestedCaptures(closureChunk, verifyCaptureNames);
-#if DEBUG
-            Console.WriteLine($"[Compiler.CompileLambda] 第二遍编译后嵌套捕获: [{string.Join(", ", verifyCaptureNames.Except(freeVars))}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 第二遍编译后嵌套捕获: [{string.Join(", ", verifyCaptureNames.Except(freeVars))}]");
         }
 
 
@@ -807,9 +791,7 @@ public sealed class Compiler
         foreach (var varName in freeVars)
         {
             var binding = ResolveVariable(varName);
-#if DEBUG
-            Console.WriteLine($"[CompileLambda] 递归检测: '{varName}' → binding={(binding != null ? $"Slot={binding.Slot}, Region={binding.Region}" : "NULL")}, inLocalNames={_localNames.Contains(varName)}");
-#endif
+ScriptLog.Debug($"[CompileLambda] 递归检测: '{varName}' → binding={(binding != null ? $"Slot={binding.Slot}, Region={binding.Region}" : "NULL")}, inLocalNames={_localNames.Contains(varName)}");
 
             if (binding == null)
                 continue;
@@ -824,9 +806,7 @@ public sealed class Compiler
             if (_localNames.Contains(varName) && binding.Region == SlotRegion.Local)
             {
                 recursiveVars.Add(varName);
-#if DEBUG
-                Console.WriteLine($"[CompileLambda] 递归检测: '{varName}' 标记为递归自引用");
-#endif
+ScriptLog.Debug($"[CompileLambda] 递归检测: '{varName}' 标记为递归自引用");
             }
         }
 
@@ -834,9 +814,7 @@ public sealed class Compiler
         // 合并递归变量到 allCaptureNames
         allCaptureNames.UnionWith(recursiveVars);
         nestedOnlyVars.UnionWith(recursiveVars);
-#if DEBUG
-        Console.WriteLine($"[Compiler.CompileLambda] 最终 allCaptureNames ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 最终 allCaptureNames ({allCaptureNames.Count} 个): [{string.Join(", ", allCaptureNames)}]");
         // ===== 第 5 步：在当前帧为所有需要捕获的变量分配捕获槽位 =====
         var captureSlots = new Dictionary<string, int>();
 
@@ -858,9 +836,7 @@ public sealed class Compiler
                 // 替换作用域中的 binding，让后续 StoreSlot/LoadSlot 使用捕获区
                 ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
 
-#if DEBUG
-                Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（嵌套/递归变量）: '{varName}' → captureSlot={captureIndex}");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 强制分配捕获槽位（嵌套/递归变量）: '{varName}' → captureSlot={captureIndex}");
             }
             else
             {
@@ -876,15 +852,11 @@ public sealed class Compiler
                     // 替换作用域中的 binding，让后续 StoreSlot/LoadSlot 使用捕获区
                     ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
 
-#if DEBUG
-                    Console.WriteLine($"[Compiler.CompileLambda] 分配捕获槽位: '{varName}' → captureSlot={captureIndex} (原 Region={binding.Region})");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 分配捕获槽位: '{varName}' → captureSlot={captureIndex} (原 Region={binding.Region})");
                 }
                 else if (binding != null && (binding.Region == SlotRegion.Global || binding.Region == SlotRegion.Builtin))
                 {
-#if DEBUG
-                    Console.WriteLine($"[Compiler.CompileLambda] 跳过全局/内置: '{varName}'");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 跳过全局/内置: '{varName}'");
                 }
                 else
                 {
@@ -905,15 +877,11 @@ public sealed class Compiler
                         topScope[varName] = placeholderBinding;
                         _localNames.Add(varName);
 
-#if DEBUG
-                        Console.WriteLine($"[Compiler.CompileLambda] 前向引用预注册: '{varName}' → captureSlot={captureIndex}");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 前向引用预注册: '{varName}' → captureSlot={captureIndex}");
                     }
                     else
                     {
-#if DEBUG
-                        Console.WriteLine($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] 强制分配捕获槽位（未知来源）: '{varName}' → captureSlot={captureIndex}");
                     }
                 }
             }
@@ -922,9 +890,7 @@ public sealed class Compiler
         // ===== 第 6 步：构建 captureMappings 并发射 CreateClosure =====
         var captureMappings = captureSlots.Select(kv => (kv.Key, kv.Value)).ToList();
 
-#if DEBUG
-        Console.WriteLine($"[Compiler.CompileLambda] captureMappings: [{string.Join(", ", captureMappings.Select(m => $"('{m.Key}', {m.Value})"))}]");
-#endif
+ScriptLog.Debug($"[Compiler.CompileLambda] captureMappings: [{string.Join(", ", captureMappings.Select(m => $"('{m.Key}', {m.Value})"))}]");
 
         int chunkIndex = _chunk.RegisterClosure(closureChunk);
         Emit(OpCode.CreateClosure, (chunkIndex, expr.Params, captureMappings));
@@ -993,9 +959,7 @@ public sealed class Compiler
                 };
                 // 标记为占位符：首次消费后移除，后续同名变量将被视为影子变量创建新槽位
                 innerCompiler._placeholderCaptureNames.Add(varName);
-#if DEBUG
-                Console.WriteLine($"[CreateInnerCompiler] 预注册嵌套捕获变量: '{varName}' → 捕获槽位 {captureIndex}");
-#endif
+ScriptLog.Debug($"[CreateInnerCompiler] 预注册嵌套捕获变量: '{varName}' → 捕获槽位 {captureIndex}");
             }
         }
 
@@ -1012,10 +976,8 @@ public sealed class Compiler
         {
             foreach (var captureName in vt.CaptureNames.Keys)
             {
-#if DEBUG
-                if (!captureNames.Contains(captureName))
-                    Console.WriteLine($"[CollectNestedCaptures] 从嵌套闭包中发现: '{captureName}'");
-#endif
+if (!captureNames.Contains(captureName))
+                    ScriptLog.Debug($"[CollectNestedCaptures] 从嵌套闭包中发现: '{captureName}'");
                 captureNames.Add(captureName);
             }
         }
@@ -1051,15 +1013,11 @@ public sealed class Compiler
                     if (region == oldRegion && localSlot == oldSlot)
                     {
                         _pendingSlotFixups[i] = (index, newRegion, captureSlot);
-#if DEBUG
-                        Console.WriteLine($"[ReplaceBindingInScope] 修正 fixup[{i}]: '{name}' {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}");
-#endif
+ScriptLog.Debug($"[ReplaceBindingInScope] 修正 fixup[{i}]: '{name}' {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}");
                     }
                 }
 
-#if DEBUG
-                Console.WriteLine($"[ReplaceBindingInScope] '{name}': {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}, 修正了 fixup 记录");
-#endif
+ScriptLog.Debug($"[ReplaceBindingInScope] '{name}': {oldRegion}:{oldSlot} → {newRegion}:{captureSlot}, 修正了 fixup 记录");
                 return;
             }
         }

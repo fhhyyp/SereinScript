@@ -81,9 +81,9 @@ public static class AnnotationParser
 
         string content = joined[braceStart..braceEnd].Trim();
         // 诊断：打印原始内容（转义 \n 为可见形式）
-        global::System.Console.Error.WriteLine($"[LSP.Annotation] Raw content between {{{{ }}}}: '{content.Replace("\n", "\\n").Replace("\r", "\\r")}'");
+        ScriptLog.Error($"[LSP.Annotation] Raw content between {{{{ }}}}: '{content.Replace("\n", "\\n").Replace("\r", "\\r")}'");
         var result = ParseMembers(content);
-        global::System.Console.Error.WriteLine($"[LSP.Annotation] Found {result.Count} members: {string.Join(", ", result.Select(m => m.Name))}");
+        ScriptLog.Error($"[LSP.Annotation] Found {result.Count} members: {string.Join(", ", result.Select(m => m.Name))}");
         return result;
     }
 

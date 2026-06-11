@@ -21,18 +21,14 @@ public static class CaptureAnalysis
         var boundVars = new HashSet<string>(lambda.Params);
         var freeVars = new HashSet<string>();
 
-#if DEBUG
-        Console.WriteLine($"[CaptureAnalysis] === 开始分析 Lambda ===");
-        Console.WriteLine($"[CaptureAnalysis] Lambda 参数: [{string.Join(", ", lambda.Params)}]");
-        Console.WriteLine($"[CaptureAnalysis] Lambda Body 类型: {lambda.Body.GetType().Name}");
-        Console.WriteLine($"[CaptureAnalysis] localNames 内容 ({localNames.Count} 个): [{string.Join(", ", localNames)}]");
-#endif
+        ScriptLog.Debug($"[CaptureAnalysis] === 开始分析 Lambda ===");
+        ScriptLog.Debug($"[CaptureAnalysis] Lambda 参数: [{string.Join(", ", lambda.Params)}]");
+        ScriptLog.Debug($"[CaptureAnalysis] Lambda Body 类型: {lambda.Body.GetType().Name}");
+        ScriptLog.Debug($"[CaptureAnalysis] localNames 内容 ({localNames.Count} 个): [{string.Join(", ", localNames)}]");
 
         CollectFreeVariables(lambda.Body, boundVars, freeVars);
 
-#if DEBUG
-        Console.WriteLine($"[CaptureAnalysis] 所有自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
-#endif
+        ScriptLog.Debug($"[CaptureAnalysis] 所有自由变量 ({freeVars.Count} 个): [{string.Join(", ", freeVars)}]");
 
         // 返回所有不在参数列表中的自由变量（不过滤，由调用方通过 ResolveVariable 决定如何处理）
         var captured = new HashSet<string>();
@@ -40,24 +36,18 @@ public static class CaptureAnalysis
         {
             bool isBound = boundVars.Contains(name);
 
-#if DEBUG
             bool isLocal = localNames.Contains(name);
-            Console.WriteLine($"[CaptureAnalysis]   变量 '{name}': isLocal={isLocal}, isBound={isBound}");
-#endif
+            ScriptLog.Debug($"[CaptureAnalysis]   变量 '{name}': isLocal={isLocal}, isBound={isBound}");
 
             if (!isBound)
             {
                 captured.Add(name);
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]     → 加入候选!");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]     → 加入候选!");
             }
         }
 
-#if DEBUG
-        Console.WriteLine($"[CaptureAnalysis] 候选捕获 ({captured.Count} 个): [{string.Join(", ", captured)}]");
-        Console.WriteLine($"[CaptureAnalysis] === 分析结束 ===\n");
-#endif
+        ScriptLog.Debug($"[CaptureAnalysis] 候选捕获 ({captured.Count} 个): [{string.Join(", ", captured)}]");
+        ScriptLog.Debug($"[CaptureAnalysis] === 分析结束 ===\n");
 
         return captured;
     }
@@ -69,9 +59,7 @@ public static class CaptureAnalysis
             case IdentifierExpr id:
                 if (!bound.Contains(id.Name))
                 {
-#if DEBUG
-                    Console.WriteLine($"[CaptureAnalysis]   CollectFree: 发现自由变量 '{id.Name}' (IdentifierExpr)");
-#endif
+                    ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 发现自由变量 '{id.Name}' (IdentifierExpr)");
                     free.Add(id.Name);
                 }
                 break;
@@ -80,77 +68,55 @@ public static class CaptureAnalysis
                 break;
 
             case LetExpr let:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 LetExpr '{let.Name}'");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 LetExpr '{let.Name}'");
                 CollectFreeVariables(let.Value, bound, free);
                 break;
 
             case VarExpr var:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 VarExpr '{var.Name}'");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 VarExpr '{var.Name}'");
                 CollectFreeVariables(var.Value, bound, free);
                 break;
 
             case AssignExpr assign:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 AssignExpr '{assign.Name}'");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 AssignExpr '{assign.Name}'");
                 CollectFreeVariables(assign.Value, bound, free);
                 if (!bound.Contains(assign.Name))
                     free.Add(assign.Name);
                 break;
 
             case BlockExpr block:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 BlockExpr ({block.Statements.Count} 条语句)");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 BlockExpr ({block.Statements.Count} 条语句)");
                 var blockBound = new HashSet<string>(bound);
                 for (int idx = 0; idx < block.Statements.Count; idx++)
                 {
                     var stmt = block.Statements[idx];
                     if (stmt is LetExpr l)
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Block[{idx}]: LetExpr '{l.Name}' - 先求值, 再绑定");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Block[{idx}]: LetExpr '{l.Name}' - 先求值, 再绑定");
                         CollectFreeVariables(l.Value, blockBound, free);
                         blockBound.Add(l.Name);
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Block: 绑定 '{l.Name}' → bound 现在: [{string.Join(", ", blockBound)}]");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Block: 绑定 '{l.Name}' → bound 现在: [{string.Join(", ", blockBound)}]");
                     }
                     else if (stmt is VarExpr v)
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Block[{idx}]: VarExpr '{v.Name}' - 先求值, 再绑定");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Block[{idx}]: VarExpr '{v.Name}' - 先求值, 再绑定");
                         CollectFreeVariables(v.Value, blockBound, free);
                         blockBound.Add(v.Name);
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Block: 绑定 '{v.Name}' → bound 现在: [{string.Join(", ", blockBound)}]");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Block: 绑定 '{v.Name}' → bound 现在: [{string.Join(", ", blockBound)}]");
                     }
                     else
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Block[{idx}]: {stmt.GetType().Name}");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Block[{idx}]: {stmt.GetType().Name}");
                         CollectFreeVariables(stmt, blockBound, free);
                     }
                 }
                 break;
 
             case LambdaExpr lambda:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入内层 Lambda, 参数: [{string.Join(", ", lambda.Params)}]");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入内层 Lambda, 参数: [{string.Join(", ", lambda.Params)}]");
                 var lambdaBound = new HashSet<string>(bound);
                 lambdaBound.UnionWith(lambda.Params);
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]     内层 Lambda bound: [{string.Join(", ", lambdaBound)}]");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]     内层 Lambda bound: [{string.Join(", ", lambdaBound)}]");
                 CollectFreeVariables(lambda.Body, lambdaBound, free);
                 break;
 
@@ -170,9 +136,7 @@ public static class CaptureAnalysis
                 break;
 
             case CallExpr call:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 CallExpr (target: {call.Target.GetType().Name}, args: {call.Args.Count})");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 CallExpr (target: {call.Target.GetType().Name}, args: {call.Args.Count})");
                 CollectFreeVariables(call.Target, bound, free);
                 foreach (var arg in call.Args)
                     CollectFreeVariables(arg, bound, free);
@@ -196,23 +160,17 @@ public static class CaptureAnalysis
                 break;
 
             case ForExpr forExpr:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 ForExpr '{forExpr.VarName}'");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 ForExpr '{forExpr.VarName}'");
                 CollectFreeVariables(forExpr.Iterable, bound, free);
                 var forBound = new HashSet<string>(bound) { forExpr.VarName };
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]     For: 绑定循环变量 '{forExpr.VarName}' → bound: [{string.Join(", ", forBound)}]");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]     For: 绑定循环变量 '{forExpr.VarName}' → bound: [{string.Join(", ", forBound)}]");
                 CollectFreeVariables(forExpr.Body, forBound, free);
                 break;
 
             case ReturnExpr ret:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 ReturnExpr (HasValue={ret.Value != null})");
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 ReturnExpr (HasValue={ret.Value != null})");
                 if (ret.Value != null)
-                    Console.WriteLine($"[CaptureAnalysis]     Return 值类型: {ret.Value.GetType().Name}");
-#endif
+                    ScriptLog.Debug($"[CaptureAnalysis]     Return 值类型: {ret.Value.GetType().Name}");
                 if (ret.Value != null)
                     CollectFreeVariables(ret.Value, bound, free);
                 break;
@@ -248,34 +206,26 @@ public static class CaptureAnalysis
                 break;
 
             case ProgramExpr program:
-#if DEBUG
-                Console.WriteLine($"[CaptureAnalysis]   CollectFree: 进入 ProgramExpr ({program.Statements.Count} 条语句)");
-#endif
+                ScriptLog.Debug($"[CaptureAnalysis]   CollectFree: 进入 ProgramExpr ({program.Statements.Count} 条语句)");
                 var programBound = new HashSet<string>(bound);
                 for (int idx = 0; idx < program.Statements.Count; idx++)
                 {
                     var stmt = program.Statements[idx];
                     if (stmt is LetExpr l2)
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Program[{idx}]: LetExpr '{l2.Name}'");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Program[{idx}]: LetExpr '{l2.Name}'");
                         CollectFreeVariables(l2.Value, programBound, free);
                         programBound.Add(l2.Name);
                     }
                     else if (stmt is VarExpr v2)
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Program[{idx}]: VarExpr '{v2.Name}'");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Program[{idx}]: VarExpr '{v2.Name}'");
                         CollectFreeVariables(v2.Value, programBound, free);
                         programBound.Add(v2.Name);
                     }
                     else
                     {
-#if DEBUG
-                        Console.WriteLine($"[CaptureAnalysis]     Program[{idx}]: {stmt.GetType().Name}");
-#endif
+                        ScriptLog.Debug($"[CaptureAnalysis]     Program[{idx}]: {stmt.GetType().Name}");
                         CollectFreeVariables(stmt, programBound, free);
                     }
                 }

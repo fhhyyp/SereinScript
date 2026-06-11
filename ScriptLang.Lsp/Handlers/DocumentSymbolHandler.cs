@@ -32,7 +32,7 @@ public sealed class DocumentSymbolHandler : IDocumentSymbolHandler
     public Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request, CancellationToken cancellationToken)
     {
-        Console.Error.WriteLine($"[LSP.Sym] uri={request.TextDocument.Uri}");
+        ScriptLog.Error($"[LSP.Sym] uri={request.TextDocument.Uri}");
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast is not ProgramExpr program)
             return Task.FromResult<SymbolInformationOrDocumentSymbolContainer?>(null);

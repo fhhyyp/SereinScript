@@ -9,13 +9,6 @@ namespace ScriptLang
 {
     public sealed class ScriptEngine
     {
-        public bool IsPrintVMInfo { get;  set; } =
-#if DEBUG
-            true;
-#else
-            false;
-#endif
-        public bool IsPrintInputSciptContent { get;  set; } = false;
 
         /// <summary>
         /// 脚本依赖导入工具
@@ -67,21 +60,11 @@ namespace ScriptLang
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);
-                if (IsPrintInputSciptContent)
-                {
-                    Console.WriteLine("================加载脚本==============");
-                    Console.WriteLine($"# 脚本路径：{filePath}");
-                    Console.WriteLine(script);
-                    Console.WriteLine("================解析完毕==============");
-                    Console.WriteLine("");
-#if DEBUG
-                    Debug.WriteLine("================加载脚本==============");
-                    Debug.WriteLine($"# 脚本路径：{filePath}");
-                    Debug.WriteLine(script);
-                    Debug.WriteLine("================解析完毕==============");
-                    Debug.WriteLine("");
-#endif
-                }
+                ScriptLog.Debug("================加载脚本==============");
+                ScriptLog.Debug($"# 脚本路径：{filePath}");
+                ScriptLog.Debug(script);
+                ScriptLog.Debug("================解析完毕==============");
+                ScriptLog.Debug("");
 
                 SourceManager.AddSource(filePath, script);
             }
@@ -105,10 +88,7 @@ namespace ScriptLang
                 for (int index = 0; index < parser.Diagnostics.Count; index++)
                 {
                     ParseException? diagnostic = parser.Diagnostics[index];
-                    Console.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
-#if DEBUG
-                    Debug.WriteLine($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
-#endif
+                    ScriptLog.Error($"第 {index + 1} 个异常 ：" + diagnostic.ToString());
                 }
                 throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
             }
@@ -211,7 +191,7 @@ namespace ScriptLang
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
                 sw.Stop();
-                Console.WriteLine($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
+                ScriptLog.Debug($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
                 return result;
             });
 
@@ -226,39 +206,31 @@ namespace ScriptLang
             // 获取或创建字节码缓存
             if (!_compilationCache.TryGetValue(expr, out var chunk))
             {
-#if DEBUG
                 var sw = Stopwatch.StartNew();
-#endif
                 var compiler = new Compiler();
                 chunk = compiler.Compile(expr);
                 _compilationCache[expr] = chunk;
 
-#if DEBUG
                 sw.Stop();
-                Console.WriteLine($"[Compile] 编译耗时: {sw.ElapsedMilliseconds}ms");
-                Console.WriteLine($"[Compile] 字节码指令数: {chunk.Code.Count}");
-                Console.WriteLine($"[Compile] 常量数: {chunk.ConstantCount}");
+                ScriptLog.Debug($"[Compile] 编译耗时: {sw.ElapsedMilliseconds}ms");
+                ScriptLog.Debug($"[Compile] 字节码指令数: {chunk.Code.Count}");
+                ScriptLog.Debug($"[Compile] 常量数: {chunk.ConstantCount}");
                 if (chunk.VariableTable != null)
                 {
                     var vt = chunk.VariableTable;
-                    Console.WriteLine($"[Compile] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
+                    ScriptLog.Debug($"[Compile] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
                 }
-#endif
             }
 
             // 创建执行工厂
             Func<Task<Value>> factory = new Func<Task<Value>>(async () =>
             {
-#if DEBUG
                 var sw = Stopwatch.StartNew();
-#endif
                 // 每次执行创建新的 VM 实例（保证栈/帧隔离）
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
-#if DEBUG
                 sw.Stop();
-                Console.WriteLine($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
-#endif
+                ScriptLog.Debug($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
                 return result;
             });
 

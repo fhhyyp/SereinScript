@@ -99,7 +99,7 @@ namespace ScriptLang
                 }
                 catch (Exception callbackEx)
                 {
-                    Console.WriteLine($"处理 'tryCall' catch 时发生异常：{callbackEx}");
+                    ScriptLog.Error($"处理 'tryCall' catch 时发生异常：{callbackEx}");
                 }
             }
             static async Task FinallyCallback(ICallable callback, ScriptEngine env)
@@ -110,7 +110,7 @@ namespace ScriptLang
                 }
                 catch (Exception callbackEx)
                 {
-                    Console.WriteLine($"处理 'tryCall' finally 时发生异常：{callbackEx}");
+                    ScriptLog.Error($"处理 'tryCall' finally 时发生异常：{callbackEx}");
                 }
             }
         });

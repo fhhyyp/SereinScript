@@ -33,7 +33,7 @@ public sealed class HoverHandler : IHoverHandler
 
     public Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
     {
-        Console.Error.WriteLine($"[LSP.Hover] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
+        ScriptLog.Error($"[LSP.Hover] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
             return Task.FromResult<Hover?>(null);

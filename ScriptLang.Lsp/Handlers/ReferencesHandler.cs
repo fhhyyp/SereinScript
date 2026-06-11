@@ -33,7 +33,7 @@ public sealed class ReferencesHandler : IReferencesHandler
 
     public Task<LocationContainer?> Handle(ReferenceParams request, CancellationToken cancellationToken)
     {
-        Console.Error.WriteLine($"[LSP.Ref] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
+        ScriptLog.Error($"[LSP.Ref] uri={request.TextDocument.Uri} pos={request.Position.Line}:{request.Position.Character}");
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
             return Task.FromResult<LocationContainer?>(null);

@@ -111,7 +111,7 @@ class Program
         var fullPath = Path.GetFullPath(Path.Combine(exePath, scriptPath));
         if (!File.Exists(fullPath))
         {
-            Console.Error.WriteLine($"文件不存在: {fullPath}");
+            ScriptLog.Error($"文件不存在: {fullPath}");
             return;
         }
 
@@ -133,7 +133,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"异常: {ex}");
+            ScriptLog.Error($"异常: {ex}");
         }
     }
 
@@ -481,7 +481,7 @@ class Program
         var fullPath = Path.GetFullPath(Path.Combine(exePath, sscPath));
         if (!File.Exists(fullPath))
         {
-            Console.Error.WriteLine($"文件不存在: {fullPath}");
+            ScriptLog.Error($"文件不存在: {fullPath}");
             return;
         }
 
@@ -502,7 +502,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"异常: {ex}");
+            ScriptLog.Error($"异常: {ex}");
         }
     }
 
@@ -526,7 +526,7 @@ class Program
         if (parser.Diagnostics.Count > 0)
         {
             foreach (var diag in parser.Diagnostics)
-                Console.WriteLine($"解析异常: {diag}");
+                ScriptLog.Error($"解析异常: {diag}");
             throw new Exception($"Parser 阶段产生 {parser.Diagnostics.Count} 个异常");
         }
 

@@ -42,7 +42,7 @@ public sealed class CompletionHandler : ICompletionHandler
         var doc = _workspace.GetDocument(request.TextDocument.Uri);
         if (doc?.Ast == null || doc.RootScope == null)
         {
-            Console.Error.WriteLine($"[LSP.Completion] SKIP: doc={doc != null}, ast={doc?.Ast != null}, scope={doc?.RootScope != null}");
+            ScriptLog.Error($"[LSP.Completion] SKIP: doc={doc != null}, ast={doc?.Ast != null}, scope={doc?.RootScope != null}");
             return Task.FromResult(new CompletionList());
         }
 
@@ -50,7 +50,7 @@ public sealed class CompletionHandler : ICompletionHandler
         var visibleSymbols = _symbolTable.GetVisibleSymbols(doc.RootScope, offset);
         var context = GetCompletionContext(doc.Text, offset, request.Context?.TriggerCharacter);
 
-        Console.Error.WriteLine($"[LSP.Completion] pos={request.Position.Line}:{request.Position.Character} trigger={request.Context?.TriggerCharacter ?? "null"} context={context} symbols={visibleSymbols.Count}");
+        ScriptLog.Error($"[LSP.Completion] pos={request.Position.Line}:{request.Position.Character} trigger={request.Context?.TriggerCharacter ?? "null"} context={context} symbols={visibleSymbols.Count}");
 
         var items = new List<CompletionItem>();
 
@@ -70,7 +70,7 @@ public sealed class CompletionHandler : ICompletionHandler
                 break;
         }
 
-        Console.Error.WriteLine($"[LSP.Completion] returning {items.Count} items");
+        ScriptLog.Error($"[LSP.Completion] returning {items.Count} items");
         return Task.FromResult(new CompletionList(items));
     }
 
