@@ -879,18 +879,18 @@ public class VM
             if(existingValue is null)
             {
 #if DEBUG
-                Debug.WriteLine($"[CreateClosure] name={name}, existingValue is null");
+                Debug.WriteLine($"[CreateClosure] name={name}, existingValue is null (forward reference, creating placeholder cell)");
 #endif
-                Console.WriteLine($"[CreateClosure] name={name}, existingValue is null");
-                continue;
+                // 不 continue：即使当前值为 null（前向引用），仍需创建 VariableCell 占位，
+                // 后续 StoreSlot 会通过 Captures[outerCaptureSlot].Cell.Value 同步真实值。
             }
             // 始终创建新的 VariableCell，保证每次闭包实例化有独立的状态
             if (_engine.IsPrintVMInfo)
             {
 #if DEBUG
-                Debug.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue.GetHashCode()}");
+                Debug.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
 #endif
-                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue.GetHashCode()}");
+                Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
             }
             var cell = new VariableCell(existingValue);
             var info = new VariableInfo(cell, true) { IsCaptured = true };

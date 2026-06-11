@@ -49,7 +49,7 @@ class Program
         ],
         [ // 6
             @".\Samples\高级\linq\run-linq.script",
-            @".\Samples\高级\pinia\run-import.script",
+            @".\Samples\高级\pinia\main.script",
         ],
         ];
         //scirpt(1, 1);

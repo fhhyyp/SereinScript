@@ -10,7 +10,7 @@ namespace ScriptLang
     public sealed class ScriptEngine
     {
         public bool IsPrintVMInfo { get;  set; } =
-#if debug
+#if DEBUG
             true;
 #else
             false;

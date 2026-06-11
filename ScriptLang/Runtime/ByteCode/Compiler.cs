@@ -202,8 +202,8 @@ public sealed class Compiler
 
     private VariableBinding? ResolveVariable(string name)
     {
-        // 1. 查编译时作用域链
-        foreach (var scope in _scopeStack.Reverse())
+        // 1. 查编译时作用域链（从栈顶到栈底 = 从内层到外层，确保内层变量遮蔽外层同名变量）
+        foreach (var scope in _scopeStack)
         {
             if (scope.TryGetValue(name, out var binding))
             {
@@ -886,8 +886,9 @@ public sealed class Compiler
                     int captureIndex = _varTable.AllocCapture(varName);
                     captureSlots[varName] = captureIndex;
 
-                    // 在作用域栈最外层注册占位符
-                    var topScope = _scopeStack.First();
+                    // 在作用域栈最底层（最外层）注册占位符
+                    // 注意：Stack<T> 迭代顺序是从顶到底，Last() 返回栈底（最外层作用域）
+                    var topScope = _scopeStack.Last();
                     if (!topScope.ContainsKey(varName))
                     {
                         var placeholderBinding = new VariableBinding(captureIndex, false, isCaptured: true)

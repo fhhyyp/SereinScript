@@ -2,7 +2,7 @@
 print("=== 闭包递归测试 ===")
 
 let makeCounter = (start) => {
-    let count = start
+    var count = start
     return () => {
         count = count + 1
         return count

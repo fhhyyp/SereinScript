@@ -14,3 +14,16 @@ let d = date("2025-02-05 12:00:12")
 print(d.toString("yyyy/MM/dd"))
 print("n", n)
 print("d(2025-02-05 12:00:12)", d)
+
+
+let obj = {
+    name = "张三",
+    obj2 = {
+        log = () => {
+            print(obj)  // 闭包引用外部变量 obj
+        }
+    }
+    
+}
+print(obj)   // 外部调用正常
+obj.obj2.log()    // 闭包内 obj 为 null ← Bug
