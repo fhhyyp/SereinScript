@@ -159,6 +159,8 @@ public static class ModuleMemberProvider
             "FunctionValue" => "function",
             "CompiledFunctionValue" => "function",
             "MutableNumber" => "num",
+            "DateTimeValue" => "datetime",
+            "TimeSpanValue" => "timespan",
             "Void" => "void",
             "Int32" => "int",
             "Int64" => "long",
@@ -354,7 +356,9 @@ public static class ModuleMemberProvider
     {
         ["string"] = PMs(("length",true,"int"),("toUpper",false,"String toUpper()"),("toLower",false,"String toLower()"),("trim",false,"String trim()"),("split",false,"Array split(separator)"),("substring",false,"String substring(start,len?)"),("contains",false,"Bool contains(value)")),
         ["array"]  = PMs(("count",true,"int"),("length",true,"int"),("add",false,"void add(item)"),("first",false,"any first()"),("last",false,"any last()"),("select",false,"Array select(fn)"),("where",false,"Array where(fn)"),("orderBy",false,"Array orderBy()"),("orderByDesc",false,"Array orderByDesc()"),("toList",false,"Array toList()")),
-        ["object"] = PMs(("count",true,"int"),("keys",false,"Array keys()"),("values",false,"Array values()"),("has",false,"Bool has(key)"),("get",false,"any get(key)"),("set",false,"void set(key,value)"),("containsKey",false,"Bool containsKey(key)"),("remove",false,"Bool remove(key)"),("clear",false,"void clear()")),
+        ["object"]   = PMs(("count",true,"int"),("keys",false,"Array keys()"),("values",false,"Array values()"),("has",false,"Bool has(key)"),("get",false,"any get(key)"),("set",false,"void set(key,value)"),("containsKey",false,"Bool containsKey(key)"),("remove",false,"Bool remove(key)"),("clear",false,"void clear()")),
+        ["datetime"] = PMs(("year",true,"int"),("month",true,"int"),("day",true,"int"),("hour",true,"int"),("minute",true,"int"),("second",true,"int"),("millisecond",true,"int"),("ticks",true,"long"),("dayOfWeek",true,"int"),("dayOfYear",true,"int"),("toString",false,"String toString(format?)")),
+        ["timespan"] = PMs(("days",true,"int"),("hours",true,"int"),("minutes",true,"int"),("seconds",true,"int"),("milliseconds",true,"int"),("totalDays",true,"double"),("totalHours",true,"double"),("totalMinutes",true,"double"),("totalSeconds",true,"double"),("totalMilliseconds",true,"double"),("ticks",true,"long"),("toString",false,"String toString(format?)")),
     };
     private static List<ModuleMemberInfo> PMs(params (string name, bool isProp, string desc)[] items) => items.Select(i => new ModuleMemberInfo { Name = i.name, IsProperty = i.isProp, Description = i.desc }).ToList();
 
@@ -366,6 +370,12 @@ public static class ModuleMemberProvider
         ArrayLiteralExpr => "array",
         ObjectLiteralExpr => "object",
         LambdaExpr => "function",
+        CallExpr call when call.Target is IdentifierExpr id => id.Name switch
+        {
+            "now" or "date" => "datetime",
+            "timespan" => "timespan",
+            _ => "unknown"
+        },
         _ => "unknown"
     };
 

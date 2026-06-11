@@ -49,6 +49,8 @@ namespace ScriptLang
             PrototypeManager.Register<ArrayPrototype>();
             PrototypeManager.Register<ObjectPrototype>();
             PrototypeManager.Register<StringPrototype>();
+            PrototypeManager.Register<DateTimePrototype>();
+            PrototypeManager.Register<TimeSpanPrototype>();
 
         }
 

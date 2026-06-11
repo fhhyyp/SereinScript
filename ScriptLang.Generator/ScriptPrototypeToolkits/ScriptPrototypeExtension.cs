@@ -48,6 +48,8 @@ internal static class ScriptPrototypeExtension
     private const string ScriptNumberValue_float = "global::ScriptLang.Runtime.NumberValue<float>";
     private const string ScriptNumberValue_double = "global::ScriptLang.Runtime.NumberValue<double>";
     private const string ScriptNumberValue_decimal = "global::ScriptLang.Runtime.NumberValue<decimal>";
+    private const string ScriptDateTimeValue = "global::ScriptLang.Runtime.DateTimeValue";
+    private const string ScriptTimeSpanValue = "global::ScriptLang.Runtime.TimeSpanValue";
     private const string ScriptStringValue = "global::ScriptLang.Runtime.StringValue";
     private const string ScriptBoolValue = "global::ScriptLang.Runtime.BoolValue";
     private const string ScriptObjectValue = "global::ScriptLang.Runtime.ObjectValue";
@@ -72,6 +74,8 @@ internal static class ScriptPrototypeExtension
             ScriptNumberValue_float => true,
             ScriptNumberValue_double => true,
             ScriptNumberValue_decimal => true,
+            ScriptDateTimeValue => true,
+            ScriptTimeSpanValue => true,
             ScriptStringValue => true,
             ScriptBoolValue => true,
             ScriptObjectValue => true,

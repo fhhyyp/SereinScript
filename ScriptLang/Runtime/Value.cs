@@ -42,6 +42,8 @@ public abstract class Value
     public virtual bool IsFunction => false;
     public virtual bool IsClrObject => false;
     public virtual bool IsClrMethod => false;
+    public virtual bool IsDateTime => false;
+    public virtual bool IsTimeSpan => false;
     #endregion
 
     /// <summary>转换为不可变值（MutableNumber 重写）</summary>
@@ -69,6 +71,8 @@ public abstract class Value
             ObjectValue o => "{" + string.Join(", ", o.Properties.Select(kv => $"{kv.Key}: {kv.Value}")) + "}",
             StringValue s => s.Value,
             CompiledFunctionValue cf => $"({string.Join(',', cf.Parameters)}) = {{}}",
+            DateTimeValue dt => dt.ToString(),
+            TimeSpanValue ts => ts.Value.ToString(),
             _ => "unknown"
         };
     }

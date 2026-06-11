@@ -1351,6 +1351,16 @@ public class VM
             return new ArrayValue(newArray);
         }
 
+        // DateTime / TimeSpan 操作
+        if (left.IsDateTime && right.IsTimeSpan)
+            return new DateTimeValue(left.As<DateTime>() + right.As<TimeSpan>());
+
+        if (left.IsTimeSpan && right.IsDateTime)
+            return new DateTimeValue(right.As<DateTime>() + left.As<TimeSpan>());
+
+        if (left.IsTimeSpan && right.IsTimeSpan)
+            return new TimeSpanValue(left.As<TimeSpan>() + right.As<TimeSpan>());
+
         throw new RuntimeException($"不支持的操作: {left} + {right}");
     }
 
@@ -1380,6 +1390,16 @@ public class VM
             }
             return new ArrayValue(arr);
         }
+
+        // DateTime / TimeSpan 操作
+        if (left.IsDateTime && right.IsTimeSpan)
+            return new DateTimeValue(left.As<DateTime>() - right.As<TimeSpan>());
+
+        if (left.IsDateTime && right.IsDateTime)
+            return new TimeSpanValue(left.As<DateTime>() - right.As<DateTime>());
+
+        if (left.IsTimeSpan && right.IsTimeSpan)
+            return new TimeSpanValue(left.As<TimeSpan>() - right.As<TimeSpan>());
 
         throw new RuntimeException($"不支持的操作: {left} - {right}");
     }
@@ -1507,6 +1527,32 @@ public class VM
             });
         }
 
+        if (left.IsDateTime && right.IsDateTime)
+        {
+            int cmp = left.As<DateTime>().CompareTo(right.As<DateTime>());
+            return BoolValue.Create(kind switch
+            {
+                CompareKind.Lt => cmp < 0,
+                CompareKind.Le => cmp <= 0,
+                CompareKind.Gt => cmp > 0,
+                CompareKind.Ge => cmp >= 0,
+                _ => false
+            });
+        }
+
+        if (left.IsTimeSpan && right.IsTimeSpan)
+        {
+            int cmp = left.As<TimeSpan>().CompareTo(right.As<TimeSpan>());
+            return BoolValue.Create(kind switch
+            {
+                CompareKind.Lt => cmp < 0,
+                CompareKind.Le => cmp <= 0,
+                CompareKind.Gt => cmp > 0,
+                CompareKind.Ge => cmp >= 0,
+                _ => false
+            });
+        }
+
         throw new RuntimeException($"不支持比较: {left} 和 {right}");
     }
 
@@ -1555,6 +1601,8 @@ public class VM
                 ol.Properties.Count == or.Properties.Count &&
                 ol.Properties.All(kv =>
                     or.Properties.TryGetValue(kv.Key, out var v) && IsEqual(kv.Value, v)),
+            (DateTimeValue d1, DateTimeValue d2) => d1.Value == d2.Value,
+            (TimeSpanValue t1, TimeSpanValue t2) => t1.Value == t2.Value,
             _ => left.Equals(right),
         };
     }
@@ -1571,6 +1619,8 @@ public class VM
             decimal m => NumberValueFactory.Create(m),
             string s => StringValue.Create(s),
             bool b => BoolValue.Create(b),
+            DateTime dt => new DateTimeValue(dt),
+            TimeSpan ts => new TimeSpanValue(ts),
             _ => throw new RuntimeException($"不支持的常量类型: {constant?.GetType()}")
         };
     }
@@ -1584,8 +1634,10 @@ public class VM
         if (value.IsNumber_Long) return value.As<long>();
         if (value.IsNumber_Float) return value.As<float>();
         if (value.IsNumber_Double) return value.As<double>();
+        if (value is DateTimeValue dt) return dt.Value;
+        if (value is TimeSpanValue ts) return ts.Value;
         if (value is ClrObjectValue clr) return clr.Value;
-        
+
         throw new RuntimeException($"无法转换 {value.GetType()} 到 CLR 类型 {targetType}");
     }
 
@@ -1601,6 +1653,8 @@ public class VM
             decimal m => NumberValueFactory.Create(m),
             string s => StringValue.Create(s),
             bool b => BoolValue.Create(b),
+            DateTime dt => new DateTimeValue(dt),
+            TimeSpan ts => new TimeSpanValue(ts),
             _ => new ClrObjectValue(clrValue)
         };
     }

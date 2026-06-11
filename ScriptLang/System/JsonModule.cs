@@ -39,17 +39,19 @@ namespace ScriptLang.System
 
         private static object? ConvertToClrObject(Value value)
         { 
-            return value switch 
-            { 
+            return value switch
+            {
                 NullValue => null,
                 StringValue s => s.Value,
-                NumberValue<int> n => n.Value, 
+                NumberValue<int> n => n.Value,
                 NumberValue<long> n => n.Value,
                 NumberValue<double> n => n.Value,
                 NumberValue<decimal> n => (double)n.Value,
-                BoolValue b => b.Value, 
-                ArrayValue a => a.Elements.Select(ConvertToClrObject).ToArray(), 
-                ObjectValue o => o.Properties.ToDictionary(kv => kv.Key, kv => ConvertToClrObject(kv.Value)), 
+                BoolValue b => b.Value,
+                ArrayValue a => a.Elements.Select(ConvertToClrObject).ToArray(),
+                ObjectValue o => o.Properties.ToDictionary(kv => kv.Key, kv => ConvertToClrObject(kv.Value)),
+                DateTimeValue dt => dt.Value.ToString("O"),
+                TimeSpanValue ts => ts.Value.ToString(),
                 _ => value.ToString()
             };
         }

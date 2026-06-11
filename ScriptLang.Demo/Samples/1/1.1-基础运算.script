@@ -8,4 +8,8 @@ print(str)
 print(str.length) 
 print(str.toUpper()) 
 
-
+let n = now()
+let d = date("2025-02-05 12:00:12")
+print(d.toString("yyyy/MM/dd"))
+print("n", n)
+print("d(2025-02-05 12:00:12)", d)

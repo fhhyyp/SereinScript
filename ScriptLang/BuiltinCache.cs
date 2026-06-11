@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Serialization;
 using ScriptLang.Runtime;
 
@@ -12,7 +13,37 @@ namespace ScriptLang
             static (List<Value> args) => Console.WriteLine($"debug:: {string.Join(", ", args)}"));
 
         private static readonly FunctionValue now = new(nameof(now),
-            static () => NumberValueFactory.Create(DateTime.Now.Ticks));
+            static () => new DateTimeValue(DateTime.Now));
+
+        private static readonly FunctionValue date = new(nameof(date),
+            static (List<Value> args) =>
+            {
+                if (args.Count != 1 || args[0] is not StringValue s)
+                    throw new RuntimeException("date() 期望 1 个字符串参数 (ISO 8601 格式)");
+                if (DateTime.TryParse(s.Value, null, DateTimeStyles.AssumeLocal | DateTimeStyles.AdjustToUniversal, out var dt))
+                    return new DateTimeValue(dt); // 无时区标记→假定本地时间；有时区偏移→转为UTC
+                throw new RuntimeException($"无法解析日期字符串: '{s.Value}'");
+            });
+
+        private static readonly FunctionValue timespan = new(nameof(timespan),
+            static (List<Value> args) =>
+            {
+                if (args.Count != 2 || !args[0].IsNumber || args[1] is not StringValue unit)
+                    throw new RuntimeException("timespan() 期望 (NumberValue, StringValue unit)");
+
+                double amount = args[0].As<double>();
+                TimeSpan ts = unit.Value switch
+                {
+                    "days" => TimeSpan.FromDays(amount),
+                    "hours" => TimeSpan.FromHours(amount),
+                    "minutes" => TimeSpan.FromMinutes(amount),
+                    "seconds" => TimeSpan.FromSeconds(amount),
+                    "milliseconds" => TimeSpan.FromMilliseconds(amount),
+                    "ticks" => TimeSpan.FromTicks((long)amount),
+                    _ => throw new RuntimeException($"不支持的时间单位: '{unit.Value}'，支持: days/hours/minutes/seconds/milliseconds/ticks")
+                };
+                return new TimeSpanValue(ts);
+            });
 
         #region 异常处理函数
         private static readonly FunctionValue @try = new(nameof(@try), static async (env, args) =>
@@ -144,6 +175,8 @@ namespace ScriptLang
                 CompiledFunctionValue => "compiledFunction",
                 MutableNumber => "mutableNumber",
                 RangeIterator => "rangeIterator",
+                DateTimeValue => "datetime",
+                TimeSpanValue => "timespan",
                 _ => "unknown"
             };
 
@@ -265,10 +298,12 @@ namespace ScriptLang
 
         static BuiltinCache()
         {
-            var values = new Dictionary<string, Value>() 
+            var values = new Dictionary<string, Value>()
             {
                 { nameof(debug)   ,  debug     },
                 { nameof(now)     ,  now       },
+                { nameof(date)    ,  date      },
+                { nameof(timespan),  timespan  },
                 { nameof(@try) ,  @try   },
                 { nameof(sleep)   ,  sleep     },
                 { nameof(@typeof) ,  @typeof   },

@@ -10,7 +10,7 @@ public sealed class SymbolTable
     /// <summary>内置函数名</summary>
     private static readonly HashSet<string> BuiltinNames = new(StringComparer.Ordinal)
     {
-        "print", "debug", "now", "sleep", "typeof", "range", "len", "keys",
+        "print", "debug", "now", "date", "timespan", "sleep", "typeof", "range", "len", "keys",
         "bool", "int", "double", "str", "try",
         // system modules
         "file", "network", "console", "path", "json", "timer", "crypto", "process",
