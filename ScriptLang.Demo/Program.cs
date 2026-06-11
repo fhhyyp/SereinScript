@@ -52,7 +52,7 @@ class Program
             @".\Samples\高级\pinia\main.script",
         ],
         ];
-        //scirpt(1, 1);
+        scirpt(1, 5);
         void scirpt(int page, int index)
         {
             var script = scripts[page - 1][index - 1];

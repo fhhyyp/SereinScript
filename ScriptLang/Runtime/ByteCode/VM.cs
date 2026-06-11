@@ -892,17 +892,30 @@ public class VM
 #endif
                 Console.WriteLine($"[CreateClosure] name={name}, existingValue={existingValue}, existingValueHash={existingValue?.GetHashCode()}");
             }
-            var cell = new VariableCell(existingValue);
-            var info = new VariableInfo(cell, true) { IsCaptured = true };
-
-            // 回写到外部帧的捕获区（供后续嵌套 CreateClosure 共享同一个 Cell）
-            if (outerCaptureSlot >= 0 && outerCaptureSlot < _currentFrame.Captures.Length)
+            // 检查是否已有其他闭包为同一变量创建了 Cell（多闭包捕获同一前向引用）
+            // 若有则复用，确保 StoreSlot 一次写入能同步到所有闭包
+            VariableInfo info;
+            if (outerCaptureSlot >= 0 && outerCaptureSlot < _currentFrame.Captures.Length
+                && _currentFrame.Captures[outerCaptureSlot] != null)
             {
-                _currentFrame.Captures[outerCaptureSlot] = info;
+                info = _currentFrame.Captures[outerCaptureSlot];
+                if (_engine.IsPrintVMInfo)
+                    Console.WriteLine($"[CreateClosure] name={name}, 复用已有 Cell(Hash={info.GetHashCode()})");
+            }
+            else
+            {
+                var cell = new VariableCell(existingValue);
+                info = new VariableInfo(cell, true) { IsCaptured = true };
+
+                // 回写到外部帧的捕获区（供后续嵌套 CreateClosure 共享同一个 Cell）
+                if (outerCaptureSlot >= 0 && outerCaptureSlot < _currentFrame.Captures.Length)
+                {
+                    _currentFrame.Captures[outerCaptureSlot] = info;
+                }
+                if (_engine.IsPrintVMInfo)
+                    Console.WriteLine($"[CreateClosure] 回写 Captures[{outerCaptureSlot}] = new Cell({existingValue}), HashCode={info.GetHashCode()}");
             }
             capturedCells[innerCaptureIndex] = info;
-            if (_engine.IsPrintVMInfo)
-                Console.WriteLine($"[CreateClosure] 回写 Captures[{outerCaptureSlot}] = new Cell({existingValue}), HashCode={info.GetHashCode()}");
         }
 
         var closure = new LightweightClosure(capturedCells);
@@ -1586,6 +1599,14 @@ public class VM
 
     private static bool IsEqual(Value left, Value right)
     {
+        if(right == Value.Null && left is null)
+        {
+            return true;
+        }
+        if(left == Value.Null && right is null)
+        {
+            return true;
+        }
         if (left.IsNumber && right.IsNumber)
             return CompareNumbers(left, right) == 0;
 
