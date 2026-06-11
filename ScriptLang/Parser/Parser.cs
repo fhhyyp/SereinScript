@@ -947,7 +947,13 @@ public class Parser(List<Token> tokens, string filePath)
         {
             do
             {
+
+                if (Check(TokenType.RightBracket))
+                {
+                    break;
+                }
                 elements.Add(ParseExpression());
+
             } while (Match(TokenType.Comma));
         }
 
