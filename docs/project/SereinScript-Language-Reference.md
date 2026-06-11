@@ -104,8 +104,8 @@ name  _private  @class  counter1  my_function
 
 | Token | 类型 | 说明 |
 |-------|------|------|
-| `+` | 算术 | 加法 / 字符串拼接 / 数组拼接 |
-| `-` | 算术 | 减法 / 一元取负 |
+| `+` | 算术 | 加法 / 字符串拼接 / 数组拼接 / 日期时间运算 |
+| `-` | 算术 | 减法 / 一元取负 / 日期时间运算 |
 | `*` | 算术 | 乘法 / 字符串重复 |
 | `/` | 算术 | 除法 |
 | `%` | 算术 | 取模 |
@@ -218,6 +218,27 @@ let user = { name, age }   // 等价于 { name = name, age = age }
 }
 ```
 
+### 3.6 日期时间
+
+SereinScript 提供 `DateTimeValue` 类型用于表示日期时间。由于没有日期字面量语法，需通过内置函数创建：
+
+```js
+let now = now()                             // 当前本地时间 → DateTimeValue
+let dt = date("2025-06-15 12:00:00")       // 解析字符串 → DateTimeValue
+```
+
+`DateTimeValue` 内部以 UTC 存储，显示时自动转为本地时间。支持 `+` `-` 运算符与 `TimeSpanValue` 进行算术运算（参见 [§5.4](#54-日期时间运算)），通过 `.` 访问属性（参见 [§10.4](#104-日期时间)）。
+
+### 3.7 时间跨度
+
+`TimeSpanValue` 表示一段时间的长度（差值），通常由 `DateTimeValue - DateTimeValue` 或 `timespan()` 函数产生：
+
+```js
+let ts = timespan(3, "days")               // 3天 → TimeSpanValue
+let diff = date("2025-06-20") - date("2025-06-15")  // → TimeSpanValue (5天)
+diff.totalDays  // → 5.0
+```
+
 ---
 
 ## 4. 变量与赋值
@@ -308,7 +329,42 @@ obj?.child?.prop = value    // 安全空成员赋值
 [1, 2] + [3, 4]     // → [1, 2, 3, 4]（拼接）
 ```
 
-### 5.5 比较运算
+### 5.5 日期时间运算
+
+`DateTimeValue` 和 `TimeSpanValue` 支持 `+` `-` 运算符：
+
+```js
+// DateTimeValue + TimeSpanValue → DateTimeValue
+date("2025-06-01") + timespan(7, "days")    // → 2025/06/08 00:00:00
+
+// TimeSpanValue + DateTimeValue → DateTimeValue (交换律)
+timespan(12, "hours") + now()               // → 12小时后的时间
+
+// TimeSpanValue + TimeSpanValue → TimeSpanValue
+timespan(1, "days") + timespan(6, "hours")  // → 1.06:00:00
+
+// DateTimeValue - TimeSpanValue → DateTimeValue
+date("2025-06-15") - timespan(5, "days")    // → 2025/06/10 00:00:00
+
+// DateTimeValue - DateTimeValue → TimeSpanValue
+date("2025-06-20") - date("2025-06-15")     // → TimeSpanValue (5天)
+
+// TimeSpanValue - TimeSpanValue → TimeSpanValue
+timespan(3, "days") - timespan(1, "days")   // → 2.00:00:00
+```
+
+比较运算符同样支持：
+
+```js
+dt1 == dt2     // 等于（同一时刻）
+dt1 != dt2     // 不等于
+dt1 > dt2      // 晚于
+dt1 >= dt2     // 不早于
+dt1 < dt2      // 早于
+dt1 <= dt2     // 不晚于
+```
+
+### 5.6 比较运算
 
 ```js
 a == b              // 等于
@@ -319,7 +375,7 @@ a > b               // 大于
 a >= b              // 大于等于
 ```
 
-### 5.6 逻辑运算
+### 5.7 逻辑运算
 
 ```js
 !flag               // 逻辑非
@@ -327,7 +383,7 @@ a && b              // 逻辑与（短路求值）
 a || b              // 逻辑或（短路求值）
 ```
 
-### 5.7 成员访问
+### 5.8 成员访问
 
 ```js
 person.name                 // 属性访问
@@ -336,7 +392,7 @@ array.length                // 内置属性
 "hello".toUpper()           // 方法调用
 ```
 
-### 5.8 索引访问
+### 5.9 索引访问
 
 ```js
 arr[0]              // 数组索引
@@ -344,7 +400,7 @@ arr[i + 1]          // 表达式索引
 matrix[0][1]        // 嵌套索引
 ```
 
-### 5.9 函数调用
+### 5.10 函数调用
 
 ```js
 add(1, 2)                     // 普通调用
@@ -352,7 +408,7 @@ makeAdder(1)(2)(3)            // 链式调用（柯里化）
 someFunction(arg1, arg2, arg3)  // 多参数调用
 ```
 
-### 5.10 括号分组
+### 5.11 括号分组
 
 ```js
 (a + b) * c        // 改变默认优先级
@@ -694,7 +750,7 @@ run-import.script
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `typeof` | `typeof(value)` | 返回值的类型字符串：`"number"`, `"string"`, `"bool"`, `"null"`, `"array"`, `"object"`, `"function"` 等 |
+| `typeof` | `typeof(value)` | 返回值的类型字符串：`"int"`, `"string"`, `"boolean"`, `"null"`, `"array"`, `"object"`, `"function"`, `"datetime"`, `"timespan"` 等 |
 | `bool` | `bool(value)` | 转换为布尔值 |
 | `double` | `double(value)` | 转换为 double |
 
@@ -706,11 +762,67 @@ run-import.script
 | `keys` | `keys(obj)` | 返回对象的所有键列表 |
 | `len` | `len(collection)` | 返回集合的长度 |
 
-### 10.4 时间
+### 10.4 日期时间
 
 | 函数 | 签名 | 说明 |
 |------|------|------|
-| `now` | `now()` | 返回当前时间戳（单位：100ns ticks，即 DateTime.Ticks） |
+| `now` | `now()` | 返回当前本地时间，类型为 `DateTimeValue`。示例：`2026/06/11 13:30:00` |
+| `date` | `date(str)` | 解析日期字符串为 `DateTimeValue`。无时区标记按本地时间处理。示例：`date("2025-02-05 12:00:12")` |
+| `timespan` | `timespan(num, unit)` | 从数量+单位构造 `TimeSpanValue`。`unit` 支持：`"days"`, `"hours"`, `"minutes"`, `"seconds"`, `"milliseconds"`, `"ticks"` |
+
+#### 日期时间操作
+
+`DateTimeValue` 和 `TimeSpanValue` 通过 `+` `-` 运算符实现算术运算：
+
+```js
+let dt = date("2025-06-15")
+let ts = timespan(3, "days")
+
+let later  = dt + ts       // → DateTimeValue (3天后)
+let sooner = dt - ts       // → DateTimeValue (3天前)
+
+let dt2 = date("2025-06-20")
+let diff = dt2 - dt        // → TimeSpanValue (日期差)
+diff.totalDays              // → 5.0
+
+// 比较
+dt2 > dt                    // → true
+```
+
+#### DateTimeValue 属性与方法
+
+| 成员 | 类型 | 说明 |
+|------|------|------|
+| `.year` | `int` | 年 (1-9999) |
+| `.month` | `int` | 月 (1-12) |
+| `.day` | `int` | 日 (1-31) |
+| `.hour` | `int` | 小时 (0-23) |
+| `.minute` | `int` | 分钟 (0-59) |
+| `.second` | `int` | 秒 (0-59) |
+| `.millisecond` | `int` | 毫秒 (0-999) |
+| `.dayOfWeek` | `int` | 星期几 (0=周日, 6=周六) |
+| `.dayOfYear` | `int` | 一年中的第几天 (1-366) |
+| `.ticks` | `long` | Tick 计数 (100ns 单位) |
+| `.toString()` | `string` | 默认格式 `yyyy/MM/dd HH:mm:ss` |
+| `.toString(format)` | `string` | 自定义格式，如 `d.toString("yyyy-MM-dd")` |
+
+#### TimeSpanValue 属性与方法
+
+| 成员 | 类型 | 说明 |
+|------|------|------|
+| `.days` | `int` | 天数部分（整数） |
+| `.hours` | `int` | 小时部分 (0-23) |
+| `.minutes` | `int` | 分钟部分 (0-59) |
+| `.seconds` | `int` | 秒部分 (0-59) |
+| `.milliseconds` | `int` | 毫秒部分 (0-999) |
+| `.totalDays` | `double` | 总天数（含小数） |
+| `.totalHours` | `double` | 总小时数（含小数） |
+| `.totalMinutes` | `double` | 总分钟数（含小数） |
+| `.totalSeconds` | `double` | 总秒数（含小数） |
+| `.totalMilliseconds` | `double` | 总毫秒数（含小数） |
+| `.ticks` | `long` | Tick 计数 (100ns 单位) |
+| `.toString()` | `string` | TimeSpan 标准格式 |
+| `.toString(format)` | `string` | 自定义格式 |
 
 ### 10.5 对象/数组操作
 
