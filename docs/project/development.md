@@ -354,12 +354,12 @@ var engine = new ScriptEngine();
 
 | 文档 | 说明 |
 |------|------|
-| [dev-lexer.md](../dev-lexer.md) | 词法分析器设计 |
-| [dev-parser.md](../dev-parser.md) | 语法分析器设计（Pratt Parser） |
-| [dev-compiler.md](../dev-compiler.md) | 字节码编译器设计 |
-| [dev-vm.md](../dev-vm.md) | 虚拟机执行引擎设计 |
-| [dev-runtime-environment.md](../dev-runtime-environment.md) | 运行时环境设计 |
-| [system-modules.md](../system-modules.md) | 系统模块接口说明 |
-| [SereinScript-Language-Reference.md](../SereinScript-Language-Reference.md) | 完整语言参考手册 |
-| [lsp/DESIGN_lsp.md](../lsp/DESIGN_lsp.md) | LSP 服务器设计 |
-| [bytecode-persistence/](../bytecode-persistence/) | 字节码持久化设计文档集 |
+| [词法分析器](../dev/reference/dev-lexer.md) | 词法分析器设计 |
+| [语法分析器](../dev/reference/dev-parser.md) | 语法分析器设计（Pratt Parser） |
+| [编译器](../dev/reference/dev-compiler.md) | 字节码编译器设计 |
+| [虚拟机](../dev/reference/dev-vm.md) | 虚拟机执行引擎设计 |
+| [运行时环境](../dev/reference/dev-runtime-environment.md) | 运行时环境设计 |
+| [系统模块](system-modules.md) | 系统模块接口说明 |
+| [语言参考手册](SereinScript-Language-Reference.md) | 完整语言参考手册 |
+| [LSP 服务器](../dev/lsp/DESIGN_lsp.md) | LSP 服务器设计 |
+| [字节码持久化](../dev/feature-bytecode-persistence/) | `.ssc` 字节码持久化设计文档集 |

@@ -80,7 +80,7 @@ graph TB
   - 字面量: 整数、浮点数、字符串（双引号）、布尔、null
 - **辅助函数**: `isAlpha`, `isDigit`, `isAlphaNumeric` 定义脚本合法字符
 
-详细设计见 [dev-lexer.md](../dev-lexer.md)
+详细设计见 [词法分析器设计](../dev/reference/dev-lexer.md)
 
 #### 1.2 语法分析器（Parser）
 
@@ -115,7 +115,7 @@ graph TB
 | `LiteralExpr` | 字面量 |
 | `ReturnExpr` | return 返回 |
 
-详细设计见 [dev-parser.md](../dev-parser.md)
+详细设计见 [语法分析器设计](../dev/reference/dev-parser.md)
 
 #### 1.3 运行时（Runtime）
 
@@ -332,7 +332,7 @@ graph TB
 
 > 注意: LSP 服务器本身复用了 ScriptLang 核心库的 Lexer 和 Parser 进行 AST 构建，确保了编辑器中的分析与实际运行时完全一致。
 
-详细设计见 [lsp/DESIGN_lsp.md](../lsp/DESIGN_lsp.md)
+详细设计见 [LSP 服务器设计](../dev/lsp/DESIGN_lsp.md)
 
 ---
 

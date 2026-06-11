@@ -317,4 +317,4 @@ code --install-extension sereinscript-lsp-0.0.1.vsix
 
 ## 完整语法参考
 
-详细的语法说明、内置函数列表、CLR 互操作指南请参见 [语言参考手册](../SereinScript-Language-Reference.md)。
+详细的语法说明、内置函数列表、CLR 互操作指南请参见 [语言参考手册](SereinScript-Language-Reference.md)。

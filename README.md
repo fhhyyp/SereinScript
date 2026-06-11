@@ -185,7 +185,7 @@ ScriptLang.Demo --compare <script>          # 验证编译正确性
 - ✅ 查找引用（Shift+F12）
 - ✅ 文档大纲（Ctrl+Shift+O）
 
-> 完整使用指南请参见 [如何使用](docs/guide/getting-started.md) | 完整语法参考请参见 [语言参考手册](docs/SereinScript-Language-Reference.md)
+> 完整使用指南请参见 [如何使用](docs/project/getting-started.md) | 完整语法参考请参见 [语言参考手册](docs/project/SereinScript-Language-Reference.md)
 
 ---
 
@@ -213,22 +213,7 @@ dotnet test         # 运行测试（如有）
 | 扩展 LSP 功能（如 Rename） | 新建 Handler + 注册到 `Program.cs` |
 | 添加新的 AST 节点类型 | `Ast.cs` + 编译器/VM 对应处理 |
 
-### 开发文档索引
-
-| 文档 | 内容 |
-|------|------|
-| [如何二次开发](docs/guide/development.md) | 完整开发指南：环境、5 大扩展场景、调试、最佳实践 |
-| [项目架构](docs/project/architecture.md) | 架构图、模块详解、数据流 |
-| [词法分析器](docs/dev-lexer.md) | Lexer 实现与扩展 |
-| [语法分析器](docs/dev-parser.md) | Pratt Parser 架构 |
-| [字节码编译器](docs/dev-compiler.md) | AST → ByteCode 编译流程 |
-| [虚拟机](docs/dev-vm.md) | 字节码 VM 执行引擎 |
-| [运行时环境](docs/dev-runtime-environment.md) | Value 系统、作用域、原型 |
-| [系统模块](docs/system-modules.md) | 内置模块接口规格 |
-| [LSP 设计](docs/lsp/DESIGN_lsp.md) | 语言服务器设计 |
-| [字节码持久化](docs/bytecode-persistence/) | `.ssc` 格式设计文档集 |
-
-> 开发指南入口：[docs/guide/development.md](docs/guide/development.md) | 完整文档导航：[docs/index.md](docs/index.md)
+> 完整开发指南请参见 [如何二次开发](docs/project/development.md)
 
 ---
 
@@ -236,23 +221,19 @@ dotnet test         # 运行测试（如有）
 
 ```
 docs/
-├── index.md                           # 文档导航首页
-├── SereinScript-Language-Reference.md # 完整语言参考手册
 ├── project/
-│   ├── overview.md                    # 项目介绍
-│   └── architecture.md                # 项目架构（含 Mermaid 图）
-├── guide/
-│   ├── getting-started.md             # 如何使用
-│   └── development.md                 # 如何二次开发
-├── dev-lexer.md                       # 词法分析器设计
-├── dev-parser.md                      # 语法分析器设计
-├── dev-compiler.md                    # 字节码编译器设计
-├── dev-vm.md                          # 虚拟机设计
-├── dev-runtime-environment.md         # 运行时环境设计
-├── system-modules.md                  # 系统模块说明
-├── lsp/
-│   └── DESIGN_lsp.md                  # LSP 设计文档
-└── bytecode-persistence/              # 字节码持久化设计
+│   ├── index.md                           # 文档导航首页
+│   ├── overview.md                        # 项目介绍
+│   ├── architecture.md                    # 项目架构
+│   ├── getting-started.md                 # 如何使用
+│   ├── development.md                     # 如何二次开发
+│   ├── SereinScript-Language-Reference.md # 完整语言参考手册
+│   └── system-modules.md                  # 系统模块说明
+└── dev/                                   # 开发阶段文档（内部）
+    ├── reference/                         # 技术参考
+    ├── lsp/                               # LSP 设计
+    ├── feature-datetimevalue/             # DateTimeValue 特性
+    └── feature-bytecode-persistence/      # 字节码持久化特性
 ```
 
 ---

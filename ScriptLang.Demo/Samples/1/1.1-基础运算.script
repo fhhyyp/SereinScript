@@ -3,6 +3,7 @@ let b = 22
 let sum = a + b
 
 
+
 let str = "sum:"+sum
 print(str) 
 print(str.length) 

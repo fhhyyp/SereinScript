@@ -99,7 +99,7 @@ diff.totalHours;                // 72.0
 
 ### 2.4 Prototype 设计（需求 4）
 
-遵循现有 Prototype 模式（见 [StringPrototype.cs](../../ScriptLang/Prototype/StringPrototype.cs)），创建 **两个** Prototype 类：
+遵循现有 Prototype 模式（见 [StringPrototype.cs](../../../../ScriptLang/Prototype/StringPrototype.cs)），创建 **两个** Prototype 类：
 
 #### DateTimePrototype
 
@@ -221,18 +221,18 @@ TimeSpanValue => "timespan",
 
 | 文件 | 修改内容 | 影响程度 |
 |------|---------|---------|
-| [Value.cs](../../ScriptLang/Runtime/Value.cs#L20-L44) | 新增 `IsDateTime`、`IsTimeSpan` 属性（~4 行） | ⭐ 极小 |
-| [Value.cs](../../ScriptLang/Runtime/Value.cs#L54-L74) | `ToString()` switch 新增 `DateTimeValue`、`TimeSpanValue` 分支（~3 行） | ⭐ 极小 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1329-L1355) | `AddOp` 新增 DateTime+TimeSpan、TimeSpan+DateTime、TimeSpan+TimeSpan（~20 行） | ⭐⭐ 中 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1357-L1385) | `SubOp` 新增 DateTime-TimeSpan、DateTime-DateTime、TimeSpan-TimeSpan（~20 行） | ⭐⭐ 中 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1562-L1576) | `ValueFromConstant` 新增 `DateTime`、`TimeSpan` 分支（~2 行） | ⭐ 极小 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1592-L1606) | `ConvertClrToValue` 新增 `DateTime`、`TimeSpan` 分支（~2 行） | ⭐ 极小 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1578-L1590) | `ConvertValueToClr` 新增 `DateTimeValue`、`TimeSpanValue` 分支（~2 行） | ⭐ 极小 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1541-L1560) | `IsEqual` 新增 `(DateTimeValue, DateTimeValue)`、`(TimeSpanValue, TimeSpanValue)`（~2 行） | ⭐ 极小 |
-| [VM.cs](../../ScriptLang/Runtime/ByteCode/VM.cs#L1482-L1511) | `Compare` 新增 `IsDateTime`、`IsTimeSpan` 分支（~16 行） | ⭐ 小 |
-| [BuiltinCache.cs](../../ScriptLang/BuiltinCache.cs#L14-L15) | `now` → DateTimeValue（UTC）；新增 `date`、`timespan`；删除 `date_add/date_sub/date_diff` 占位 | ⭐⭐ 中 |
-| [BuiltinCache.cs](../../ScriptLang/BuiltinCache.cs#L126-L148) | `typeof` switch 新增 `DateTimeValue => "datetime"`、`TimeSpanValue => "timespan"` | ⭐ 极小 |
-| [JsonModule.cs](../../ScriptLang/System/JsonModule.cs#L41-L55) | `ConvertToClrObject` 新增 `DateTimeValue`、`TimeSpanValue` 分支 | ⭐ 极小 |
+| [Value.cs](../../../../ScriptLang/Runtime/Value.cs#L20-L44) | 新增 `IsDateTime`、`IsTimeSpan` 属性（~4 行） | ⭐ 极小 |
+| [Value.cs](../../../../ScriptLang/Runtime/Value.cs#L54-L74) | `ToString()` switch 新增 `DateTimeValue`、`TimeSpanValue` 分支（~3 行） | ⭐ 极小 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1329-L1355) | `AddOp` 新增 DateTime+TimeSpan、TimeSpan+DateTime、TimeSpan+TimeSpan（~20 行） | ⭐⭐ 中 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1357-L1385) | `SubOp` 新增 DateTime-TimeSpan、DateTime-DateTime、TimeSpan-TimeSpan（~20 行） | ⭐⭐ 中 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1562-L1576) | `ValueFromConstant` 新增 `DateTime`、`TimeSpan` 分支（~2 行） | ⭐ 极小 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1592-L1606) | `ConvertClrToValue` 新增 `DateTime`、`TimeSpan` 分支（~2 行） | ⭐ 极小 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1578-L1590) | `ConvertValueToClr` 新增 `DateTimeValue`、`TimeSpanValue` 分支（~2 行） | ⭐ 极小 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1541-L1560) | `IsEqual` 新增 `(DateTimeValue, DateTimeValue)`、`(TimeSpanValue, TimeSpanValue)`（~2 行） | ⭐ 极小 |
+| [VM.cs](../../../../ScriptLang/Runtime/ByteCode/VM.cs#L1482-L1511) | `Compare` 新增 `IsDateTime`、`IsTimeSpan` 分支（~16 行） | ⭐ 小 |
+| [BuiltinCache.cs](../../../../ScriptLang/BuiltinCache.cs#L14-L15) | `now` → DateTimeValue（UTC）；新增 `date`、`timespan`；删除 `date_add/date_sub/date_diff` 占位 | ⭐⭐ 中 |
+| [BuiltinCache.cs](../../../../ScriptLang/BuiltinCache.cs#L126-L148) | `typeof` switch 新增 `DateTimeValue => "datetime"`、`TimeSpanValue => "timespan"` | ⭐ 极小 |
+| [JsonModule.cs](../../../../ScriptLang/System/JsonModule.cs#L41-L55) | `ConvertToClrObject` 新增 `DateTimeValue`、`TimeSpanValue` 分支 | ⭐ 极小 |
 | `ScriptLang/ScriptEngine.cs` | 注册 `DateTimePrototype`、`TimeSpanPrototype` | ⭐ 极小 |
 
 ### 3.3 不需要修改的层级
