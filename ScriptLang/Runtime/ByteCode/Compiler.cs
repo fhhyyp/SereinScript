@@ -846,7 +846,14 @@ public sealed class Compiler
             {
                 // 仅被嵌套闭包引用的变量（或递归自引用）：直接强制分配捕获槽位
                 int captureIndex = _varTable.AllocCapture(varName);
-                captureSlots[varName] = captureIndex;
+
+                // 如果是当前 Lambda 自己的参数，不要加入 captureMappings。
+                // 参数值由 BindParameters 负责写入捕获区，CreateClosure 不应再捕获，
+                // 否则会创建一个 null Cell，后续嵌套闭包的 CreateClosure 复用该 Cell 导致值丢失。
+                if (!expr.Params.Contains(varName))
+                {
+                    captureSlots[varName] = captureIndex;
+                }
 
                 // 替换作用域中的 binding，让后续 StoreSlot/LoadSlot 使用捕获区
                 ReplaceBindingInScope(varName, captureIndex, SlotRegion.Capture);
