@@ -921,6 +921,13 @@ public class VM
         // 绑定参数
         BindParameters(newFrame, func.Parameters, args);
 
+#if DEBUG
+        ScriptLog.Debug($"=== 字节码 [{func.GetHashCode()}] ===");
+        var ccc = func.Chunk;
+        for (int iii = 0; iii < ccc.Code.Count; iii++)
+            ScriptLog.Debug($"  {iii:D4}: {ccc.Code[iii].OpCode} {ccc.Code[iii].Operand ?? ""}");
+#endif
+
         // 保存当前栈深度，HandleReturn 时恢复以隔离帧间栈泄漏
         _frameStackDepths.Push(_stack.Count);
         _frames.Push(_currentFrame);
@@ -955,6 +962,16 @@ public class VM
         BindParameters(frame, func.Parameters, args);
 
         _currentFrame = frame;
+
+#if DEBUG
+        // 输出闭包函数字节码（用于调试）
+        ScriptLog.Debug("=== 闭包指令 ===");
+        var c = func.Chunk;
+        var vt2 = c.VariableTable;
+        if (vt2 != null) ScriptLog.Debug($"  变量表: L={vt2.LocalCount} C={vt2.CaptureCount} G={vt2.GlobalCount} B={vt2.BuiltinCount}");
+        for (int i2 = 0; i2 < c.Code.Count; i2++)
+            ScriptLog.Debug($"  {i2:D4}: {c.Code[i2].OpCode} {c.Code[i2].Operand ?? ""}");
+#endif
 
         while (_currentFrame.IP >= 0 && _currentFrame.IP < _currentFrame.Chunk.Code.Count)
         {

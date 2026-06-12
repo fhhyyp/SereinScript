@@ -506,8 +506,9 @@ ScriptLog.Debug($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Regi
             int index = _code.Count;
             Emit(inPlaceOp, -1);
             _pendingSlotFixups.Add((index, binding.Region, binding.Slot));
-            // 栈上运算的值不需要 push 
-            _lastAssignWasInPlace = true;
+            // InPlaceOp 不 Push → 补 LoadSlot 推入值，保持栈平衡
+            EmitLoadSlot(binding);
+            _lastAssignWasInPlace = false;
             return;
         }
 
@@ -641,8 +642,18 @@ ScriptLog.Debug($"[CompileLet] StoreSlot '{expr.Name}' via existingBinding (Regi
         Visit(expr.Then);
         int endJumpIndex = EmitJump(OpCode.Jmp);
         PatchJump(elseJumpIndex);
-        Emit(OpCode.Pop);
-        Visit(expr.Else);
+        // 无显式 else 时，不 Pop cond 也不 LoadNull：保留 cond 值在栈上
+        // true 分支: Pop(cond) + Visit(Then) → 1 值
+        // false 分支: 保留 cond → 1 值; 有显式 else: Pop(cond) + Visit(Else) → 1 值
+        if (expr.Else is LiteralExpr { Value: null })
+        {
+            // 无 else：不 Pop(cond)，也不 LoadNull，cond 本身就是栈值
+        }
+        else
+        {
+            Emit(OpCode.Pop);
+            Visit(expr.Else);
+        }
         PatchJump(endJumpIndex);
     }
 

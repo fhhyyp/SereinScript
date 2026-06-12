@@ -128,7 +128,7 @@ namespace ScriptLang
                 return new ObjectValue(propertys);
             }
 
-            internal static ObjectValue Succeed(Value value) => Result(false, value);
+            internal static ObjectValue Succeed(Value value) => Result(true, value);
             internal static ObjectValue Error(Exception ex) => Result(false, message: ex.Message, stack: ex.StackTrace);
         } 
         #endregion
