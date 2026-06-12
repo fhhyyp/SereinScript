@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using System.Text;
+using SystemDebug = System.Diagnostics.Debug;
 
 namespace ScriptLang;
 
@@ -8,49 +9,97 @@ namespace ScriptLang;
 /// </summary>
 public static class ScriptLog
 {
+    private static readonly object _lock = new();
+
     /// <summary>
-    /// 是否启用 Debug 输出到 System.Diagnostics.Debug（方便 VS 调试）
+    /// 日志文件路径
+    /// </summary>
+    public static string LogFilePath { get; set; } =
+        Path.Combine(AppContext.BaseDirectory, "logs", "script.log");
+
+    /// <summary>
+    /// 是否写入日志文件
+    /// </summary>
+    public static bool IsWriteLogFile { get; set; } = false;
+
+    /// <summary>
+    /// 是否启用 Debug 输出到 System.Diagnostics.Debug
     /// </summary>
     public static bool IsPrintOnDebug { get; set; } = false;
 
-    /// <summary>
-    /// 编译时与 VM 运行时指令级操作信息
-    /// </summary>
+    public static bool IsPrint { get; set; } = false;
+
+
     public static void Debug(string message)
     {
-        Console.WriteLine(message);
+        Write("DEBUG", message);
+
+        if(IsPrint)
+            Console.WriteLine(message);
+
         if (IsPrintOnDebug)
-            global::System.Diagnostics.Debug.WriteLine(message);
+            SystemDebug.WriteLine(message);
     }
 
-    /// <summary>
-    /// 必要的基础信息（暂不调用，保留用于后续与其他程序交互时的纯净输出）
-    /// </summary>
     public static void Info(string message)
     {
-        Console.WriteLine(message);
+        Write("INFO", message);
+
+        if (IsPrint)
+            Console.WriteLine(message);
+
         if (IsPrintOnDebug)
-            global::System.Diagnostics.Debug.WriteLine(message);
+            SystemDebug.WriteLine(message);
     }
 
-    /// <summary>
-    /// 语法解析异常、编译异常、运行异常、环境异常
-    /// </summary>
     public static void Error(string message)
     {
+        Write("ERROR", message);
+
         Console.Error.WriteLine(message);
+
         if (IsPrintOnDebug)
-            global::System.Diagnostics.Debug.WriteLine(message);
+            SystemDebug.WriteLine(message);
     }
 
-    /// <summary>
-    /// 语法解析异常、编译异常、运行异常、环境异常（异常对象形式）
-    /// </summary>
     public static void Error(Exception exception)
     {
         var message = exception.ToString();
+
+        Write("ERROR", message);
+
         Console.Error.WriteLine(message);
+
         if (IsPrintOnDebug)
-            global::System.Diagnostics.Debug.WriteLine(message);
+            SystemDebug.WriteLine(message);
+    }
+
+    private static void Write(string level, string message)
+    {
+        if (!IsWriteLogFile)
+            return;
+
+        try
+        {
+            var dir = Path.GetDirectoryName(LogFilePath);
+
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var line =
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}{Environment.NewLine}";
+
+            lock (_lock)
+            {
+                File.AppendAllText(
+                    LogFilePath,
+                    line,
+                    Encoding.UTF8);
+            }
+        }
+        catch
+        {
+            // 日志系统自身异常不能影响业务运行
+        }
     }
 }
