@@ -23,6 +23,9 @@ public class VM
     /// <summary>调用帧栈</summary>
     private readonly Stack<CallFrame> _frames = new();
 
+    /// <summary>帧入口栈深度记录（HandleReturn 时恢复，隔离帧间栈泄漏）</summary>
+    private readonly Stack<int> _frameStackDepths = new();
+
     /// <summary>迭代器栈</summary>
     private readonly Stack<Value> _iteratorStack = new();
 
@@ -620,6 +623,12 @@ public class VM
 
         var finishedFrame = _currentFrame;
         _currentFrame = _frames.Pop();
+
+        // 恢复帧入口栈深度，丢弃被调用帧泄漏的栈值（如 sleep 遗留的 Value.Null）
+        int savedDepth = _frameStackDepths.Pop();
+        while (_stack.Count > savedDepth)
+            Pop();
+
         Push(returnValue);
         _framePool.Return(finishedFrame);
         return true;
@@ -912,6 +921,8 @@ public class VM
         // 绑定参数
         BindParameters(newFrame, func.Parameters, args);
 
+        // 保存当前栈深度，HandleReturn 时恢复以隔离帧间栈泄漏
+        _frameStackDepths.Push(_stack.Count);
         _frames.Push(_currentFrame);
         _currentFrame = newFrame;
     }
