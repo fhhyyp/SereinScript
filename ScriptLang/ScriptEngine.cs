@@ -55,8 +55,12 @@ namespace ScriptLang
         /// <returns></returns>
         public ScriptTask CreateTask(string filePath, Scope? scope = null)
         {
-            GlobalScope.Clear();
-            BuiltinCache.RegisterAll(GlobalScope);
+            if(GlobalScope.VarCount == 0)
+            {
+                GlobalScope.Clear();
+                BuiltinCache.RegisterAll(GlobalScope);
+            }
+
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);
@@ -69,7 +73,8 @@ namespace ScriptLang
                 SourceManager.AddSource(filePath, script);
             }
 
-            if (Path.GetDirectoryName(filePath) is string rootPath)
+            if (string.IsNullOrWhiteSpace(ImportResolver.RootPath)
+                && Path.GetDirectoryName(filePath) is string rootPath)
             {
                 ImportResolver.RootPath = rootPath;
             }
@@ -243,7 +248,8 @@ namespace ScriptLang
         /// </summary>
         internal async Task<Value> RunModuleAsync(string filePath, Scope scope)
         {
-            var value = await CreateTask(filePath, scope).RunAsync();
+            var task = CreateTask(filePath, scope);
+            var value = await task.RunAsync();
             return value;
         }
 
