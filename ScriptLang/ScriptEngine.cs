@@ -64,11 +64,11 @@ namespace ScriptLang
             if (!SourceManager.TryGetSource(filePath, out var script))
             {
                 script = File.ReadAllText(filePath);
-                ScriptLog.Debug("================加载脚本==============");
-                ScriptLog.Debug($"# 脚本路径：{filePath}");
-                ScriptLog.Debug(script);
-                ScriptLog.Debug("================解析完毕==============");
-                ScriptLog.Debug("");
+                ScriptLog.Info("================加载脚本==============");
+                ScriptLog.Info($"# 脚本路径：{filePath}");
+                ScriptLog.Info(script);
+                ScriptLog.Info("================解析完毕==============");
+                ScriptLog.Info("");
 
                 SourceManager.AddSource(filePath, script);
             }
@@ -196,11 +196,12 @@ namespace ScriptLang
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
                 sw.Stop();
-                ScriptLog.Debug($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
+                ScriptLog.Info($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
                 return result;
             });
 
-            return new ScriptTask(factory, new CancellationTokenSource());
+            ScriptTask scriptTask = new ScriptTask(factory, new CancellationTokenSource());
+            return scriptTask;
         }
 
         /// <summary>
@@ -217,13 +218,13 @@ namespace ScriptLang
                 _compilationCache[expr] = chunk;
 
                 sw.Stop();
-                ScriptLog.Debug($"[Compile] 编译耗时: {sw.ElapsedMilliseconds}ms");
-                ScriptLog.Debug($"[Compile] 字节码指令数: {chunk.Code.Count}");
-                ScriptLog.Debug($"[Compile] 常量数: {chunk.ConstantCount}");
+                ScriptLog.Info($"[Compile] 编译耗时: {sw.ElapsedMilliseconds}ms");
+                ScriptLog.Info($"[Compile] 字节码指令数: {chunk.Code.Count}");
+                ScriptLog.Info($"[Compile] 常量数: {chunk.ConstantCount}");
                 if (chunk.VariableTable != null)
                 {
                     var vt = chunk.VariableTable;
-                    ScriptLog.Debug($"[Compile] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
+                    ScriptLog.Info($"[Compile] 变量表: L={vt.LocalCount} C={vt.CaptureCount} G={vt.GlobalCount} B={vt.BuiltinCount}");
                 }
             }
 
@@ -235,7 +236,7 @@ namespace ScriptLang
                 var vm = new VM(this);
                 var result = await vm.ExecuteAsync(chunk);
                 sw.Stop();
-                ScriptLog.Debug($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
+                ScriptLog.Info($"[VM] 执行耗时: {sw.ElapsedMilliseconds}ms");
                 return result;
             });
 

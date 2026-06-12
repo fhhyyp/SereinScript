@@ -147,7 +147,7 @@ public class ImportResolver
         if (!File.Exists(fullPath))
             throw new RuntimeException($"模块不存在: {fullPath}");
 
-        ScriptLog.Debug($"解析模块 ： {Path.GetFileName(fullPath)}");
+        ScriptLog.Info($"解析模块 ： {Path.GetFileName(fullPath)}");
         var re_scope = scope is null ? new Scope() : new Scope(scope);
         var result = await _engine.RunModuleAsync(fullPath, re_scope);
         var exports = ExtractExports(result);
