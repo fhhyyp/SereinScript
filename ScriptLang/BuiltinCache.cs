@@ -294,6 +294,26 @@ namespace ScriptLang
             };
         });
 
+        /// <summary>
+        /// import(path) — 动态加载脚本模块
+        ///
+        /// 用法:
+        ///   let mod = import("pages/home.script")
+        ///   mod.someFunction()
+        ///
+        /// 与静态 import {} from "" 的区别:
+        ///   - 静态 import 在脚本解析时加载，成员直接绑定到全局作用域
+        ///   - 动态 import() 在运行时按需加载，返回整个模块的 ObjectValue
+        ///   - 模块缓存：同一路径只加载一次，后续调用返回缓存的 exports
+        /// </summary>
+        private static readonly FunctionValue import = new("import", static async (env, args) =>
+        {
+            if (args.Count != 1 || args[0] is not StringValue path)
+                throw new RuntimeException("import() 期望 1 个字符串路径参数");
+            var exports = await env.ImportResolver.ResolveAsync(path.Value);
+            return exports;
+        });
+
         public static Dictionary<string, Value> SystemValues { get; private set; } 
 
         static BuiltinCache()
@@ -315,8 +335,8 @@ namespace ScriptLang
                 { nameof(@int)    ,  @int      },
                 { nameof(@double) ,  @double   },
                 { nameof(str)     ,  str       },
+                { "import"         ,  import    },
             };
-            //values = values.OrderBy(x => x.Key, StringComparer.CurrentCulture).ToDictionary(x => x.Key, x => x.Value); // 进行排序
             SystemValues = values;
         }
 

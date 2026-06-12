@@ -75,7 +75,11 @@ public class Parser(List<Token> tokens, string filePath)
             if (Match(TokenType.Var))
                 return ParseVarDeclaration();
             if (Match(TokenType.Import))
-                return ParseImportDeclaration();
+            {
+                if (Check(TokenType.LeftBrace))
+                    return ParseImportDeclaration();
+                Rollback(); // import( 是函数调用表达式，回退让 ParsePrimary 处理
+            }
             if (Match(TokenType.Return))
                 return ParseReturnStatement();
 
@@ -471,11 +475,8 @@ public class Parser(List<Token> tokens, string filePath)
         // 标识符 / 单参数Lambda
 
         if (Match(TokenType.Identifier))
-        {        
-            // var peek = Peek();
-            // var identifier = peek.Lexeme;
-            // Match(TokenType.Identifier);
-            if (/*identifier != "_" && */Peek().Type == TokenType.Arrow)
+        {
+            if (Peek().Type == TokenType.Arrow)
             {
                 Expr expr = ParseLambda();
                 return expr;
@@ -486,6 +487,14 @@ public class Parser(List<Token> tokens, string filePath)
                 var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
                 return new IdentifierExpr(Previous().Lexeme, sourceSpan);
             }
+        }
+
+        // import("path") 动态加载 — 在表达式中当标识符处理
+        if (Match(TokenType.Import))
+        {
+            var endTokenIndex = _current;
+            var sourceSpan = GetSourceSpan(startTokenIndex, endTokenIndex);
+            return new IdentifierExpr("import", sourceSpan);
         }
         
         // If-Then-Else 表达式
