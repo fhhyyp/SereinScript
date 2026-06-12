@@ -103,6 +103,8 @@ namespace ScriptLang.Runtime
 
         public bool IsDefinedLocally(string name)
             => _variables.ContainsKey(name);
+
+        public int VarCount => _variables.Count;
     }
 
     /// <summary>
