@@ -14,7 +14,7 @@ namespace ScriptLang.Prototype
         }
 
         /// <summary>获取内部 DateTime 值</summary>
-        private static DateTime Local(DateTimeValue dt) => dt.Value;
+        private static DateTime Local(DateTimeValue dt) => dt.Value.ToLocalTime();
 
         [PrototypeProperty]
         [LspDoc("年 (1-9999)")]
