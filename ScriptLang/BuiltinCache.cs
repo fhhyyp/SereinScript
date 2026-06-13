@@ -187,8 +187,8 @@ namespace ScriptLang
         {
             foreach (var arg in args)
             {
-                Console.Write(arg.AsString() + " ");
-                Debug.Write(arg.AsString() + " ");
+                Console.Write(arg?.AsString() + " ");
+                Debug.Write(arg?.AsString() + " ");
             }
             Console.WriteLine();
             Debug.WriteLine("");
